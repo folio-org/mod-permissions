@@ -48,11 +48,49 @@ public class MongoPermissionsStore implements PermissionsStore {
 
   @Override
   public Future<Boolean> addSubPermission(String permission, String sub) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    Future<Boolean> future = Future.future();
+    JsonObject query = new JsonObject().put("permission_name", permission);
+    mongoClient.find("permissions", query, res -> {
+      if(!res.succeeded()) {
+        future.complete(false); //Can't add a sub to a non-existent perm
+      } else {
+        JsonArray permissionList = res.result().get(0).getJsonArray("sub_permissions");
+        permissionList.add(sub);
+        JsonObject update = new JsonObject()
+                .put("$set", new JsonObject()
+                  .put("sub_permissions", permissionList));
+        mongoClient.update("permissions", query, update, res2 -> {
+          if(res2.succeeded()) {
+            future.complete(true);
+          } else {
+            future.fail("Unable to update records");
+          }
+        });
+      }
+    });
+    return future;
   }
 
   @Override
   public Future<Boolean> removePermission(String permission) {
+    Future<Boolean> future = Future.future();
+    JsonObject query = new JsonObject().put("permission_name", permission);
+    mongoClient.find("permissions", query, res-> {
+      if(!res.succeeded()) {
+        future.complete(false);
+      } else {
+        //Find all permissions that list this permission as a sub
+        JsonObject subQuery = new JsonObject().put("sub_permissions", new JsonObject()
+          .put("$in", new JsonArray().add(permission)));
+        
+        
+        mongoClient.remove("permissions", query, res2 -> {
+          if(!res2.succeeded()) {
+            future.fail("Unable to delete permission");
+          }
+        });
+      }
+    });
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
