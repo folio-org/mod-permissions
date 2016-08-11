@@ -10,6 +10,9 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.MongoClient;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
 
 /**
@@ -48,6 +51,7 @@ public class MongoPermissionsStore implements PermissionsStore {
 
   @Override
   public Future<Boolean> addSubPermission(String permission, String sub) {
+    //TODO: Check for circular permissions
     Future<Boolean> future = Future.future();
     JsonObject query = new JsonObject().put("permission_name", permission);
     mongoClient.find("permissions", query, res -> {
@@ -80,23 +84,47 @@ public class MongoPermissionsStore implements PermissionsStore {
         future.complete(false);
       } else {
         //Find all permissions that list this permission as a sub
+        /*
         JsonObject subQuery = new JsonObject().put("sub_permissions", new JsonObject()
           .put("$in", new JsonArray().add(permission)));
-        
-        
-        mongoClient.remove("permissions", query, res2 -> {
+         */
+        JsonObject subUpdate = new JsonObject().put("$pull", new JsonObject()
+          .put("sub_permissions", new JsonObject()
+            .put("$in", new JsonArray().add(permission))));
+        mongoClient.update("permissions", new JsonObject(), subUpdate, res2-> {
           if(!res2.succeeded()) {
-            future.fail("Unable to delete permission");
+            future.fail("Unable to remove sub permissions");
+          } else {
+            //Now delete the actual permission, since the sub permissions are clean
+            mongoClient.remove("permissions", query, res3 -> {
+              if(!res3.succeeded()) {
+                future.fail("Unable to delete permission");
+              } else {
+                future.complete(true);
+              }
+            });
           }
         });
       }
     });
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    return future;
   }
 
   @Override
   public Future<Boolean> removeSubPermission(String permission, String sub) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    Future<Boolean> future = Future.future();
+    JsonObject query = new JsonObject().put("permission_name", permission);
+    JsonObject update = new JsonObject().put("$pull", new JsonObject()
+      .put("sub_permissions", new JsonObject()
+        .put("$in", new JsonArray().add(sub))));
+    mongoClient.update("permissions", query, update, res -> {
+      if(!res.succeeded()) {
+        future.fail("Unable to remove sub permissiion");
+      } else {
+        future.complete(true);
+      }      
+    });
+    return future;
   }
 
   @Override
@@ -131,7 +159,48 @@ public class MongoPermissionsStore implements PermissionsStore {
 
   @Override
   public Future<JsonArray> getExpandedPermissions(String permission) {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    Future<JsonArray> future = Future.future();
+    Future<Void> futureChain = Future.future();
+        
+    
+    LinkedList<String> permissionNames = new LinkedList<>();
+    permissionNames.add(permission);
+    JsonObject query = new JsonObject().put("permission_name", permission);
+    mongoClient.find("permissions", query, res -> {
+      if(!res.succeeded()) {
+        future.fail("Unable to complete query");
+      } else {
+        LinkedList<JsonObject> permissionObjectList = new LinkedList<>();
+        JsonObject permissionObject = res.result().get(0);
+        permissionObjectList.add(permissionObject);
+        while(!permissionObjectList.isEmpty()) {
+          JsonObject curPermObj = permissionObjectList.pop();
+          JsonArray subPermissions = curPermObj.getJsonArray("sub_permissions");
+          for(Object o : subPermissions) {
+            String sub = (String)o;
+          }
+          
+        }
+      }
+    });
+    return future;
+  }
+  
+  private Future<JsonArray> walkPerms(String permission, Future<JsonArray> chain) {
+    JsonObject query = new JsonObject().put("permission_name", permission);
+    mongoClient.find("permissions", query, res -> {
+      if(!res.succeeded()) {
+        //hmm
+      } else {
+        JsonObject permissionObject = res.result().get(0);
+        JsonArray subPermissionList = permissionObject.getJsonArray("sub_permissions");
+        for(Object o : subPermissionList){
+          String sub = (String)o;
+          Future<JsonArray> newChain = Future.future();
+          newChain.compose(walkPerms(sub, chain));      
+        }
+      }
+    }
   }
 
 }
