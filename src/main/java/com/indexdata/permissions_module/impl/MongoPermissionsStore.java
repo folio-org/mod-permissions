@@ -6,6 +6,7 @@
 package com.indexdata.permissions_module.impl;
 
 import com.indexdata.permissions_module.PermissionsStore;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -186,21 +187,41 @@ public class MongoPermissionsStore implements PermissionsStore {
     return future;
   }
   
-  private Future<JsonArray> walkPerms(String permission, Future<JsonArray> chain) {
+  private Future<JsonArray> walkPerms(String permission) {
     JsonObject query = new JsonObject().put("permission_name", permission);
+    JsonArray permList = new JsonArray();
+    Future<JsonArray> future = Future.future();
     mongoClient.find("permissions", query, res -> {
-      if(!res.succeeded()) {
-        //hmm
-      } else {
-        JsonObject permissionObject = res.result().get(0);
-        JsonArray subPermissionList = permissionObject.getJsonArray("sub_permissions");
-        for(Object o : subPermissionList){
-          String sub = (String)o;
-          Future<JsonArray> newChain = Future.future();
-          newChain.compose(walkPerms(sub, chain));      
+      if(res.succeeded() && res.result().size() > 0) {
+        /*
+        If there are no subpermissions, go ahead and complete the future with the
+        given value of the JsonArray
+        
+        If there are subpermissions, create a list of new futures, by calling
+        walkPerms for each sub permission, then create a composite future from
+        these new futures, with a handler that completes the original
+        future when they return
+        */
+        JsonObject permObj = res.result().get(0);
+        permList.add(permission);
+        JsonArray subPerms = permObj.getJsonArray("sub_permissions");
+        if(!subPerms.isEmpty()) {
+          LinkedList<Future> futureList = new LinkedList<>();
+          for(Object o : subPerms) {
+            String sub = (String)o;
+            Future<JsonArray> newFuture = walkPerms(sub);
+            futureList.add(newFuture);
+          }
+          CompositeFuture compositeFuture = CompositeFuture.all(futureList);
+          compositeFuture.compose(res2 -> {
+            //Get output of contained futures and complete the future here
+          }, future);
+        } else {
+          future.complete(new JsonArray().add(permission));
         }
       }
-    }
+    });
+    return future;
   }
 
 }
