@@ -68,7 +68,18 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
     } else if(context.request().method() == HttpMethod.DELETE) {
-      
+      String username = context.request().getParam("username");
+      store.removeUser(username).setHandler(res -> {
+        if(res.succeeded()) {
+          context.response()
+                  .setStatusCode(200)
+                  .end("User removed");
+        } else {
+          context.response()
+                  .setStatusCode(500)
+                  .end("Unable to remove user");
+        }
+      });
     }
     else {
       context.response()
