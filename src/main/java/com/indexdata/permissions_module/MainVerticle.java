@@ -40,8 +40,11 @@ public class MainVerticle extends AbstractVerticle {
     router.delete("/users/:username/permissions/:permission_name").handler(this::handleUserPermission);
     router.post("/users").handler(this::handleUser);
     router.delete("/users/:username").handler(this::handleUser);
-    router.get("/permissions/:permission_name").handler(this::handlePermission);
-    router.post("/permissions").handler(this::handlePermission);
+    router.get("/permissions/:permission_name").handler(this::handlePermission); //Get sub permissions
+    router.post("/permissions").handler(this::handlePermission); //Add a new permission
+    router.post("/permissions/:permission_name").handler(this::handlePermission); //Add a new sub permission
+    router.delete("/permissions/:permission_name").handler(this::handlePermission); //Remove a permission
+    router.delete("/permissions/:permission_name/:sub_permission_name"); //Remove a sub-permission
     
   }
   
@@ -89,10 +92,161 @@ public class MainVerticle extends AbstractVerticle {
   }
   
   private void handlePermission(RoutingContext context) {
+    String postData = null;
+    if(context.request().method() == HttpMethod.POST) {
+      postData = context.getBodyAsString();
+    }
+    if(context.request().method() == HttpMethod.POST) {
+      String permissionName = context.request().getParam("permission_name");
+       if(permissionName == null) {
+         //Adding new permission
+         store.addPermission(postData).setHandler(res -> {
+           if(!res.succeeded()) {
+             context.response()
+                     .setStatusCode(500)
+                     .end("Unable to add permission");
+             return;
+           }
+           context.response()
+                   .setStatusCode(201)
+                   .end("Permission added");
+        });
+       } else {
+         //Adding new sub-permission
+         store.addSubPermission(permissionName, postData).setHandler(res -> {
+           if(!res.succeeded()) {
+             context.response()
+                     .setStatusCode(500)
+                     .end("Unable to add permission");
+             return;
+           }
+           context.response()
+                   .setStatusCode(201)
+                   .end("Sub-Permission added");
+         });         
+       }
+    } else if(context.request().method() == HttpMethod.GET) {
+      String permissionName = context.request().getParam("permission_name");
+      if(permissionName == null) {
+        context.response()
+                .setStatusCode(400)
+                .end("You must specify a permission name");
+        return;
+      }
+      store.getSubPermissions(permissionName).setHandler(res -> {
+        if(!res.succeeded()) {
+          context.response()
+                  .setStatusCode(500)
+                  .end("Unable to retrieve subpermissions");
+          return;
+        }
+        context.response()
+                .setStatusCode(200)
+                .putHeader("Content-Type", "application/json")
+                .end(res.result().encode());
+      });
+    } else if(context.request().method() == HttpMethod.DELETE) {
+      String permissionName = context.request().getParam("permission_name");
+      String subPermissionName = context.request().getParam("sub_permission_name");
+      if(permissionName == null && subPermissionName == null) {
+        context.response()
+                .setStatusCode(400)
+                .end("Unsupported path");
+        return;
+      } else if (subPermissionName == null) {
+        //remove permission
+        store.removePermission(permissionName).setHandler(res -> {
+          if(!res.succeeded()) {
+            context.response()
+                    .setStatusCode(500)
+                    .end("Unable to delete permission");
+            return;
+          }
+          context.response()
+                  .setStatusCode(200)
+                  .end("Permission deleted");
+        });
+      } else {
+        //remove sub permission
+        store.removeSubPermission(permissionName, subPermissionName).setHandler(res -> {
+          if(!res.succeeded()) {
+            context.response()
+                    .setStatusCode(500)
+                    .end("Unable to delete subpermission");
+            return;
+          }
+          context.response()
+                  .setStatusCode(200)
+                  .end("Sub permission deleted");
+        });
+      }
+    } else {
+      context.response()
+              .setStatusCode(400)
+              .end("Unsupported method");
+    }
     
   }
   
   private void handleUserPermission(RoutingContext context) {
-  
+    String username = context.request().getParam("username");
+    String permissionName = context.request().getParam("permission_name");
+    String postData = null;
+    if(context.request().method() == HttpMethod.POST) {
+      postData = context.getBodyAsString();
+    }
+    if(username == null) {
+      context.response()
+              .setStatusCode(400)
+              .end("Invalid username specification");
+      return;
+    }
+    if(context.request().method() == HttpMethod.POST) {
+      store.addPermissionToUser(username, postData).setHandler(res -> {
+        if(!res.succeeded()) {
+          context.response()
+                  .setStatusCode(500)
+                  .end("Unable to add permission to user");
+          return;
+        }
+        context.response()
+                .setStatusCode(201)
+                .end("Added permission to user");
+      });
+    } else if(context.request().method() == HttpMethod.GET) {
+      store.getPermissionsForUser(username).setHandler(res -> {
+        if(!res.succeeded()) {
+          context.response()
+                  .setStatusCode(500)
+                  .end("Unable to retrieve user permissions");
+        }
+        context.response()
+                .setStatusCode(200)
+                .putHeader("Content-Type", "application/json")
+                .end(res.result().encode());
+      });
+    } else if(context.request().method() == HttpMethod.DELETE) {
+      if(permissionName == null) {
+        context.response()
+                .setStatusCode(400)
+                .end("Invalid permission name specification");
+        return;
+      }
+      store.removePermissionFromUser(username, permissionName).setHandler(res -> {
+        if(!res.succeeded()) {
+          context.response()
+                  .setStatusCode(500)
+                  .end("Unable to delete permission from user");
+          return;
+        }
+        context.response()
+                .setStatusCode(200)
+                .end("Permission removed from user");
+      });
+    } else {
+      context.response()
+              .setStatusCode(400)
+              .end("Unsupported method");
+    }
   }
 }
