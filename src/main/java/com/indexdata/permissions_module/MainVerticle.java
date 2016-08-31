@@ -32,19 +32,19 @@ public class MainVerticle extends AbstractVerticle {
     store = new MongoPermissionsStore(mongoClient);
     
     Router router = Router.router(vertx);
-    router.post("/users").handler(BodyHandler.create());
-    router.post("/permissions").handler(BodyHandler.create());
-    router.get("/users/:username").handler(this::handleUser);
-    router.get("/users/:username/permissions").handler(this::handleUserPermission);
-    router.post("/users/:username/permissions").handler(this::handleUserPermission);
-    router.delete("/users/:username/permissions/:permission_name").handler(this::handleUserPermission);
-    router.post("/users").handler(this::handleUser);
-    router.delete("/users/:username").handler(this::handleUser);
-    router.get("/permissions/:permission_name").handler(this::handlePermission); //Get sub permissions
-    router.post("/permissions").handler(this::handlePermission); //Add a new permission
-    router.post("/permissions/:permission_name").handler(this::handlePermission); //Add a new sub permission
-    router.delete("/permissions/:permission_name").handler(this::handlePermission); //Remove a permission
-    router.delete("/permissions/:permission_name/:sub_permission_name"); //Remove a sub-permission
+    router.post("/perms/users").handler(BodyHandler.create());
+    router.post("/perms").handler(BodyHandler.create());
+    router.get("/perms/users/:username").handler(this::handleUser);
+    router.get("/perms/users/:username/permissions").handler(this::handleUserPermission);
+    router.post("/perms/users/:username/permissions").handler(this::handleUserPermission);
+    router.delete("/perms/users/:username/permissions/:permission_name").handler(this::handleUserPermission);
+    router.post("/perms/users").handler(this::handleUser);
+    router.delete("/perms/users/:username").handler(this::handleUser);
+    router.get("/perms/permissions/:permission_name").handler(this::handlePermission); //Get sub permissions
+    router.post("/perms/permissions").handler(this::handlePermission); //Add a new permission
+    router.post("/perms/permissions/:permission_name").handler(this::handlePermission); //Add a new sub permission
+    router.delete("/perms/permissions/:permission_name").handler(this::handlePermission); //Remove a permission
+    router.delete("/perms/permissions/:permission_name/:sub_permission_name"); //Remove a sub-permission
     
   }
   
