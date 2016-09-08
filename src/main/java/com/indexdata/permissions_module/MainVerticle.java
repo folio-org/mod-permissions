@@ -9,6 +9,7 @@ import com.indexdata.permissions_module.impl.MongoPermissionsStore;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
@@ -23,6 +24,7 @@ public class MainVerticle extends AbstractVerticle {
   private MongoClient mongoClient;
   private String authApiKey;
   private PermissionsStore store;
+  private static final String API_KEY_HEADER = "auth_api_key";
   
   public void start(Future<Void> future) {
     authApiKey = System.getProperty("auth.api.key", "VERY_WEAK_KEY");
@@ -30,6 +32,8 @@ public class MainVerticle extends AbstractVerticle {
     String mongoURL = System.getProperty("mongo.url", "mongodb://localhost:27017");
     mongoClient = MongoClient.createShared(vertx, new JsonObject().put("connection_string", mongoURL));
     store = new MongoPermissionsStore(mongoClient);
+    HttpServer server = vertx.createHttpServer();
+    final int port = Integer.parseInt(System.getProperty("port", "8081"));
     
     Router router = Router.router(vertx);
     router.post("/perms/users").handler(BodyHandler.create());
@@ -37,15 +41,36 @@ public class MainVerticle extends AbstractVerticle {
     router.get("/perms/users/:username").handler(this::handleUser);
     router.get("/perms/users/:username/permissions").handler(this::handleUserPermission);
     router.post("/perms/users/:username/permissions").handler(this::handleUserPermission);
-    router.delete("/perms/users/:username/permissions/:permission_name").handler(this::handleUserPermission);
+    router.delete("/perms/users/:username/permissions/:permissionname").handler(this::handleUserPermission);
     router.post("/perms/users").handler(this::handleUser);
     router.delete("/perms/users/:username").handler(this::handleUser);
-    router.get("/perms/permissions/:permission_name").handler(this::handlePermission); //Get sub permissions
+    router.get("/perms/permissions/:permissionname").handler(this::handlePermission); //Get sub permissions
     router.post("/perms/permissions").handler(this::handlePermission); //Add a new permission
-    router.post("/perms/permissions/:permission_name").handler(this::handlePermission); //Add a new sub permission
-    router.delete("/perms/permissions/:permission_name").handler(this::handlePermission); //Remove a permission
-    router.delete("/perms/permissions/:permission_name/:sub_permission_name"); //Remove a sub-permission
+    router.post("/perms/permissions/:permissionname").handler(this::handlePermission); //Add a new sub permission
+    router.delete("/perms/permissions/:permissionname").handler(this::handlePermission); //Remove a permission
+    router.delete("/perms/permissions/:permissionname/:subpermissionname"); //Remove a sub-permission
+    router.get("/perms/privileged/users/:username/permissions").handler(this::handleUserPermissionPrivileged);
     
+    server.requestHandler(router::accept).listen(port, result -> {
+        if(result.succeeded()) {
+          future.complete();
+        } else {
+          future.fail(result.cause());
+        }
+    });  
+    
+  }
+  
+  private void handleUserPermissionPrivileged(RoutingContext context) {
+    String apiKeyHeader = context.request().headers().get(API_KEY_HEADER);
+    if(apiKeyHeader != null && apiKeyHeader.equals(authApiKey)) {
+      handleUserPermission(context);
+      return;
+    } else {
+      context.response()
+              .setStatusCode(401)
+              .end("Unauthorized");
+    }
   }
   
   private void handleUser(RoutingContext context) {
@@ -97,7 +122,7 @@ public class MainVerticle extends AbstractVerticle {
       postData = context.getBodyAsString();
     }
     if(context.request().method() == HttpMethod.POST) {
-      String permissionName = context.request().getParam("permission_name");
+      String permissionName = context.request().getParam("permissionname");
        if(permissionName == null) {
          //Adding new permission
          store.addPermission(postData).setHandler(res -> {
@@ -126,7 +151,7 @@ public class MainVerticle extends AbstractVerticle {
          });         
        }
     } else if(context.request().method() == HttpMethod.GET) {
-      String permissionName = context.request().getParam("permission_name");
+      String permissionName = context.request().getParam("permissionname");
       if(permissionName == null) {
         context.response()
                 .setStatusCode(400)
@@ -147,7 +172,7 @@ public class MainVerticle extends AbstractVerticle {
       });
     } else if(context.request().method() == HttpMethod.DELETE) {
       String permissionName = context.request().getParam("permission_name");
-      String subPermissionName = context.request().getParam("sub_permission_name");
+      String subPermissionName = context.request().getParam("subpermissionname");
       if(permissionName == null && subPermissionName == null) {
         context.response()
                 .setStatusCode(400)
@@ -190,7 +215,7 @@ public class MainVerticle extends AbstractVerticle {
   
   private void handleUserPermission(RoutingContext context) {
     String username = context.request().getParam("username");
-    String permissionName = context.request().getParam("permission_name");
+    String permissionName = context.request().getParam("permissionname");
     String postData = null;
     if(context.request().method() == HttpMethod.POST) {
       postData = context.getBodyAsString();
@@ -219,11 +244,12 @@ public class MainVerticle extends AbstractVerticle {
           context.response()
                   .setStatusCode(500)
                   .end("Unable to retrieve user permissions");
+        } else {
+          context.response()
+                  .setStatusCode(200)
+                  .putHeader("Content-Type", "application/json")
+                  .end(res.result().encode());
         }
-        context.response()
-                .setStatusCode(200)
-                .putHeader("Content-Type", "application/json")
-                .end(res.result().encode());
       });
     } else if(context.request().method() == HttpMethod.DELETE) {
       if(permissionName == null) {

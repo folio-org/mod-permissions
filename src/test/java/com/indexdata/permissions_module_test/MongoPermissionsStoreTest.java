@@ -43,8 +43,8 @@ public class MongoPermissionsStoreTest {
   private MongoPermissionsStore store;
   private MongoClient mongoClient;
   private Vertx vertx;
-  private static MongodProcess MONGO;
-  private static int MONGO_PORT = 12345;
+  //private static MongodProcess MONGO;
+  //private static int MONGO_PORT = 12345;
   
   @Rule
   public RunTestOnContext rule = new RunTestOnContext();
@@ -52,27 +52,30 @@ public class MongoPermissionsStoreTest {
   @BeforeClass()
   public static void initialize(TestContext context) throws IOException {
     final Async async = context.async();
-    MongodStarter starter = MongodStarter.getDefaultInstance();
-    IMongodConfig mongodConfig = new MongodConfigBuilder()
-            .version(Version.Main.PRODUCTION)
-            .net(new Net(MONGO_PORT, Network.localhostIsIPv6()))
-            .build();
-    MongodExecutable mongodExecutable = starter.prepare(mongodConfig);
-    MONGO = mongodExecutable.start();
     async.complete();    
   }
 
   @AfterClass
   public static void shutDown() {
-    MONGO.stop();
+    //MONGO.stop();
   }
   
   @Before
   public void setUp(TestContext context) throws IOException {
     final Async async = context.async();
+    
+    int mongoPort = Network.getFreeServerPort();
+    MongodStarter starter = MongodStarter.getDefaultInstance();
+    IMongodConfig mongodConfig = new MongodConfigBuilder()
+            .version(Version.Main.PRODUCTION)
+            .net(new Net(mongoPort, Network.localhostIsIPv6()))
+            .build();
+    MongodExecutable mongodExecutable = starter.prepare(mongodConfig);
+    MongodProcess mongoD = mongodExecutable.start();
+    
     JsonObject mongoConfig = new JsonObject();
     String host = "localhost";
-    mongoConfig.put("connection_string", "mongodb://localhost:" + MONGO_PORT);
+    mongoConfig.put("connection_string", "mongodb://localhost:" + mongoPort);
     mongoConfig.put("db_name", "test_db");
     vertx = rule.vertx();
     mongoClient = MongoClient.createShared(vertx, mongoConfig);
@@ -172,6 +175,26 @@ public class MongoPermissionsStoreTest {
   }
   
   @Test
+  public void deleteSubPermissionTest(TestContext context) {
+    final Async async = context.async();
+    store.removeSubPermission("foobar", "foo.secret").setHandler(res -> {
+      if(!res.succeeded()) {
+        context.fail();
+      } else {
+        store.getExpandedPermissions("foobar").setHandler(res2 -> {
+          if(!res2.succeeded()) {
+            context.fail();
+          } else {
+            JsonArray result = res2.result();
+            context.assertFalse(result.contains("foo.secret"));
+            async.complete();
+          }
+        });
+      }
+    });
+  }
+  
+  @Test
   public void deletePermissionTest(TestContext context) {
     final Async async = context.async();
     store.removePermission("foo.secret").setHandler(res -> {
@@ -179,7 +202,7 @@ public class MongoPermissionsStoreTest {
         context.fail();
       } else {
         store.getExpandedPermissions("master").setHandler(res2 -> {
-          if(!res.succeeded()) {
+          if(!res2.succeeded()) {
             context.fail();
           } else {
             JsonArray result = res2.result();

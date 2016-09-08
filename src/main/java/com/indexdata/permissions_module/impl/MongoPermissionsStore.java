@@ -267,16 +267,25 @@ public class MongoPermissionsStore implements PermissionsStore {
     JsonObject query = new JsonObject().put("user_name", user);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
-      if(res.result().size() > 0) {
+      if(res.result().size() < 1) {
         future.complete(false);
       } else {
-        JsonObject update = new JsonObject().put("$pullAll", new JsonObject()
-          .put("user_permissions", new JsonArray().add(permission)));
-        mongoClient.update("users", query, update, res2 -> {
-          if(!res2.succeeded()) {
-            future.fail("Unable to remove permission");
-          } else {
+        getPermissionsForUser(user).setHandler( res2 -> {
+          JsonArray permissions = res2.result();
+          System.out.println("PERMISSIONS: " + permissions.encode());
+          if(!permissions.contains(permission)) {
             future.complete(true);
+          } else {
+            permissions.remove(permission);
+            JsonObject update = new JsonObject().put("$set", new JsonObject()
+              .put("user_permissions", permissions));
+            mongoClient.update("users", query, update, res3 -> {
+              if(!res3.succeeded()) {
+                future.fail("Unable to remove permission");
+              } else {
+                future.complete(true);
+              }
+            });
           }
         });
       }       
