@@ -29,7 +29,7 @@ public class MainVerticle extends AbstractVerticle {
   public void start(Future<Void> future) {
     authApiKey = System.getProperty("auth.api.key", "VERY_WEAK_KEY");
     
-    String mongoURL = System.getProperty("mongo.url", "mongodb://localhost:27017");
+    String mongoURL = System.getProperty("mongo.url", "mongodb://localhost:27017/test");
     mongoClient = MongoClient.createShared(vertx, new JsonObject().put("connection_string", mongoURL));
     store = new MongoPermissionsStore(mongoClient);
     HttpServer server = vertx.createHttpServer();

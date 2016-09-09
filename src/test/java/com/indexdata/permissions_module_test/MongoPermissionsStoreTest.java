@@ -130,7 +130,7 @@ public class MongoPermissionsStoreTest {
         if(res.succeeded()) {
           insertFuture.complete();
         } else {
-          insertFuture.fail(res.result());
+          insertFuture.fail(res.cause());
         }
       });
     }
@@ -139,7 +139,7 @@ public class MongoPermissionsStoreTest {
       futureList.add(insertFuture);
       mongoClient.insert("users", userObj, res-> {
         if( res.succeeded()) { insertFuture.complete(); }
-        else { insertFuture.fail(res.result()); }
+        else { insertFuture.fail(res.cause()); }
       });
     }
     CompositeFuture allInsertsFuture = CompositeFuture.all(futureList);
