@@ -302,11 +302,12 @@ public class MongoPermissionsStore implements PermissionsStore {
         future.fail("No such user");
       } else {
         JsonObject userObject = res.result().get(0);
+        System.out.println("Permissions for user " + user + ": " + userObject.encode());
         future.complete(userObject.getJsonArray("user_permissions"));
       }
     });
     return future;
   }
 
-  
+ 
 }

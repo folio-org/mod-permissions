@@ -243,7 +243,7 @@ public class MainVerticle extends AbstractVerticle {
         if(!res.succeeded()) {
           context.response()
                   .setStatusCode(500)
-                  .end("Unable to retrieve user permissions");
+                  .end("Unable to retrieve user permissions " + res.cause().getMessage());
         } else {
           context.response()
                   .setStatusCode(200)
