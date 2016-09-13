@@ -3,9 +3,9 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.indexdata.permissions_module;
+package org.folio.auth.permissions_module;
 
-import com.indexdata.permissions_module.impl.MongoPermissionsStore;
+import org.folio.auth.permissions_module.impl.MongoPermissionsStore;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpMethod;

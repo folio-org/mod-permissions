@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.indexdata.permissions_module;
+package org.folio.auth.permissions_module;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;

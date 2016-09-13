@@ -3,9 +3,9 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.indexdata.permissions_module_test;
+package org.folio.auth.permissions_module_test;
 
-import com.indexdata.permissions_module.impl.MongoPermissionsStore;
+import org.folio.auth.permissions_module.impl.MongoPermissionsStore;
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;

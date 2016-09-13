@@ -3,9 +3,9 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.indexdata.permissions_module.impl;
+package org.folio.auth.permissions_module.impl;
 
-import com.indexdata.permissions_module.PermissionsStore;
+import org.folio.auth.permissions_module.PermissionsStore;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
