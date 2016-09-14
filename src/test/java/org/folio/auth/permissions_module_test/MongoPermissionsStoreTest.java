@@ -218,14 +218,14 @@ public class MongoPermissionsStoreTest {
   public void deleteUserPermissionTest(TestContext context) {
     final Async async = context.async();
     store.getPermissionsForUser("sonic").setHandler(res -> {
-      if(!res.succeeded()) { context.fail(); }
+      if(res.failed()) { context.fail(res.cause()); }
       else {
         context.assertTrue(res.result().contains("foo.secret"));
         store.removePermissionFromUser("sonic", "foo.secret").setHandler(res2 -> {
-          if(!res2.succeeded()) { context.fail(); }
+          if(res2.failed()) { context.fail(res2.cause()); }
           else {
             store.getPermissionsForUser("sonic").setHandler(res3 -> {
-              if(!res3.succeeded()) { context.fail(); }
+              if(res3.failed()) { context.fail(res3.cause()); }
               else {
                 context.assertFalse(res3.result().contains("foo.secret"));
                 async.complete();
@@ -236,4 +236,18 @@ public class MongoPermissionsStoreTest {
       }
     });
   }
+  @Test
+  public void userPermissionTest(TestContext context) {
+    final Async async = context.async();
+    store.getPermissionsForUser("eggman").setHandler(res -> {
+      if(res.failed()) { context.fail(res.cause()); } else {
+        JsonArray permissions = res.result();
+        context.assertTrue(permissions.contains("master"));
+        context.assertTrue(permissions.contains("foobar"));
+        context.assertTrue(permissions.contains("foo.secret"));
+        async.complete();
+      }
+    });
+  }
 }
+

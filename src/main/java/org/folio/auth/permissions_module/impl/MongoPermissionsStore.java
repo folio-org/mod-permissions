@@ -5,6 +5,7 @@
  */
 package org.folio.auth.permissions_module.impl;
 
+import io.vertx.core.AsyncResult;
 import org.folio.auth.permissions_module.PermissionsStore;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -293,21 +294,46 @@ public class MongoPermissionsStore implements PermissionsStore {
     return future;
   }
 
+  //TODO: Consider if we should add a flag to determine whether or not to
+  //expand the permissionslist returned for the user
   @Override
   public Future<JsonArray> getPermissionsForUser(String user) {
     JsonObject query = new JsonObject().put("user_name", user);
     Future<JsonArray> future = Future.future();
-    mongoClient.find("users", query, res-> {
+    mongoClient.find("users", query, (AsyncResult<List<JsonObject>> res)-> {
       if(res.result().size() < 1) {
         future.fail("No such user");
       } else {
         JsonObject userObject = res.result().get(0);
         System.out.println("Permissions for user " + user + ": " + userObject.encode());
-        future.complete(userObject.getJsonArray("user_permissions"));
+        JsonArray permissions = userObject.getJsonArray("user_permissions");
+        ArrayList<Future> futureList = new ArrayList<>();
+        for(Object o : permissions) {
+          String permissionName = (String)o;
+          Future<JsonArray> expandPermissionFuture = 
+                  this.getExpandedPermissions(permissionName);
+          futureList.add(expandPermissionFuture);
+        }
+        CompositeFuture compositeFuture = CompositeFuture.all(futureList);
+        compositeFuture.setHandler(res2 -> {
+          if(res2.failed()) {
+            future.fail(res2.cause());
+          } else {
+            JsonArray allPermissions = new JsonArray();
+            for(Future f : futureList) {
+              JsonArray arr = (JsonArray)f.result();
+              for(Object o : arr) {
+                String perm = (String)o;
+                if(!allPermissions.contains(perm)) {
+                  allPermissions.add(perm);
+                }
+              }
+            }
+            future.complete(allPermissions);
+          }
+        });
       }
     });
     return future;
   }
-
- 
 }
