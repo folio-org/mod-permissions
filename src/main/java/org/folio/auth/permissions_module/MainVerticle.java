@@ -25,6 +25,7 @@ public class MainVerticle extends AbstractVerticle {
   private String authApiKey;
   private PermissionsStore store;
   private static final String API_KEY_HEADER = "auth_api_key";
+  private static final String TENANT_HEADER = "X-Okapi-Tenant";
   
   public void start(Future<Void> future) {
     authApiKey = System.getProperty("auth.api.key", "VERY_WEAK_KEY");
@@ -74,6 +75,7 @@ public class MainVerticle extends AbstractVerticle {
   }
   
   private void handleUser(RoutingContext context) {
+    String tenant = context.request().headers().get(TENANT_HEADER);
     if(context.request().method() == HttpMethod.POST) {
       String username;
       try {
@@ -84,7 +86,7 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Please provide a username");
         return;
       }
-      store.addUser(username).setHandler(res -> {
+      store.addUser(username, tenant).setHandler(res -> {
         if(res.succeeded()) {
           context.response()
                   .setStatusCode(201)
@@ -97,7 +99,7 @@ public class MainVerticle extends AbstractVerticle {
       });
     } else if(context.request().method() == HttpMethod.DELETE) {
       String username = context.request().getParam("username");
-      store.removeUser(username).setHandler(res -> {
+      store.removeUser(username, tenant).setHandler(res -> {
         if(res.succeeded()) {
           context.response()
                   .setStatusCode(200)
@@ -117,6 +119,7 @@ public class MainVerticle extends AbstractVerticle {
   }
   
   private void handlePermission(RoutingContext context) {
+    String tenant = context.request().headers().get(TENANT_HEADER);
     String postData = null;
     if(context.request().method() == HttpMethod.POST) {
       postData = context.getBodyAsString();
@@ -125,7 +128,7 @@ public class MainVerticle extends AbstractVerticle {
       String permissionName = context.request().getParam("permissionname");
        if(permissionName == null) {
          //Adding new permission
-         store.addPermission(postData).setHandler(res -> {
+         store.addPermission(postData, tenant).setHandler(res -> {
            if(!res.succeeded()) {
              context.response()
                      .setStatusCode(500)
@@ -138,7 +141,7 @@ public class MainVerticle extends AbstractVerticle {
         });
        } else {
          //Adding new sub-permission
-         store.addSubPermission(permissionName, postData).setHandler(res -> {
+         store.addSubPermission(permissionName, postData, tenant).setHandler(res -> {
            if(!res.succeeded()) {
              context.response()
                      .setStatusCode(500)
@@ -158,7 +161,7 @@ public class MainVerticle extends AbstractVerticle {
                 .end("You must specify a permission name");
         return;
       }
-      store.getSubPermissions(permissionName).setHandler(res -> {
+      store.getSubPermissions(permissionName, tenant).setHandler(res -> {
         if(!res.succeeded()) {
           context.response()
                   .setStatusCode(500)
@@ -180,7 +183,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       } else if (subPermissionName == null) {
         //remove permission
-        store.removePermission(permissionName).setHandler(res -> {
+        store.removePermission(permissionName, tenant).setHandler(res -> {
           if(!res.succeeded()) {
             context.response()
                     .setStatusCode(500)
@@ -193,7 +196,7 @@ public class MainVerticle extends AbstractVerticle {
         });
       } else {
         //remove sub permission
-        store.removeSubPermission(permissionName, subPermissionName).setHandler(res -> {
+        store.removeSubPermission(permissionName, subPermissionName, tenant).setHandler(res -> {
           if(!res.succeeded()) {
             context.response()
                     .setStatusCode(500)
@@ -214,6 +217,7 @@ public class MainVerticle extends AbstractVerticle {
   }
   
   private void handleUserPermission(RoutingContext context) {
+    String tenant = context.request().headers().get(TENANT_HEADER);
     String username = context.request().getParam("username");
     String permissionName = context.request().getParam("permissionname");
     String postData = null;
@@ -227,7 +231,7 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
     if(context.request().method() == HttpMethod.POST) {
-      store.addPermissionToUser(username, postData).setHandler(res -> {
+      store.addPermissionToUser(username, postData, tenant).setHandler(res -> {
         if(!res.succeeded()) {
           context.response()
                   .setStatusCode(500)
@@ -239,7 +243,7 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Added permission to user");
       });
     } else if(context.request().method() == HttpMethod.GET) {
-      store.getPermissionsForUser(username).setHandler(res -> {
+      store.getPermissionsForUser(username, tenant).setHandler(res -> {
         if(!res.succeeded()) {
           context.response()
                   .setStatusCode(500)
@@ -258,7 +262,7 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Invalid permission name specification");
         return;
       }
-      store.removePermissionFromUser(username, permissionName).setHandler(res -> {
+      store.removePermissionFromUser(username, permissionName, tenant).setHandler(res -> {
         if(!res.succeeded()) {
           context.response()
                   .setStatusCode(500)

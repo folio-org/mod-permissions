@@ -45,6 +45,7 @@ public class MongoPermissionsStoreTest {
   private Vertx vertx;
   //private static MongodProcess MONGO;
   //private static int MONGO_PORT = 12345;
+  private static String tenant = "diku";
   
   @Rule
   public RunTestOnContext rule = new RunTestOnContext();
@@ -85,42 +86,54 @@ public class MongoPermissionsStoreTest {
     ArrayList<JsonObject> userList = new ArrayList<>();
     permissionList.add(new JsonObject()
             .put("permission_name", "foo.secret")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()));
     permissionList.add(new JsonObject()
             .put("permission_name", "bar.secret")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()));
     permissionList.add(new JsonObject()
             .put("permission_name", "blip.secret")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()));
     permissionList.add(new JsonObject()
             .put("permission_name", "bloop.secret")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()));
     permissionList.add(new JsonObject()
             .put("permission_name", "flop.secret")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()));
     permissionList.add(new JsonObject()
             .put("permission_name", "foobar")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()
               .add("foo.secret")
               .add("bar.secret")));
     permissionList.add(new JsonObject()
         .put("permission_name", "blipbloop")
+        .put("tenant", "diku")
         .put("sub_permissions", new JsonArray()
           .add("blip.secret")
           .add("bloop.secret")));
     permissionList.add(new JsonObject()
             .put("permission_name", "master")
+            .put("tenant", "diku")
             .put("sub_permissions", new JsonArray()
               .add("foobar")
               .add("blipbloop")
               .add("flop.secret")));    
     userList.add(new JsonObject().put("user_name", "sonic")
+            .put("tenant", "diku")
             .put("user_permissions", new JsonArray().add("foo.secret").add("bar.secret")));
     userList.add(new JsonObject().put("user_name", "knuckles")
+            .put("tenant", "diku")
             .put("user_permissions", new JsonArray().add("bar.secret")));
     userList.add(new JsonObject().put("user_name", "tails")
+            .put("tenant", "diku")
             .put("user_permissions", new JsonArray()));
     userList.add(new JsonObject().put("user_name", "eggman")
+            .put("tenant", "diku")
             .put("user_permissions", new JsonArray().add("master")));
     ArrayList<Future> futureList = new ArrayList<>();
     for(JsonObject permObj : permissionList) {
@@ -155,7 +168,7 @@ public class MongoPermissionsStoreTest {
   @Test
   public void basicPermissionTest(TestContext context) {
     final Async async = context.async();
-    store.getExpandedPermissions("master").setHandler(res -> {
+    store.getExpandedPermissions("master", tenant).setHandler(res -> {
       if(!res.succeeded()) {
         context.fail();
       } else {
@@ -177,11 +190,11 @@ public class MongoPermissionsStoreTest {
   @Test
   public void deleteSubPermissionTest(TestContext context) {
     final Async async = context.async();
-    store.removeSubPermission("foobar", "foo.secret").setHandler(res -> {
+    store.removeSubPermission("foobar", "foo.secret", tenant).setHandler(res -> {
       if(!res.succeeded()) {
         context.fail();
       } else {
-        store.getExpandedPermissions("foobar").setHandler(res2 -> {
+        store.getExpandedPermissions("foobar", tenant).setHandler(res2 -> {
           if(!res2.succeeded()) {
             context.fail();
           } else {
@@ -197,11 +210,11 @@ public class MongoPermissionsStoreTest {
   @Test
   public void deletePermissionTest(TestContext context) {
     final Async async = context.async();
-    store.removePermission("foo.secret").setHandler(res -> {
+    store.removePermission("foo.secret", tenant).setHandler(res -> {
       if(!res.succeeded()) {
         context.fail();
       } else {
-        store.getExpandedPermissions("master").setHandler(res2 -> {
+        store.getExpandedPermissions("master", tenant).setHandler(res2 -> {
           if(!res2.succeeded()) {
             context.fail();
           } else {
@@ -217,14 +230,14 @@ public class MongoPermissionsStoreTest {
   @Test
   public void deleteUserPermissionTest(TestContext context) {
     final Async async = context.async();
-    store.getPermissionsForUser("sonic").setHandler(res -> {
+    store.getPermissionsForUser("sonic", tenant).setHandler(res -> {
       if(res.failed()) { context.fail(res.cause()); }
       else {
         context.assertTrue(res.result().contains("foo.secret"));
-        store.removePermissionFromUser("sonic", "foo.secret").setHandler(res2 -> {
+        store.removePermissionFromUser("sonic", "foo.secret", tenant).setHandler(res2 -> {
           if(res2.failed()) { context.fail(res2.cause()); }
           else {
-            store.getPermissionsForUser("sonic").setHandler(res3 -> {
+            store.getPermissionsForUser("sonic", tenant).setHandler(res3 -> {
               if(res3.failed()) { context.fail(res3.cause()); }
               else {
                 context.assertFalse(res3.result().contains("foo.secret"));
@@ -239,7 +252,7 @@ public class MongoPermissionsStoreTest {
   @Test
   public void userPermissionTest(TestContext context) {
     final Async async = context.async();
-    store.getPermissionsForUser("eggman").setHandler(res -> {
+    store.getPermissionsForUser("eggman", tenant).setHandler(res -> {
       if(res.failed()) { context.fail(res.cause()); } else {
         JsonArray permissions = res.result();
         context.assertTrue(permissions.contains("master"));

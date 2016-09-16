@@ -13,15 +13,15 @@ import io.vertx.core.json.JsonArray;
  * @author kurt
  */
 public interface PermissionsStore {
-  Future<Boolean> addPermission(String permission);
-  Future<Boolean> addSubPermission(String permission, String sub);
-  Future<Boolean> removePermission(String permission);
-  Future<Boolean> removeSubPermission(String permission, String sub);
-  Future<Boolean> addUser(String user);
-  Future<Boolean> removeUser(String user);
-  Future<Boolean> addPermissionToUser(String user, String permission);
-  Future<Boolean> removePermissionFromUser(String user, String permission);
-  Future<JsonArray> getPermissionsForUser(String user);
-  Future<JsonArray> getSubPermissions(String permission);
-  Future<JsonArray> getExpandedPermissions(String permission);
+  Future<Boolean> addPermission(String permission, String tenant);
+  Future<Boolean> addSubPermission(String permission, String sub, String tenant);
+  Future<Boolean> removePermission(String permission, String tenant);
+  Future<Boolean> removeSubPermission(String permission, String sub, String tenant);
+  Future<Boolean> addUser(String user, String tenant);
+  Future<Boolean> removeUser(String user, String tenant);
+  Future<Boolean> addPermissionToUser(String user, String permission, String tenant);
+  Future<Boolean> removePermissionFromUser(String user, String permission, String tenant);
+  Future<JsonArray> getPermissionsForUser(String user, String tenant);
+  Future<JsonArray> getSubPermissions(String permission, String tenant);
+  Future<JsonArray> getExpandedPermissions(String permission, String tenant);
 }

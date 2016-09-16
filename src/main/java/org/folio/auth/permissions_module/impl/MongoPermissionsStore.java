@@ -31,15 +31,17 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> addPermission(String permission) {
+  public Future<Boolean> addPermission(String permission, String tenant) {
     Future<Boolean> future = Future.future();
-    JsonObject query = new JsonObject().put("permission_name", permission);
+    JsonObject query = new JsonObject().put("permission_name", permission)
+            .put("tenant", tenant);
     mongoClient.find("permissions", query, res -> {
       if(res.succeeded()) {
         future.complete(false);
       } else {
         JsonObject insert = new JsonObject()
                 .put("permission_name", permission)
+                .put("tenant", tenant)
                 .put("sub_permissions", new JsonArray());
         mongoClient.insert("permissions", insert, res2 -> {
           if(res2.succeeded()) {
@@ -54,10 +56,11 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> addSubPermission(String permission, String sub) {
+  public Future<Boolean> addSubPermission(String permission, String sub, String tenant) {
     //TODO: Check for circular permissions
     Future<Boolean> future = Future.future();
-    JsonObject query = new JsonObject().put("permission_name", permission);
+    JsonObject query = new JsonObject().put("permission_name", permission)
+            .put("tenant", tenant);
     mongoClient.find("permissions", query, res -> {
       if(!res.succeeded()) {
         future.complete(false); //Can't add a sub to a non-existent perm
@@ -80,8 +83,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
   
   @Override
-  public Future<JsonArray> getSubPermissions(String permission) {
-    JsonObject query = new JsonObject().put("permission_name", permission);
+  public Future<JsonArray> getSubPermissions(String permission, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("permission_name", permission)
+            .put("tenant", tenant);
     JsonArray permList = new JsonArray();
     Future<JsonArray> future = Future.future();
     mongoClient.find("permissions", query, res -> {
@@ -96,8 +101,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<JsonArray> getExpandedPermissions(String permission) {
-    JsonObject query = new JsonObject().put("permission_name", permission);
+  public Future<JsonArray> getExpandedPermissions(String permission, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("permission_name", permission)
+            .put("tenant", tenant);
     JsonArray permList = new JsonArray();
     Future<JsonArray> future = Future.future();
     mongoClient.find("permissions", query, res -> {
@@ -118,7 +125,7 @@ public class MongoPermissionsStore implements PermissionsStore {
           LinkedList<Future> futureList = new LinkedList<>();
           for(Object o : subPerms) {
             String sub = (String)o;
-            Future<JsonArray> newFuture = getExpandedPermissions(sub);
+            Future<JsonArray> newFuture = getExpandedPermissions(sub, tenant);
             futureList.add(newFuture);
           }
           CompositeFuture compositeFuture = CompositeFuture.all(futureList);
@@ -146,9 +153,11 @@ public class MongoPermissionsStore implements PermissionsStore {
 
 
   @Override
-  public Future<Boolean> removePermission(String permission) {
+  public Future<Boolean> removePermission(String permission, String tenant) {
     Future<Boolean> future = Future.future();
-    JsonObject query = new JsonObject().put("permission_name", permission);
+    JsonObject query = new JsonObject()
+            .put("permission_name", permission)
+            .put("tenant", tenant);
     mongoClient.find("permissions", query, res-> {
       if(!res.succeeded()) {
         future.complete(false);
@@ -181,9 +190,11 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> removeSubPermission(String permission, String sub) {
+  public Future<Boolean> removeSubPermission(String permission, String sub, String tenant) {
     Future<Boolean> future = Future.future();
-    JsonObject query = new JsonObject().put("permission_name", permission);
+    JsonObject query = new JsonObject()
+            .put("permission_name", permission)
+            .put("tenant", tenant);
     JsonObject update = new JsonObject().put("$pull", new JsonObject()
       .put("sub_permissions", new JsonObject()
         .put("$in", new JsonArray().add(sub))));
@@ -198,8 +209,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> addUser(String user) {
-    JsonObject query = new JsonObject().put("user_name", user);
+  public Future<Boolean> addUser(String user, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("user_name", user)
+            .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
       if(res.result().size() > 0) {
@@ -207,6 +220,7 @@ public class MongoPermissionsStore implements PermissionsStore {
       } else {
         JsonObject insert = new JsonObject()
                 .put("user_name", user)
+                .put("tenant", tenant)
                 .put("user_permissions", new JsonArray());
         mongoClient.insert("users", insert, res2 -> {
           if(res2.succeeded()) {
@@ -221,8 +235,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> removeUser(String user) {
-    JsonObject query = new JsonObject().put("user_name", user);
+  public Future<Boolean> removeUser(String user, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("user_name", user)
+            .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
       if(res.result().size() > 0) {
@@ -241,8 +257,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> addPermissionToUser(String user, String permission) {
-    JsonObject query = new JsonObject().put("user_name", user);
+  public Future<Boolean> addPermissionToUser(String user, String permission, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("user_name", user)
+            .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
       if(res.result().size() > 0) {
@@ -264,14 +282,16 @@ public class MongoPermissionsStore implements PermissionsStore {
   }
 
   @Override
-  public Future<Boolean> removePermissionFromUser(String user, String permission) {
-    JsonObject query = new JsonObject().put("user_name", user);
+  public Future<Boolean> removePermissionFromUser(String user, String permission, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("user_name", user)
+            .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
       if(res.result().size() < 1) {
         future.complete(false);
       } else {
-        getPermissionsForUser(user).setHandler( res2 -> {
+        getPermissionsForUser(user, tenant).setHandler( res2 -> {
           JsonArray permissions = res2.result();
           System.out.println("PERMISSIONS: " + permissions.encode());
           if(!permissions.contains(permission)) {
@@ -297,8 +317,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   //TODO: Consider if we should add a flag to determine whether or not to
   //expand the permissionslist returned for the user
   @Override
-  public Future<JsonArray> getPermissionsForUser(String user) {
-    JsonObject query = new JsonObject().put("user_name", user);
+  public Future<JsonArray> getPermissionsForUser(String user, String tenant) {
+    JsonObject query = new JsonObject()
+            .put("user_name", user)
+            .put("tenant", tenant);
     Future<JsonArray> future = Future.future();
     mongoClient.find("users", query, (AsyncResult<List<JsonObject>> res)-> {
       if(res.result().size() < 1) {
@@ -311,7 +333,7 @@ public class MongoPermissionsStore implements PermissionsStore {
         for(Object o : permissions) {
           String permissionName = (String)o;
           Future<JsonArray> expandPermissionFuture = 
-                  this.getExpandedPermissions(permissionName);
+                  this.getExpandedPermissions(permissionName, tenant);
           futureList.add(expandPermissionFuture);
         }
         CompositeFuture compositeFuture = CompositeFuture.all(futureList);
