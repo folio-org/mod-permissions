@@ -121,13 +121,14 @@ public class MongoPermissionsStore implements PermissionsStore {
         JsonObject permObj = res.result().get(0);
         permList.add(permission);
         JsonArray subPerms = permObj.getJsonArray("sub_permissions");
+        LinkedList<Future> futureList = new LinkedList<>();
         if(!subPerms.isEmpty()) {
-          LinkedList<Future> futureList = new LinkedList<>();
           for(Object o : subPerms) {
             String sub = (String)o;
             Future<JsonArray> newFuture = getExpandedPermissions(sub, tenant);
             futureList.add(newFuture);
           }
+          System.out.println("Permissions> Creating CompositeFuture to expand " + permission + " into " + futureList.size() + " subs");
           CompositeFuture compositeFuture = CompositeFuture.all(futureList);
           compositeFuture.setHandler(res2 -> {
             if(res2.succeeded()) {
@@ -140,12 +141,14 @@ public class MongoPermissionsStore implements PermissionsStore {
               }
               future.complete(permList);
             } else {
-              future.fail("Unable to populate permissions");
+              future.fail("Unable to populate permissions: " + res2.cause().getMessage());
             }
           });
         } else {
           future.complete(permList);
         }
+      } else {
+        future.fail("No permission '" + permission + "' found for tenant '" + tenant + "'");
       }
     });
     return future;
@@ -327,7 +330,7 @@ public class MongoPermissionsStore implements PermissionsStore {
         future.fail("No such user");
       } else {
         JsonObject userObject = res.result().get(0);
-        System.out.println("Permissions for user " + user + ": " + userObject.encode());
+        System.out.println("Permissions> Permissions for user " + user + ": " + userObject.encode());
         JsonArray permissions = userObject.getJsonArray("user_permissions");
         ArrayList<Future> futureList = new ArrayList<>();
         for(Object o : permissions) {
@@ -336,6 +339,7 @@ public class MongoPermissionsStore implements PermissionsStore {
                   this.getExpandedPermissions(permissionName, tenant);
           futureList.add(expandPermissionFuture);
         }
+        System.out.println("Permissions> Assembling CompositeFuture of " + futureList.size() + " permissions to expand");
         CompositeFuture compositeFuture = CompositeFuture.all(futureList);
         compositeFuture.setHandler(res2 -> {
           if(res2.failed()) {
@@ -351,6 +355,7 @@ public class MongoPermissionsStore implements PermissionsStore {
                 }
               }
             }
+            System.out.println("Permissions> Returning list of " + allPermissions.size() + " permissions");
             future.complete(allPermissions);
           }
         });

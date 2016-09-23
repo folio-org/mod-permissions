@@ -244,7 +244,7 @@ public class MainVerticle extends AbstractVerticle {
       });
     } else if(context.request().method() == HttpMethod.GET) {
       store.getPermissionsForUser(username, tenant).setHandler(res -> {
-        if(!res.succeeded()) {
+        if(res.failed()) {
           context.response()
                   .setStatusCode(500)
                   .end("Unable to retrieve user permissions " + res.cause().getMessage());
@@ -254,6 +254,7 @@ public class MainVerticle extends AbstractVerticle {
                   .putHeader("Content-Type", "application/json")
                   .end(res.result().encode());
         }
+        return;
       });
     } else if(context.request().method() == HttpMethod.DELETE) {
       if(permissionName == null) {
