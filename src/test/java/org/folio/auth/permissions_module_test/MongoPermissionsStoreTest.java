@@ -249,6 +249,26 @@ public class MongoPermissionsStoreTest {
       }
     });
   }
+  
+  @Test
+  public void addUserPermissionTest(TestContext context) {
+    final Async async = context.async();
+    store.addPermissionToUser("sonic", "dummy.dummy", tenant).setHandler(res -> {
+      if(res.failed()) {
+        context.fail(res.cause().getMessage());
+      } else {
+        store.getPermissionsForUser("sonic", tenant, false).setHandler(res2 -> {
+          if(res2.failed()) {
+            context.fail(res2.cause().getMessage());
+          } else {
+            context.assertTrue(res2.result().contains("dummy.dummy"));
+            async.complete();
+          }
+        });
+      }
+    });
+  }
+  
   @Test
   public void userPermissionTest(TestContext context) {
     final Async async = context.async();
@@ -262,5 +282,51 @@ public class MongoPermissionsStoreTest {
       }
     });
   }
+  
+  @Test 
+  public void createPermissionTest(TestContext context) {
+    final Async async = context.async();
+    store.addPermission("spin", tenant).setHandler(res -> {
+      if(res.failed()) {
+        context.fail("Can't add permission: " + res.cause().getMessage());
+      } else {
+        store.addSubPermission("spin", "twitch", tenant).setHandler(res2 -> {
+          if(res2.failed()) {
+            context.fail("Can't add sub permission: " + res2.cause().getMessage());
+          } else {
+            store.getSubPermissions("spin", tenant).setHandler(res3 -> {
+              if(res3.failed()) { context.fail("Unable to get subpermissions " + res3.cause().getMessage()); } else {
+                context.assertTrue(res3.result().contains("twitch"));
+                async.complete();
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  @Test
+  public void createAndDeletePermissionTest(TestContext context) {
+    final Async async = context.async();
+    store.addPermission("bean", tenant).setHandler(res -> {
+      if(res.failed()) { context.fail("Unable to add permission: " + res.cause().getMessage()); } else {
+        store.addPermission("legume", tenant).setHandler(res2 -> {
+          if(res2.failed()) { context.fail("Unable to add permission: " + res2.cause().getMessage()); } else {
+            store.addSubPermission("legume", "bean", tenant).setHandler(res3 -> {
+              if(res3.failed()) { context.fail("Unable to assign subpermission: " + res3.cause().getMessage()); } else {
+                store.removePermission("legume", tenant).setHandler(res4 -> {
+                  if(res4.failed()) { context.fail("Unable to remove permission: " + res4.cause().getMessage()); } else {
+                    async.complete();
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  
 }
 

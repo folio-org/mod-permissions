@@ -36,8 +36,8 @@ public class MongoPermissionsStore implements PermissionsStore {
     JsonObject query = new JsonObject().put("permission_name", permission)
             .put("tenant", tenant);
     mongoClient.find("permissions", query, res -> {
-      if(res.succeeded()) {
-        future.complete(false);
+      if(res.succeeded() && res.result().size() > 0) { //permission already exists
+        future.fail("Permission already exists");
       } else {
         JsonObject insert = new JsonObject()
                 .put("permission_name", permission)
@@ -47,7 +47,7 @@ public class MongoPermissionsStore implements PermissionsStore {
           if(res2.succeeded()) {
             future.complete(true);
           } else {
-            future.fail(res2.result());
+            future.fail("Unable to insert permission: " + res2.cause().getMessage());
           }
         });
       }
@@ -62,19 +62,19 @@ public class MongoPermissionsStore implements PermissionsStore {
     JsonObject query = new JsonObject().put("permission_name", permission)
             .put("tenant", tenant);
     mongoClient.find("permissions", query, res -> {
-      if(!res.succeeded()) {
-        future.complete(false); //Can't add a sub to a non-existent perm
+      if(res.failed() || res.result().size() < 1) {
+        future.fail("Unable to find permission to add subs to"); //Can't add a sub to a non-existent perm
       } else {
-        JsonArray permissionList = res.result().get(0).getJsonArray("sub_permissions");
-        permissionList.add(sub);
+        //JsonArray permissionList = res.result().get(0).getJsonArray("sub_permissions");
+        //permissionList.add(sub);
         JsonObject update = new JsonObject()
-                .put("$set", new JsonObject()
-                  .put("sub_permissions", permissionList));
-        mongoClient.update("permissions", query, update, res2 -> {
+                .put("$addToSet", new JsonObject()
+                  .put("sub_permissions", sub));
+        mongoClient.updateCollection("permissions", query, update, res2 -> {
           if(res2.succeeded()) {
             future.complete(true);
           } else {
-            future.fail("Unable to update records");
+            future.fail("Unable to update records: " + res2.cause().getMessage());
           }
         });
       }
@@ -90,7 +90,7 @@ public class MongoPermissionsStore implements PermissionsStore {
     JsonArray permList = new JsonArray();
     Future<JsonArray> future = Future.future();
     mongoClient.find("permissions", query, res -> {
-      if(!res.succeeded()) {
+      if(res.failed() || res.result().size() < 1) {
         future.fail("Query unsuccessful");
       } else {
         JsonObject permObject = res.result().get(0);
@@ -102,6 +102,8 @@ public class MongoPermissionsStore implements PermissionsStore {
 
   @Override
   public Future<JsonArray> getExpandedPermissions(String permission, String tenant) {
+    //System.out.println("Permissions> Expanding permission '"+ permission + "' on tenant '"+
+    //        tenant + "'");
     JsonObject query = new JsonObject()
             .put("permission_name", permission)
             .put("tenant", tenant);
@@ -109,6 +111,8 @@ public class MongoPermissionsStore implements PermissionsStore {
     Future<JsonArray> future = Future.future();
     mongoClient.find("permissions", query, res -> {
       if(res.succeeded() && res.result().size() > 0) {
+        //System.out.println("Permissions> Successfully queried mongo for '"+ permission + "' on tenant '"+
+        //    tenant + "'");
         /*
         If there are no subpermissions, go ahead and complete the future with the
         given value of the JsonArray
@@ -122,13 +126,16 @@ public class MongoPermissionsStore implements PermissionsStore {
         permList.add(permission);
         JsonArray subPerms = permObj.getJsonArray("sub_permissions");
         LinkedList<Future> futureList = new LinkedList<>();
-        if(!subPerms.isEmpty()) {
+        if(subPerms != null && !subPerms.isEmpty()) {
+          System.out.println("Permissions> " + subPerms.size() + " subs to process for '" + permission + "'");
           for(Object o : subPerms) {
             String sub = (String)o;
             Future<JsonArray> newFuture = getExpandedPermissions(sub, tenant);
             futureList.add(newFuture);
           }
-          System.out.println("Permissions> Creating CompositeFuture to expand " + permission + " into " + futureList.size() + " subs");
+          System.out.println("Permissions> Creating CompositeFuture to expand " 
+                  + permission + " into " + futureList.size() + " subs: " +
+                  subPerms.encode());
           CompositeFuture compositeFuture = CompositeFuture.all(futureList);
           compositeFuture.setHandler(res2 -> {
             if(res2.succeeded()) {
@@ -145,6 +152,7 @@ public class MongoPermissionsStore implements PermissionsStore {
             }
           });
         } else {
+          //System.out.println("Permissions> No sub-permissions found for '" + permission + "'");
           future.complete(permList);
         }
       } else {
@@ -162,8 +170,8 @@ public class MongoPermissionsStore implements PermissionsStore {
             .put("permission_name", permission)
             .put("tenant", tenant);
     mongoClient.find("permissions", query, res-> {
-      if(!res.succeeded()) {
-        future.complete(false);
+      if(res.failed() || res.result().size() < 1) {
+        future.fail("Unable to find permission to delete");
       } else {
         //Find all permissions that list this permission as a sub
         /*
@@ -173,14 +181,14 @@ public class MongoPermissionsStore implements PermissionsStore {
         JsonObject subUpdate = new JsonObject()
                 .put("$pullAll", new JsonObject()
                   .put("sub_permissions", new JsonArray().add(permission)));
-        mongoClient.updateWithOptions("permissions", new JsonObject(), subUpdate, updateOptions, res2-> {
-          if(!res2.succeeded()) {
-            future.fail("Unable to remove sub permissions");
+        mongoClient.updateCollectionWithOptions("permissions", new JsonObject(), subUpdate, updateOptions, res2-> {
+          if(res2.failed()) {
+            future.fail("Unable to remove sub permissions: " + res2.cause().getMessage());
           } else {
             //Now delete the actual permission, since the sub permissions are clean
-            mongoClient.remove("permissions", query, res3 -> {
-              if(!res3.succeeded()) {
-                future.fail("Unable to delete permission");
+            mongoClient.removeDocument("permissions", query, res3 -> {
+              if(res3.failed()) {
+                future.fail("Unable to delete permission: " + res3.cause().getMessage());
               } else {
                 future.complete(true);
               }
@@ -261,24 +269,65 @@ public class MongoPermissionsStore implements PermissionsStore {
 
   @Override
   public Future<Boolean> addPermissionToUser(String user, String permission, String tenant) {
+    System.out.println("Permissions> Adding permission '" + permission + "' to user '" + user + "'");
     JsonObject query = new JsonObject()
             .put("user_name", user)
             .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
-      if(res.result().size() > 0) {
-        future.complete(false);
+      if(res.failed()) {
+        future.fail(res.cause().getMessage());
       } else {
-        JsonObject push = new JsonObject()
-                .put("$push", new JsonObject()
-                  .put("user_permissions", permission));
-        mongoClient.update("users", query, push, res2 -> {
-          if(!res2.succeeded()) {
-            future.fail("Unable to add permission");
+        System.out.println("Found user successfully");
+        JsonArray currentPermissions = res.result().get(0).getJsonArray("user_permissions");
+        if(res.result().size() < 0) {
+          future.complete(false);
+        } else {
+          this.getPermissionsForUser(user, tenant, false).setHandler(res2 -> {
+          if(res2.failed()) {
+            future.fail("Error querying current permissions: " + res2.cause().getMessage());
           } else {
-            future.complete(true);
+            JsonArray currentPerms = res2.result();
+            if(currentPerms.contains(permission)) {
+              future.fail("Permission already exists in user");
+            } else {
+              JsonObject push = new JsonObject()
+                      .put("$push", new JsonObject()
+                              .put("user_permissions", permission));
+              System.out.println("Using user query '" + query.encode() + "' and update query '" + push.encode() + "'");
+              mongoClient.updateCollection("users", query, push, res3 -> {
+                if (res3.failed()) {
+                  future.fail("Unable to add permission:" + res3.cause().getMessage());
+                } else {
+                  System.out.println("Permissions> Permission '" + permission + "' added to user '" + user + "'");
+                  future.complete(true);
+                }
+              });
+            }
           }
         });
+          /*
+          JsonArray newPermissionsSet = new JsonArray();
+          if(currentPermissions != null) {
+            for(Object o : currentPermissions) {
+              String s = (String)o;
+              newPermissionsSet.add(s);
+            }
+          }
+          newPermissionsSet.add(permission);
+          JsonObject update = new JsonObject()
+                  .put("$set", new JsonObject())
+                    .put("user_permissions", newPermissionsSet);
+          System.out.println("Using user query '" + query.encode() + "' and update query '"+update.encode()+"'");
+          mongoClient.updateCollection("users", query, update, res2 -> {
+            if(res2.failed()) {
+              future.fail("Unable to add permission:" + res2.cause().getMessage());
+            } else {
+              future.complete(true);
+            }
+          });
+          */
+        }
       }
     });
     return future;
@@ -291,25 +340,30 @@ public class MongoPermissionsStore implements PermissionsStore {
             .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
-      if(res.result().size() < 1) {
+      if(res.failed() || res.result().size() < 1) {
         future.complete(false);
       } else {
-        getPermissionsForUser(user, tenant).setHandler( res2 -> {
-          JsonArray permissions = res2.result();
-          System.out.println("PERMISSIONS: " + permissions.encode());
-          if(!permissions.contains(permission)) {
-            future.complete(true);
+        getPermissionsForUser(user, tenant, false).setHandler( res2 -> {
+          if(res2.failed()) {
+            future.fail("Unable to retrieve initial permissions: " + res2.cause().getMessage());
           } else {
-            permissions.remove(permission);
-            JsonObject update = new JsonObject().put("$set", new JsonObject()
-              .put("user_permissions", permissions));
-            mongoClient.update("users", query, update, res3 -> {
-              if(!res3.succeeded()) {
-                future.fail("Unable to remove permission");
-              } else {
-                future.complete(true);
-              }
-            });
+            JsonArray permissions = res2.result();
+            System.out.println("PERMISSIONS: " + permissions.encode());
+            if(!permissions.contains(permission)) {
+              future.complete(true);
+            } else {
+              permissions.remove(permission);
+              JsonObject update = new JsonObject().put("$set", new JsonObject()
+                .put("user_permissions", permissions));
+              mongoClient.updateCollection("users", query, update, res3 -> {
+                if(res3.failed()) {
+                  future.fail("Unable to remove permission:" + res3.cause().getMessage());
+                } else {
+                  System.out.println("Permissions> Permission '" + permission + "' removed");
+                  future.complete(true);
+                }
+              });
+            }
           }
         });
       }       
@@ -321,6 +375,10 @@ public class MongoPermissionsStore implements PermissionsStore {
   //expand the permissionslist returned for the user
   @Override
   public Future<JsonArray> getPermissionsForUser(String user, String tenant) {
+    return getPermissionsForUser(user, tenant, true);
+  }
+  
+  public Future<JsonArray> getPermissionsForUser(String user, String tenant, Boolean expand) {
     JsonObject query = new JsonObject()
             .put("user_name", user)
             .put("tenant", tenant);
@@ -332,33 +390,37 @@ public class MongoPermissionsStore implements PermissionsStore {
         JsonObject userObject = res.result().get(0);
         System.out.println("Permissions> Permissions for user " + user + ": " + userObject.encode());
         JsonArray permissions = userObject.getJsonArray("user_permissions");
-        ArrayList<Future> futureList = new ArrayList<>();
-        for(Object o : permissions) {
-          String permissionName = (String)o;
-          Future<JsonArray> expandPermissionFuture = 
-                  this.getExpandedPermissions(permissionName, tenant);
-          futureList.add(expandPermissionFuture);
-        }
-        System.out.println("Permissions> Assembling CompositeFuture of " + futureList.size() + " permissions to expand");
-        CompositeFuture compositeFuture = CompositeFuture.all(futureList);
-        compositeFuture.setHandler(res2 -> {
-          if(res2.failed()) {
-            future.fail(res2.cause());
-          } else {
-            JsonArray allPermissions = new JsonArray();
-            for(Future f : futureList) {
-              JsonArray arr = (JsonArray)f.result();
-              for(Object o : arr) {
-                String perm = (String)o;
-                if(!allPermissions.contains(perm)) {
-                  allPermissions.add(perm);
+        if(expand) {
+          ArrayList<Future> futureList = new ArrayList<>();
+          for(Object o : permissions) {
+            String permissionName = (String)o;
+            Future<JsonArray> expandPermissionFuture = 
+                    this.getExpandedPermissions(permissionName, tenant);
+            futureList.add(expandPermissionFuture);
+          }
+          System.out.println("Permissions> Assembling CompositeFuture of " + futureList.size() + " permissions to expand");
+          CompositeFuture compositeFuture = CompositeFuture.all(futureList);
+          compositeFuture.setHandler(res2 -> {
+            if(res2.failed()) {
+              future.fail(res2.cause());
+            } else {
+              JsonArray allPermissions = new JsonArray();
+              for(Future f : futureList) {
+                JsonArray arr = (JsonArray)f.result();
+                for(Object o : arr) {
+                  String perm = (String)o;
+                  if(!allPermissions.contains(perm)) {
+                    allPermissions.add(perm);
+                  }
                 }
               }
+              System.out.println("Permissions> Returning list of " + allPermissions.size() + " permissions");
+              future.complete(allPermissions);
             }
-            System.out.println("Permissions> Returning list of " + allPermissions.size() + " permissions");
-            future.complete(allPermissions);
-          }
-        });
+          });
+        } else {
+          future.complete(permissions);
+        }
       }
     });
     return future;

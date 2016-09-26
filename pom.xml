@@ -14,22 +14,22 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
-            <version>3.3.0</version>
+            <version>3.3.3</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-web</artifactId>
-            <version>3.3.0</version>
+            <version>3.3.3</version>
         </dependency>
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-auth-jwt</artifactId>
-            <version>3.3.0</version>
+            <version>3.3.3</version>
         </dependency>     
         <dependency>
           <groupId>io.vertx</groupId>
           <artifactId>vertx-mongo-client</artifactId>
-          <version>3.3.0</version>
+          <version>3.3.3</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-unit</artifactId>
-            <version>3.3.0</version>
+            <version>3.3.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -52,7 +52,7 @@
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongo-java-driver</artifactId>
-            <version>3.2.2</version>
+            <version>3.3.0</version>
         </dependency>
     </dependencies>
     <build>
