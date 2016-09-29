@@ -53,7 +53,6 @@ public class MainVerticle extends AbstractVerticle {
     router.post("/perms/permissions/:permissionname").handler(this::handlePermission); //Add a new sub permission
     router.delete("/perms/permissions/:permissionname").handler(this::handlePermission); //Remove a permission
     router.delete("/perms/permissions/:permissionname/:subpermissionname").handler(this::handlePermission); //Remove a sub-permission
-    router.get("/perms/privileged/users/:username/permissions").handler(this::handleUserPermissionPrivileged);
     
     server.requestHandler(router::accept).listen(port, result -> {
         if(result.succeeded()) {
@@ -63,18 +62,6 @@ public class MainVerticle extends AbstractVerticle {
         }
     });  
     
-  }
-  
-  private void handleUserPermissionPrivileged(RoutingContext context) {
-    String apiKeyHeader = context.request().headers().get(API_KEY_HEADER);
-    if(apiKeyHeader != null && apiKeyHeader.equals(authApiKey)) {
-      handleUserPermission(context);
-      return;
-    } else {
-      context.response()
-              .setStatusCode(401)
-              .end("Unauthorized");
-    }
   }
   
   private void handleUser(RoutingContext context) {
