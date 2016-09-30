@@ -425,4 +425,22 @@ public class MongoPermissionsStore implements PermissionsStore {
     });
     return future;
   }
+
+  @Override
+  public Future<JsonObject> getPermission(String permission, String tenant) {
+    Future<JsonObject> future = Future.future();
+    JsonObject query = new JsonObject()
+            .put("permission_name", permission)
+            .put("tenant", tenant);
+    mongoClient.find("permissions", query, res -> {
+      if(res.failed()) {
+        future.fail(res.cause().getMessage());
+      } else if(res.result().size() < 1) {
+          future.fail("No results for that name"); 
+      } else {
+       future.complete(res.result().get(0)); 
+      }
+    });
+    return future;//To change body of generated methods, choose Tools | Templates.
+  }
 }

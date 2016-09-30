@@ -191,11 +191,12 @@ public class MainVerticle extends AbstractVerticle {
                 .end("You must specify a permission name");
         return;
       }
-      store.getSubPermissions(permissionName, tenant).setHandler(res -> {
+      //store.getSubPermissions(permissionName, tenant).setHandler(res -> {
+      store.getPermission(permissionName, tenant).setHandler(res -> {
         if(!res.succeeded()) {
           context.response()
                   .setStatusCode(500)
-                  .end("Unable to retrieve subpermissions");
+                  .end("Unable to retrieve permissions");
           return;
         }
         context.response()

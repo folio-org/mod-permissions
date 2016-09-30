@@ -328,5 +328,21 @@ public class MongoPermissionsStoreTest {
     });
   }
   
+  @Test
+  public void testGetPermission(TestContext context) {
+    final Async async = context.async();
+    store.getPermission("master", tenant).setHandler(res -> {
+      if(res.failed()) {
+        context.fail("Unable to get permission: " + res.cause().getMessage());
+      } else {
+        JsonObject permission = res.result();
+        JsonArray subs = permission.getJsonArray("sub_permissions");
+        context.assertNotNull(subs);
+        context.assertTrue(subs.contains("foobar"));
+        async.complete();
+      }
+    });
+  }
+  
 }
 
