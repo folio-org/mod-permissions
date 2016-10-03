@@ -101,7 +101,26 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
     }
-    else {
+    else if(context.request().method() == HttpMethod.GET) {
+      String username = context.request().getParam("username");
+      if(username == null) {
+        context.response()
+                .setStatusCode(400)
+                .end("Not yet supported");
+      } else {
+        store.getUser(username, tenant).setHandler(res -> {
+          if(res.failed()) {
+            context.response()
+                    .setStatusCode(500)
+                    .end("Unable to get user");
+          } else {
+            context.response()
+                    .setStatusCode(200)
+                    .end(res.result().encode());
+          }
+        });
+      }
+    } else {
       context.response()
               .setStatusCode(400)
               .end("Unsupported method");

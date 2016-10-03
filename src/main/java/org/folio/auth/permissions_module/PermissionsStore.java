@@ -20,6 +20,7 @@ public interface PermissionsStore {
   Future<Boolean> removeSubPermission(String permission, String sub, String tenant);
   Future<Boolean> addUser(String user, String tenant);
   Future<Boolean> removeUser(String user, String tenant);
+  Future<JsonObject> getUser(String user, String tenant);
   Future<Boolean> addPermissionToUser(String user, String permission, String tenant);
   Future<Boolean> removePermissionFromUser(String user, String permission, String tenant);
   Future<JsonObject> getPermission(String permission, String tenant);

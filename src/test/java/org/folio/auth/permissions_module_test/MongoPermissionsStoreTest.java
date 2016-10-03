@@ -344,5 +344,19 @@ public class MongoPermissionsStoreTest {
     });
   }
   
+  @Test
+  public void testGetUser(TestContext context) {
+    final Async async = context.async();
+    store.getUser("eggman", tenant).setHandler(res -> {
+      if(res.failed()) {
+        context.fail("Unable to get user: " + res.cause().getMessage());
+      } else {
+        JsonObject user = res.result();
+        context.assertNotNull(user.getJsonArray("user_permissions"));
+        async.complete();
+      }
+    });
+  }
+
 }
 
