@@ -13,6 +13,9 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+//import org.apache.log4j.Logger;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -27,13 +30,24 @@ public class MainVerticle extends AbstractVerticle {
   private MongoClient mongoClient;
   private String authApiKey;
   private PermissionsStore store;
+  private final Logger logger = LoggerFactory.getLogger("mod-auth-permissions-module");
   private static final String API_KEY_HEADER = "auth_api_key";
   private static final String TENANT_HEADER = "X-Okapi-Tenant";
   
   public void start(Future<Void> future) {
     authApiKey = System.getProperty("auth.api.key", "VERY_WEAK_KEY");
-    
+   
     String mongoURL = System.getProperty("mongo.url", "mongodb://localhost:27017/test");
+    String logLevel = System.getProperty("log.level", null);
+    if(logLevel != null) {
+      try {
+        org.apache.log4j.Logger l4jLogger;
+        l4jLogger = org.apache.log4j.Logger.getLogger("mod-auth-permissions-module");
+        l4jLogger.getParent().setLevel(org.apache.log4j.Level.toLevel(logLevel));
+      } catch(Exception e) {
+        logger.error("Unable to set log level: " + e.getMessage());
+      }
+    }
     mongoClient = MongoClient.createShared(vertx, new JsonObject().put("connection_string", mongoURL));
     store = new MongoPermissionsStore(mongoClient);
     HttpServer server = vertx.createHttpServer();
@@ -157,7 +171,7 @@ public class MainVerticle extends AbstractVerticle {
         permSubs = perm.getJsonArray("sub_permissions");
         store.addPermission(permName, tenant).setHandler(res -> {
           if (res.failed()) {
-            System.out.println("Unable to add permission: " + res.cause().getMessage());
+            logger.debug("Unable to add permission: " + res.cause().getMessage());
             context.response()
                     .setStatusCode(500)
                     .end("Unable to add permission");
@@ -175,7 +189,7 @@ public class MainVerticle extends AbstractVerticle {
               CompositeFuture compFut = CompositeFuture.all(futureList);
               compFut.setHandler(res2 -> {
                 if(res2.failed()) {
-                  System.out.println("Error adding subpermissions: " + res2.cause().getMessage());
+                  logger.debug("Error adding subpermissions: " + res2.cause().getMessage());
                   context.response()
                           .setStatusCode(500)
                           .end("Error adding sub permission");

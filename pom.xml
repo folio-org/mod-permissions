@@ -31,6 +31,30 @@
           <artifactId>vertx-mongo-client</artifactId>
           <version>3.3.3</version>
         </dependency>
+         <!-- logging see http://www.slf4j.org/legacy.html -->
+         <!-- we use SLF4J for our logging interface -->
+         <dependency>
+           <groupId>org.slf4j</groupId>
+           <artifactId>slf4j-api</artifactId>
+           <version>1.7.18</version>
+         </dependency>
+         <!-- we use log4j as our logging implementation -->
+         <dependency>
+           <groupId>org.slf4j</groupId>
+           <artifactId>slf4j-log4j12</artifactId>
+           <version>1.7.13</version>
+         </dependency>
+         <dependency>
+           <groupId>log4j</groupId>
+           <artifactId>log4j</artifactId>
+           <version>1.2.17</version>
+         </dependency>
+         <!-- include slf4j bridges to proxy all logging from library deps to our logging impl -->
+         <dependency>
+           <groupId>org.slf4j</groupId>
+           <artifactId>jcl-over-slf4j</artifactId>
+           <version>1.7.18</version>
+         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -102,6 +126,16 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-plugin</artifactId>
+              <version>2.18.1</version>
+              <configuration>
+                <systemPropertyVariables>
+                  <vertx.logger-delegate-factory-class-name>io.vertx.core.logging.SLF4JLogDelegateFactory</vertx.logger-delegate-factory-class-name>
+                  </systemPropertyVariables>
+              </configuration>
             </plugin>
         </plugins>
     </build>

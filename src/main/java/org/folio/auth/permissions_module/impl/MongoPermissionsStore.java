@@ -11,6 +11,8 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.mongo.UpdateOptions;
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ import java.util.List;
 public class MongoPermissionsStore implements PermissionsStore {
   private MongoClient mongoClient;
   private UpdateOptions updateOptions = new UpdateOptions().setMulti(true);
+  private final Logger logger = LoggerFactory.getLogger("mod-auth-permissions-module");
   
   public MongoPermissionsStore(MongoClient mongoClient) {
     this.mongoClient = mongoClient;
@@ -127,13 +130,13 @@ public class MongoPermissionsStore implements PermissionsStore {
         JsonArray subPerms = permObj.getJsonArray("sub_permissions");
         LinkedList<Future> futureList = new LinkedList<>();
         if(subPerms != null && !subPerms.isEmpty()) {
-          System.out.println("Permissions> " + subPerms.size() + " subs to process for '" + permission + "'");
+          logger.debug("Permissions> " + subPerms.size() + " subs to process for '" + permission + "'");
           for(Object o : subPerms) {
             String sub = (String)o;
             Future<JsonArray> newFuture = getExpandedPermissions(sub, tenant);
             futureList.add(newFuture);
           }
-          System.out.println("Permissions> Creating CompositeFuture to expand " 
+          logger.debug("Permissions> Creating CompositeFuture to expand " 
                   + permission + " into " + futureList.size() + " subs: " +
                   subPerms.encode());
           CompositeFuture compositeFuture = CompositeFuture.all(futureList);
@@ -269,7 +272,7 @@ public class MongoPermissionsStore implements PermissionsStore {
 
   @Override
   public Future<Boolean> addPermissionToUser(String user, String permission, String tenant) {
-    System.out.println("Permissions> Adding permission '" + permission + "' to user '" + user + "'");
+    logger.debug("Permissions> Adding permission '" + permission + "' to user '" + user + "'");
     JsonObject query = new JsonObject()
             .put("user_name", user)
             .put("tenant", tenant);
@@ -278,7 +281,7 @@ public class MongoPermissionsStore implements PermissionsStore {
       if(res.failed()) {
         future.fail(res.cause().getMessage());
       } else {
-        System.out.println("Found user successfully");
+        logger.debug("Permissions> Found user successfully");
         JsonArray currentPermissions = res.result().get(0).getJsonArray("user_permissions");
         if(res.result().size() < 0) {
           future.complete(false);
@@ -294,40 +297,19 @@ public class MongoPermissionsStore implements PermissionsStore {
               JsonObject push = new JsonObject()
                       .put("$push", new JsonObject()
                               .put("user_permissions", permission));
-              System.out.println("Using user query '" + query.encode() + "' and update query '" + push.encode() + "'");
+              logger.debug("Permissions> Using user query '" + query.encode() + "' and update query '" + push.encode() + "'");
               mongoClient.updateCollection("users", query, push, res3 -> {
                 if (res3.failed()) {
                   future.fail("Unable to add permission:" + res3.cause().getMessage());
                 } else {
-                  System.out.println("Permissions> Permission '" + permission + "' added to user '" + user + "'");
+                  logger.debug("Permissions> Permission '" + permission + "' added to user '" + user + "'");
                   future.complete(true);
                 }
               });
             }
           }
         });
-          /*
-          JsonArray newPermissionsSet = new JsonArray();
-          if(currentPermissions != null) {
-            for(Object o : currentPermissions) {
-              String s = (String)o;
-              newPermissionsSet.add(s);
-            }
-          }
-          newPermissionsSet.add(permission);
-          JsonObject update = new JsonObject()
-                  .put("$set", new JsonObject())
-                    .put("user_permissions", newPermissionsSet);
-          System.out.println("Using user query '" + query.encode() + "' and update query '"+update.encode()+"'");
-          mongoClient.updateCollection("users", query, update, res2 -> {
-            if(res2.failed()) {
-              future.fail("Unable to add permission:" + res2.cause().getMessage());
-            } else {
-              future.complete(true);
-            }
-          });
-          */
-        }
+       }
       }
     });
     return future;
@@ -348,7 +330,7 @@ public class MongoPermissionsStore implements PermissionsStore {
             future.fail("Unable to retrieve initial permissions: " + res2.cause().getMessage());
           } else {
             JsonArray permissions = res2.result();
-            System.out.println("PERMISSIONS: " + permissions.encode());
+            logger.debug("PERMISSIONS: " + permissions.encode());
             if(!permissions.contains(permission)) {
               future.complete(true);
             } else {
@@ -359,7 +341,7 @@ public class MongoPermissionsStore implements PermissionsStore {
                 if(res3.failed()) {
                   future.fail("Unable to remove permission:" + res3.cause().getMessage());
                 } else {
-                  System.out.println("Permissions> Permission '" + permission + "' removed");
+                  logger.debug("Permissions> Permission '" + permission + "' removed");
                   future.complete(true);
                 }
               });
@@ -388,7 +370,7 @@ public class MongoPermissionsStore implements PermissionsStore {
         future.fail("No such user");
       } else {
         JsonObject userObject = res.result().get(0);
-        System.out.println("Permissions> Permissions for user " + user + ": " + userObject.encode());
+        logger.debug("Permissions> Permissions for user " + user + ": " + userObject.encode());
         JsonArray permissions = userObject.getJsonArray("user_permissions");
         if(expand) {
           ArrayList<Future> futureList = new ArrayList<>();
@@ -398,7 +380,7 @@ public class MongoPermissionsStore implements PermissionsStore {
                     this.getExpandedPermissions(permissionName, tenant);
             futureList.add(expandPermissionFuture);
           }
-          System.out.println("Permissions> Assembling CompositeFuture of " + futureList.size() + " permissions to expand");
+          logger.debug("Permissions> Assembling CompositeFuture of " + futureList.size() + " permissions to expand");
           CompositeFuture compositeFuture = CompositeFuture.all(futureList);
           compositeFuture.setHandler(res2 -> {
             if(res2.failed()) {
@@ -414,7 +396,7 @@ public class MongoPermissionsStore implements PermissionsStore {
                   }
                 }
               }
-              System.out.println("Permissions> Returning list of " + allPermissions.size() + " permissions");
+              logger.debug("Permissions> Returning list of " + allPermissions.size() + " permissions");
               future.complete(allPermissions);
             }
           });
