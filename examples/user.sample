@@ -1,0 +1,22 @@
+{
+    "username" : "jhandey",
+        "tenant" : "biglibrary",
+    "id" : "7261ecaae3a74dc68b468e12a70b1aec",
+    "active" : true,
+    "meta" : {
+        "creation_date" : "2016-11-05T0723",
+        "last_login_date" : ""
+    },
+    "personal" : {
+        "full_name" : "Jack Michael Handey",
+        "birth_date" : "1965-07-08",
+        "phone_home" : "+1 (212) 456-7891",
+        "phone_work" : "+1 (212) 567-8912",
+        "phone_mobile" : "+1 (212) 678-9123",
+        "email_primary" : "jhandey@biglibrary.org",
+        "email_alternate" : "handyjack65@gmail.com",
+        "mailing_address" : "4567 Langford Ave, Manhattan, NY 11025"
+    }
+        
+}
+
