@@ -9,7 +9,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -35,10 +34,6 @@ public interface UsersResource {
     /**
      * Return a list of users
      * 
-     * @param authorization
-     *     Used to send a valid JWT token.
-     *      e.g. Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-     *     
      * @param offset
      *     Skip over a number of elements by specifying an offset value for the query e.g. 0
      * @param query
@@ -67,9 +62,6 @@ public interface UsersResource {
     })
     @Validate
     void getUsers(
-        @HeaderParam("Authorization")
-        @NotNull
-        String authorization,
         @QueryParam("query")
         String query,
         @QueryParam("orderBy")
@@ -97,10 +89,6 @@ public interface UsersResource {
     /**
      * Create a user
      * 
-     * @param authorization
-     *     Used to send a valid JWT token.
-     *      e.g. Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-     *     
      * @param vertxContext
      *      The Vertx Context Object <code>io.vertx.core.Context</code> 
      * @param asyncResultHandler
@@ -141,9 +129,6 @@ public interface UsersResource {
     })
     @Validate
     void postUsers(
-        @HeaderParam("Authorization")
-        @NotNull
-        String authorization,
         @QueryParam("lang")
         @DefaultValue("en")
         @Pattern(regexp = "[a-zA-Z]{2}")
@@ -154,10 +139,6 @@ public interface UsersResource {
     /**
      * Get a single user
      * 
-     * @param authorization
-     *     Used to send a valid JWT token.
-     *      e.g. Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-     *     
      * @param vertxContext
      *      The Vertx Context Object <code>io.vertx.core.Context</code> 
      * @param asyncResultHandler
@@ -179,9 +160,6 @@ public interface UsersResource {
         @PathParam("userId")
         @NotNull
         String userId,
-        @HeaderParam("Authorization")
-        @NotNull
-        String authorization,
         @QueryParam("lang")
         @DefaultValue("en")
         @Pattern(regexp = "[a-zA-Z]{2}")
@@ -193,10 +171,6 @@ public interface UsersResource {
      * Delete user item with given {userId}
      * 
      * 
-     * @param authorization
-     *     Used to send a valid JWT token.
-     *      e.g. Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-     *     
      * @param vertxContext
      *      The Vertx Context Object <code>io.vertx.core.Context</code> 
      * @param asyncResultHandler
@@ -217,9 +191,6 @@ public interface UsersResource {
         @PathParam("userId")
         @NotNull
         String userId,
-        @HeaderParam("Authorization")
-        @NotNull
-        String authorization,
         @QueryParam("lang")
         @DefaultValue("en")
         @Pattern(regexp = "[a-zA-Z]{2}")
@@ -231,10 +202,6 @@ public interface UsersResource {
      * Update user item with given {userId}
      * 
      * 
-     * @param authorization
-     *     Used to send a valid JWT token.
-     *      e.g. Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ
-     *     
      * @param vertxContext
      *      The Vertx Context Object <code>io.vertx.core.Context</code> 
      * @param asyncResultHandler
@@ -280,9 +247,6 @@ public interface UsersResource {
         @PathParam("userId")
         @NotNull
         String userId,
-        @HeaderParam("Authorization")
-        @NotNull
-        String authorization,
         @QueryParam("lang")
         @DefaultValue("en")
         @Pattern(regexp = "[a-zA-Z]{2}")
@@ -344,32 +308,6 @@ public interface UsersResource {
          */
         public static UsersResource.DeleteUsersByUserIdResponse withPlainInternalServerError(String entity) {
             Response.ResponseBuilder responseBuilder = Response.status(500).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.DeleteUsersByUserIdResponse(responseBuilder.build());
-        }
-
-        /**
-         * No valid token found
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.DeleteUsersByUserIdResponse withPlainUnauthorized(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(401).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.DeleteUsersByUserIdResponse(responseBuilder.build());
-        }
-
-        /**
-         * Access denied not valid privilage in resurces
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.DeleteUsersByUserIdResponse withPlainForbidden(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(403).header("Content-Type", "text/plain");
             responseBuilder.entity(entity);
             return new UsersResource.DeleteUsersByUserIdResponse(responseBuilder.build());
         }
@@ -463,32 +401,6 @@ public interface UsersResource {
          */
         public static UsersResource.GetUsersByUserIdResponse withPlainInternalServerError(String entity) {
             Response.ResponseBuilder responseBuilder = Response.status(500).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.GetUsersByUserIdResponse(responseBuilder.build());
-        }
-
-        /**
-         * No valid token found
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.GetUsersByUserIdResponse withPlainUnauthorized(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(401).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.GetUsersByUserIdResponse(responseBuilder.build());
-        }
-
-        /**
-         * Access denied not valid privilage in resurces
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.GetUsersByUserIdResponse withPlainForbidden(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(403).header("Content-Type", "text/plain");
             responseBuilder.entity(entity);
             return new UsersResource.GetUsersByUserIdResponse(responseBuilder.build());
         }
@@ -596,32 +508,6 @@ public interface UsersResource {
             return new UsersResource.GetUsersResponse(responseBuilder.build());
         }
 
-        /**
-         * No valid token found
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.GetUsersResponse withPlainUnauthorized(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(401).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.GetUsersResponse(responseBuilder.build());
-        }
-
-        /**
-         * Access denied not valid privilage in resurces
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.GetUsersResponse withPlainForbidden(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(403).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.GetUsersResponse(responseBuilder.build());
-        }
-
     }
 
     public enum Order {
@@ -724,32 +610,6 @@ public interface UsersResource {
             return new UsersResource.PostUsersResponse(responseBuilder.build());
         }
 
-        /**
-         * No valid token found
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.PostUsersResponse withPlainUnauthorized(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(401).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.PostUsersResponse(responseBuilder.build());
-        }
-
-        /**
-         * Access denied not valid privilage in resurces
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.PostUsersResponse withPlainForbidden(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(403).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.PostUsersResponse(responseBuilder.build());
-        }
-
     }
 
     public class PutUsersByUserIdResponse
@@ -806,32 +666,6 @@ public interface UsersResource {
          */
         public static UsersResource.PutUsersByUserIdResponse withPlainInternalServerError(String entity) {
             Response.ResponseBuilder responseBuilder = Response.status(500).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.PutUsersByUserIdResponse(responseBuilder.build());
-        }
-
-        /**
-         * No valid token found
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.PutUsersByUserIdResponse withPlainUnauthorized(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(401).header("Content-Type", "text/plain");
-            responseBuilder.entity(entity);
-            return new UsersResource.PutUsersByUserIdResponse(responseBuilder.build());
-        }
-
-        /**
-         * Access denied not valid privilage in resurces
-         *  e.g. Unauthorized
-         * 
-         * @param entity
-         *     Unauthorized
-         */
-        public static UsersResource.PutUsersByUserIdResponse withPlainForbidden(String entity) {
-            Response.ResponseBuilder responseBuilder = Response.status(403).header("Content-Type", "text/plain");
             responseBuilder.entity(entity);
             return new UsersResource.PutUsersByUserIdResponse(responseBuilder.build());
         }
