@@ -1,2 +1,11 @@
 # mod-users
-Domain Model to Manage Users
+
+Copyright (C) 2016 The Open Library Foundation
+
+This software is distributed under the terms of the Apache License, Version 2.0. See the file ["LICENSE"](https://github.com/folio-org/mod-circulation/blob/master/LICENSE) for more information.
+
+Module to provide central user management for Folio systems.
+
+This module is built using the raml-module-builder framework.
+
+
