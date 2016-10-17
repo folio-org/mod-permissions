@@ -11,6 +11,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import java.util.List;
+import java.util.Map;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 import org.folio.rest.annotations.Validate;
@@ -43,7 +44,8 @@ public class UsersAPI implements UsersResource {
   @Validate
   @Override
   public void getUsers(String query, String orderBy, 
-          Order order, int offset, int limit, String lang, 
+          Order order, int offset, int limit, String lang,
+          Map <String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, 
           Context vertxContext) throws Exception {
     try {
@@ -76,7 +78,8 @@ public class UsersAPI implements UsersResource {
 
   @Validate
   @Override
-  public void postUsers(String lang, User entity, 
+  public void postUsers(String lang, User entity,
+          Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, 
           Context vertxContext) throws Exception {
     try {
@@ -116,6 +119,7 @@ public class UsersAPI implements UsersResource {
   @Validate
   @Override
   public void getUsersByUserId(String userId, String lang,
+          Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
      try {
@@ -159,8 +163,9 @@ public class UsersAPI implements UsersResource {
 
   @Validate
   @Override
-  public void deleteUsersByUserId(String userId,
-          String lang, Handler<AsyncResult<Response>> asyncResultHandler,
+  public void deleteUsersByUserId(String userId, String lang,
+          Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v-> {
@@ -200,6 +205,7 @@ public class UsersAPI implements UsersResource {
   @Override
   public void putUsersByUserId(String userId, 
           String lang, User entity,
+          Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
           
@@ -232,3 +238,4 @@ public class UsersAPI implements UsersResource {
     }
   } 
 }
+
