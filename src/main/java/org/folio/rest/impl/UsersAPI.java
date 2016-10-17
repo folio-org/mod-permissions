@@ -26,6 +26,8 @@ import org.folio.rest.persist.MongoCRUD;
 import org.folio.rest.tools.messages.Messages;
 import org.folio.rest.tools.messages.MessageConsts;
 import org.folio.rest.tools.utils.OutStream;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 
 
 
@@ -39,8 +41,8 @@ public class UsersAPI implements UsersResource {
   private final Messages messages = Messages.getInstance();
   private final String USER_COLLECTION = "user";
   private static final String USER_ID_FIELD = "id";
+  private final Logger logger = LoggerFactory.getLogger(UsersAPI.class);
   
-
   @Validate
   @Override
   public void getUsers(String query, String orderBy, 
@@ -48,6 +50,7 @@ public class UsersAPI implements UsersResource {
           Map <String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, 
           Context vertxContext) throws Exception {
+    logger.debug("Getting users");
     try {
       vertxContext.runOnContext( v -> {
         try {
