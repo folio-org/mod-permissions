@@ -5,6 +5,12 @@
     <artifactId>mod-users</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <licenses>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>http://spdx.org/licenses/Apache-2.0</url>
+        </license>
+    </licenses>
     <dependencies>
       <dependency>
         <groupId>org.folio</groupId>
