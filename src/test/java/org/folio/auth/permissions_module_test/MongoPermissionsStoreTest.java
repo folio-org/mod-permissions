@@ -123,18 +123,18 @@ public class MongoPermissionsStoreTest {
               .add("foobar")
               .add("blipbloop")
               .add("flop.secret")));    
-    userList.add(new JsonObject().put("user_name", "sonic")
+    userList.add(new JsonObject().put("username", "sonic")
             .put("tenant", "diku")
-            .put("user_permissions", new JsonArray().add("foo.secret").add("bar.secret")));
-    userList.add(new JsonObject().put("user_name", "knuckles")
+            .put("permissions", new JsonArray().add("foo.secret").add("bar.secret")));
+    userList.add(new JsonObject().put("username", "knuckles")
             .put("tenant", "diku")
-            .put("user_permissions", new JsonArray().add("bar.secret")));
-    userList.add(new JsonObject().put("user_name", "tails")
+            .put("permissions", new JsonArray().add("bar.secret")));
+    userList.add(new JsonObject().put("username", "tails")
             .put("tenant", "diku")
-            .put("user_permissions", new JsonArray()));
-    userList.add(new JsonObject().put("user_name", "eggman")
+            .put("permissions", new JsonArray()));
+    userList.add(new JsonObject().put("username", "eggman")
             .put("tenant", "diku")
-            .put("user_permissions", new JsonArray().add("master")));
+            .put("permissions", new JsonArray().add("master")));
     ArrayList<Future> futureList = new ArrayList<>();
     for(JsonObject permObj : permissionList) {
       Future<Void> insertFuture = Future.future();
@@ -352,7 +352,7 @@ public class MongoPermissionsStoreTest {
         context.fail("Unable to get user: " + res.cause().getMessage());
       } else {
         JsonObject user = res.result();
-        context.assertNotNull(user.getJsonArray("user_permissions"));
+        context.assertNotNull(user.getJsonArray("permissions"));
         async.complete();
       }
     });

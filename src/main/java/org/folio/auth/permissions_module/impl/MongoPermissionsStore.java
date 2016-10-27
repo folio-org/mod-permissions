@@ -225,7 +225,7 @@ public class MongoPermissionsStore implements PermissionsStore {
   @Override
   public Future<Boolean> addUser(String user, String tenant) {
     JsonObject query = new JsonObject()
-            .put("user_name", user)
+            .put("username", user)
             .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
@@ -233,9 +233,9 @@ public class MongoPermissionsStore implements PermissionsStore {
         future.complete(false);
       } else {
         JsonObject insert = new JsonObject()
-                .put("user_name", user)
+                .put("username", user)
                 .put("tenant", tenant)
-                .put("user_permissions", new JsonArray());
+                .put("permissions", new JsonArray());
         mongoClient.insert("users", insert, res2 -> {
           if(res2.succeeded()) {
             future.complete(true);
@@ -251,15 +251,15 @@ public class MongoPermissionsStore implements PermissionsStore {
   @Override
   public Future<Boolean> removeUser(String user, String tenant) {
     JsonObject query = new JsonObject()
-            .put("user_name", user)
+            .put("username", user)
             .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
       if(res.result().size() > 0) {
         future.complete(false);
       } else {
-        mongoClient.remove("users", query, res2-> {
-          if(!res.succeeded()) {
+        mongoClient.removeDocument("users", query, res2-> {
+          if(res.failed()) {
             future.fail("Unable to remove user");
           } else {
             future.complete(true);
@@ -274,7 +274,7 @@ public class MongoPermissionsStore implements PermissionsStore {
   public Future<Boolean> addPermissionToUser(String user, String permission, String tenant) {
     logger.debug("Permissions> Adding permission '" + permission + "' to user '" + user + "'");
     JsonObject query = new JsonObject()
-            .put("user_name", user)
+            .put("username", user)
             .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
@@ -282,7 +282,7 @@ public class MongoPermissionsStore implements PermissionsStore {
         future.fail(res.cause().getMessage());
       } else {
         logger.debug("Permissions> Found user successfully");
-        JsonArray currentPermissions = res.result().get(0).getJsonArray("user_permissions");
+        JsonArray currentPermissions = res.result().get(0).getJsonArray("permissions");
         if(res.result().size() < 0) {
           future.complete(false);
         } else {
@@ -296,7 +296,7 @@ public class MongoPermissionsStore implements PermissionsStore {
             } else {
               JsonObject push = new JsonObject()
                       .put("$push", new JsonObject()
-                              .put("user_permissions", permission));
+                              .put("permissions", permission));
               logger.debug("Permissions> Using user query '" + query.encode() + "' and update query '" + push.encode() + "'");
               mongoClient.updateCollection("users", query, push, res3 -> {
                 if (res3.failed()) {
@@ -318,7 +318,7 @@ public class MongoPermissionsStore implements PermissionsStore {
   @Override
   public Future<Boolean> removePermissionFromUser(String user, String permission, String tenant) {
     JsonObject query = new JsonObject()
-            .put("user_name", user)
+            .put("username", user)
             .put("tenant", tenant);
     Future<Boolean> future = Future.future();
     mongoClient.find("users", query, res-> {
@@ -336,7 +336,7 @@ public class MongoPermissionsStore implements PermissionsStore {
             } else {
               permissions.remove(permission);
               JsonObject update = new JsonObject().put("$set", new JsonObject()
-                .put("user_permissions", permissions));
+                .put("permissions", permissions));
               mongoClient.updateCollection("users", query, update, res3 -> {
                 if(res3.failed()) {
                   future.fail("Unable to remove permission:" + res3.cause().getMessage());
@@ -362,7 +362,7 @@ public class MongoPermissionsStore implements PermissionsStore {
   
   public Future<JsonArray> getPermissionsForUser(String user, String tenant, Boolean expand) {
     JsonObject query = new JsonObject()
-            .put("user_name", user)
+            .put("username", user)
             .put("tenant", tenant);
     Future<JsonArray> future = Future.future();
     mongoClient.find("users", query, (AsyncResult<List<JsonObject>> res)-> {
@@ -371,7 +371,7 @@ public class MongoPermissionsStore implements PermissionsStore {
       } else {
         JsonObject userObject = res.result().get(0);
         logger.debug("Permissions> Permissions for user " + user + ": " + userObject.encode());
-        JsonArray permissions = userObject.getJsonArray("user_permissions");
+        JsonArray permissions = userObject.getJsonArray("permissions");
         if(expand) {
           ArrayList<Future> futureList = new ArrayList<>();
           for(Object o : permissions) {
@@ -430,7 +430,7 @@ public class MongoPermissionsStore implements PermissionsStore {
   public Future<JsonObject> getUser(String username, String tenant) {
     Future<JsonObject> future = Future.future();
     JsonObject query = new JsonObject()
-            .put("user_name", username)
+            .put("username", username)
             .put("tenant", tenant);
     mongoClient.find("users", query, res -> {
       if(res.failed()) {
