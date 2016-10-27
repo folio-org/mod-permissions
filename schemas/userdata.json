@@ -5,14 +5,17 @@
         "username" : {
             "type" : "string"
         },
-        "tenant" : {
-            "type" : "string"
-        },
         "id" : {
             "type" : "string"
         },
         "active" : {
             "type" : "boolean"
+        },
+        "type" : {
+            "type" : "string"
+        },
+        "patron_group" : {
+            "type" : "string"
         },
         "meta" : {
             "type" : "object"
@@ -23,25 +26,10 @@
                 "full_name" : {
                     "type" : "string"
                 },
-                "birth_date" : {
-                    "type" : "string"
-                },
-                "phone_home": {
-                    "type" : "string"
-                },  
-                "phone_work" : {
-                    "type" : "string"
-                },
-                "phone_mobile" : {
-                    "type" : "string"
-                },
                 "email_primary" : {
                     "type" : "string"
                 },
                 "email_alternate" : {
-                    "type" : "string"
-                },
-                "mailing_address" : {
                     "type" : "string"
                 }
             }
