@@ -3,6 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.indexdata</groupId>
     <artifactId>permissions_module</artifactId>
+    <name>permissions_module</name>
     <version>0.1-SNAPSHOT</version>
     <licenses>
         <license>
