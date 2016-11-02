@@ -4,6 +4,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ public class UsersAPI implements UsersResource {
   private final Messages messages = Messages.getInstance();
   private final String USER_COLLECTION = "user";
   private static final String USER_ID_FIELD = "id";
+  private static final String USER_NAME_FIELD = "username";
   private final Logger logger = LoggerFactory.getLogger(UsersAPI.class);
   
   @Validate
@@ -83,28 +85,51 @@ public class UsersAPI implements UsersResource {
     try {
       vertxContext.runOnContext( v -> {
         try {
-          MongoCRUD.getInstance(vertxContext.owner()).save(USER_COLLECTION, entity,
-                  reply -> {
-                    try {
-                      User user = new User();
-                      user = entity;
-                      user.setId(reply.result());
-                      OutStream stream = new OutStream();
-                      stream.setData(user);
-                      asyncResultHandler.handle(Future.succeededFuture(
-                              PostUsersResponse.withJsonCreated(reply.result(),
-                                      stream)));
-                    } catch(Exception e) {
-                      asyncResultHandler.handle(Future.succeededFuture(
-                              PostUsersResponse.withPlainInternalServerError(
-                              messages.getMessage(lang,
-                                      MessageConsts.InternalServerError))));                    
-                    }
-                  });
+          JsonObject id_query = new JsonObject().put(USER_ID_FIELD, entity.getId());
+          JsonObject username_query = new JsonObject().put(USER_NAME_FIELD, entity.getUsername());
+          JsonObject query = new JsonObject().put("$or",
+                  new JsonArray().add(id_query).add(username_query));
+          JsonObject mcQuery = MongoCRUD.buildJson(User.class.getName(), 
+                  USER_COLLECTION, query);
+          MongoCRUD.getInstance(vertxContext.owner()).get(mcQuery, reply -> {
+            List<User> userList = (List<User>)reply.result();
+            if(userList.size() > 0) {
+              asyncResultHandler.handle(Future.succeededFuture(
+                      PostUsersResponse.withPlainBadRequest(
+                              messages.getMessage(
+                                      lang, MessageConsts.UnableToProcessRequest))));
+            } else {
+              try {
+                MongoCRUD.getInstance(vertxContext.owner()).save(USER_COLLECTION, entity,
+                        reply2 -> {
+                  try {
+                    User user = new User();
+                    user = entity;
+                    //user.setId(reply.result());
+                    user.setId(entity.getId());
+                    OutStream stream = new OutStream();
+                    stream.setData(user);
+                    asyncResultHandler.handle(Future.succeededFuture(
+                            PostUsersResponse.withJsonCreated(reply2.result(),
+                                    stream)));
+                  } catch(Exception e) {
+                    asyncResultHandler.handle(Future.succeededFuture(
+                            PostUsersResponse.withPlainInternalServerError(
+                            messages.getMessage(lang,
+                                    MessageConsts.InternalServerError))));                    
+                  }
+                });
+              } catch(Exception e) {
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PostUsersResponse.withPlainInternalServerError(
+                        messages.getMessage(lang, MessageConsts.InternalServerError))));            
+              }              
+            }
+          });
         } catch(Exception e) {
           asyncResultHandler.handle(Future.succeededFuture(
-                  PostUsersResponse.withPlainInternalServerError(
-                  messages.getMessage(lang, MessageConsts.InternalServerError))));            
+                        PostUsersResponse.withPlainInternalServerError(
+                        messages.getMessage(lang, MessageConsts.InternalServerError))));            
         }
       });
     } catch(Exception e) {
@@ -166,8 +191,10 @@ public class UsersAPI implements UsersResource {
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
+      JsonObject query = new JsonObject().put(USER_ID_FIELD, userId);
+      //The delete handler doesn't require a special buildJson query
       vertxContext.runOnContext(v-> {
-        MongoCRUD.getInstance(vertxContext.owner()).delete(USER_COLLECTION, userId,
+        MongoCRUD.getInstance(vertxContext.owner()).delete(USER_COLLECTION, query,
                 reply -> {
             if(reply.succeeded()) {
               if(reply.result().getRemovedCount() == 1) {

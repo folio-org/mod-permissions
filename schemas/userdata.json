@@ -3,10 +3,12 @@
     "type" : "object",
     "properties" : {
         "username" : {
-            "type" : "string"
+            "type" : "string",
+            "required" : true
         },
         "id" : {
-            "type" : "string"
+            "type" : "string",
+            "required" : true
         },
         "active" : {
             "type" : "boolean"
