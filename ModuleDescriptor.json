@@ -27,7 +27,7 @@
             "methods" : [ "PUT" ],
             "path" : "/users",
             "level" : "30",
-            "type" : "request-response"
+            "type" : "request-response",
             "permissionsRequired" : [ "users.edit" ]
         },
         {
