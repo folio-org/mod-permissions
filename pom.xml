@@ -143,6 +143,22 @@
                 </resources>
               </configuration>
             </execution>
+            <execution>
+              <id>copy-resources-2</id>
+              <phase>prepare-package</phase>
+              <goals>
+                <goal>copy-resources</goal>
+              </goals>
+              <configuration>
+                <outputDirectory>${basedir}/target/classes/apidocs/raml-util</outputDirectory>
+                <resources>
+                  <resource>
+                    <directory>${ramlfiles_util_path}</directory>
+                    <filtering>true</filtering>
+                  </resource>
+                </resources>
+              </configuration>
+            </execution>
           </executions>
         </plugin>
 
@@ -179,5 +195,6 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
+        <ramlfiles_util_path>${basedir}/raml-util</ramlfiles_util_path>
     </properties>
 </project>
