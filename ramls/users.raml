@@ -8,13 +8,13 @@ documentation:
     content: This documents the API calls that can be made to query and manage users of the system
 
 schemas:
-  - userdata: !include ../schemas/userdata.json
-  - userdataCollection: !include ../schemas/userdataCollection.json
+  - userdata: !include schemas/userdata.json
+  - userdataCollection: !include schemas/userdataCollection.json
 
 traits:
   - secured: !include ../raml-util/traits/auth.raml
   - orderable: !include ../raml-util/traits/orderable.raml
-  - pageable:  !include ../raml-util/traits/pageable.raml
+  - pageable: !include ../raml-util/traits/pageable.raml
   - searchable: !include ../raml-util/traits/searchable.raml
   - language: !include ../raml-util/traits/language.raml
 
@@ -27,8 +27,8 @@ resourceTypes:
 /users:
   type:
     collection:
-      exampleCollection: !include ../examples/user_collection.sample
-      exampleItem: !include ../examples/user.sample
+      exampleCollection: !include examples/user_collection.sample
+      exampleItem: !include examples/user.sample
       schemaCollection: userdataCollection
       schemaItem: userdata
   get:
@@ -43,7 +43,7 @@ resourceTypes:
   /{userId}:
     type:
       collection-item:
-        exampleItem: !include ../examples/user.sample
+        exampleItem: !include examples/user.sample
         schema: userdata
     get:
       description: Get a single user
