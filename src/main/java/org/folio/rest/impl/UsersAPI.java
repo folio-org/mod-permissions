@@ -43,7 +43,7 @@ public class UsersAPI implements UsersResource {
   private final Messages messages = Messages.getInstance();
   private final String USER_COLLECTION = "user";
   private static final String USER_ID_FIELD = "'id'";
-  private static final String USER_NAME_FIELD = "username";
+  private static final String USER_NAME_FIELD = "'username'";
   private static final String TABLE_NAME_USER = "user";
   private static final String OKAPI_HEADER_TENANT = "x-okapi-tenant";
   private final Logger logger = LoggerFactory.getLogger(UsersAPI.class);
@@ -140,14 +140,19 @@ public class UsersAPI implements UsersResource {
       vertxContext.runOnContext( v -> {
         try {
           String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_HEADER_TENANT));
-          Criteria c = new Criteria();
-          c.addField(USER_ID_FIELD);
-          c.setOperation("=");
-          c.setValue(entity.getId());
-          c.setJSONB(true);
+          Criteria idCrit = new Criteria();
+          idCrit.addField(USER_ID_FIELD);
+          idCrit.setOperation("=");
+          idCrit.setValue(entity.getId());
+          Criteria nameCrit = new Criteria();
+          nameCrit.addField(USER_NAME_FIELD);
+          nameCrit.setOperation("=");
+          nameCrit.setValue(entity.getUsername());
+          Criterion crit = new Criterion();
+          crit.addCriterion(idCrit, "OR", nameCrit);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tenantId + "." + TABLE_NAME_USER, 
-                  User.class, new Criterion(c), true, getReply -> { 
-              logger.debug("Attempting to get existing users of same id");
+                  User.class, crit, true, getReply -> { 
+              logger.debug("Attempting to get existing users of same id and/or username");
               if(getReply.failed()) {
                 logger.debug("Attempt to get users failed: " + getReply.cause().getMessage());
                 asyncResultHandler.handle(Future.succeededFuture(
@@ -205,55 +210,6 @@ public class UsersAPI implements UsersResource {
                         PostUsersResponse.withPlainInternalServerError(
                         messages.getMessage(lang, MessageConsts.InternalServerError))));
         }
-        /*
-        try {
-          JsonObject id_query = new JsonObject().put(USER_ID_FIELD, entity.getId());
-          JsonObject username_query = new JsonObject().put(USER_NAME_FIELD, entity.getUsername());
-          JsonObject query = new JsonObject().put("$or",
-                  new JsonArray().add(id_query).add(username_query));
-          JsonObject mcQuery = MongoCRUD.buildJson(User.class.getName(), 
-                  USER_COLLECTION, query);
-          MongoCRUD.getInstance(vertxContext.owner()).get(mcQuery, reply -> {
-            List<User> userList = (List<User>)reply.result();
-            if(userList.size() > 0) {
-              asyncResultHandler.handle(Future.succeededFuture(
-                      PostUsersResponse.withPlainBadRequest(
-                              messages.getMessage(
-                                      lang, MessageConsts.UnableToProcessRequest))));
-            } else {
-              try {
-                MongoCRUD.getInstance(vertxContext.owner()).save(USER_COLLECTION, entity,
-                        reply2 -> {
-                  try {
-                    User user = new User();
-                    user = entity;
-                    //user.setId(reply.result());
-                    user.setId(entity.getId());
-                    OutStream stream = new OutStream();
-                    stream.setData(user);
-                    asyncResultHandler.handle(Future.succeededFuture(
-                            PostUsersResponse.withJsonCreated(reply2.result(),
-                                    stream)));
-                  } catch(Exception e) {
-                    asyncResultHandler.handle(Future.succeededFuture(
-                            PostUsersResponse.withPlainInternalServerError(
-                            messages.getMessage(lang,
-                                    MessageConsts.InternalServerError))));                    
-                  }
-                });
-              } catch(Exception e) {
-                asyncResultHandler.handle(Future.succeededFuture(
-                        PostUsersResponse.withPlainInternalServerError(
-                        messages.getMessage(lang, MessageConsts.InternalServerError))));            
-              }              
-            }
-          });
-        } catch(Exception e) {
-          asyncResultHandler.handle(Future.succeededFuture(
-                        PostUsersResponse.withPlainInternalServerError(
-                        messages.getMessage(lang, MessageConsts.InternalServerError))));            
-        }
-        */
       });
     } catch(Exception e) {
       asyncResultHandler.handle(Future.succeededFuture(
@@ -269,6 +225,43 @@ public class UsersAPI implements UsersResource {
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
      try {
+       vertxContext.runOnContext(v -> {
+         try {
+           String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_HEADER_TENANT));
+           Criteria idCrit = new Criteria();
+           idCrit.addField(USER_ID_FIELD);
+           idCrit.setOperation("=");
+           idCrit.setValue(userId);
+           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tenantId + "." + TABLE_NAME_USER, User.class, new Criterion(idCrit), true, getReply -> {
+             if(getReply.failed()) {
+               asyncResultHandler.handle(Future.succeededFuture(GetUsersByUserIdResponse.withPlainInternalServerError(messages.getMessage(lang, MessageConsts.InternalServerError))));
+             } else {
+               List<User> userList = (List<User>)getReply.result()[0];
+               if(userList.size() < 1) {
+                 asyncResultHandler.handle(Future.succeededFuture(
+                        GetUsersByUserIdResponse.withPlainNotFound("User" + 
+                                messages.getMessage(lang, 
+                                        MessageConsts.ObjectDoesNotExist))));
+               } else if(userList.size() > 1) {
+                 logger.debug("Multiple users found with the same id");
+                 asyncResultHandler.handle(Future.succeededFuture(
+                      GetUsersByUserIdResponse.withPlainInternalServerError(
+                              messages.getMessage(lang,
+                                      MessageConsts.InternalServerError))));
+               } else {
+                 asyncResultHandler.handle(Future.succeededFuture(
+                        GetUsersByUserIdResponse.withJsonOK(userList.get(0))));
+               }
+             }
+           });
+         } catch(Exception e) {
+           logger.debug("Error occurred: " + e.getMessage());
+           asyncResultHandler.handle(Future.succeededFuture(
+                  GetUsersResponse.withPlainInternalServerError(messages.getMessage(
+                          lang, MessageConsts.InternalServerError))));           
+         }
+       });
+       /*
       vertxContext.runOnContext( v -> {
         try {
           JsonObject query = new JsonObject().put(USER_ID_FIELD, userId);
@@ -300,6 +293,7 @@ public class UsersAPI implements UsersResource {
                           lang, MessageConsts.InternalServerError))));
         }
       });
+      */
     } catch(Exception e) {
       asyncResultHandler.handle(Future.succeededFuture(
               GetUsersResponse.withPlainInternalServerError(messages.getMessage(
@@ -314,6 +308,35 @@ public class UsersAPI implements UsersResource {
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
+      vertxContext.runOnContext(v-> {
+        try {
+          String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_HEADER_TENANT));
+          Criteria idCrit = new Criteria();
+          idCrit.addField(USER_ID_FIELD);
+          idCrit.setOperation("=");
+          idCrit.setValue(userId);
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(tenantId + "." + TABLE_NAME_USER, new Criterion(idCrit), deleteReply -> {
+            if(deleteReply.failed()) {
+             
+            } else {
+              if(deleteReply.result().getRemovedCount() == 0) {
+                
+              } else if(deleteReply.result().getRemovedCount > 1) {
+                
+              } else {
+                
+              }             
+            }
+          });
+        } catch(Exception e) {
+          
+        }
+      });
+     } catch(Exception e) {
+     }
+  
+      
+      /*
       JsonObject query = new JsonObject().put(USER_ID_FIELD, userId);
       //The delete handler doesn't require a special buildJson query
       vertxContext.runOnContext(v-> {
@@ -340,6 +363,7 @@ public class UsersAPI implements UsersResource {
           }
         );
       });
+      */
     } catch(Exception e) {
       asyncResultHandler.handle(
             Future.succeededFuture(
