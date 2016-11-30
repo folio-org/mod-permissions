@@ -24,6 +24,12 @@ import org.folio.rest.tools.messages.MessageConsts;
 import org.folio.rest.tools.utils.OutStream;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.tools.utils.TenantTool;
 
 
 
@@ -36,8 +42,10 @@ public class UsersAPI implements UsersResource {
 
   private final Messages messages = Messages.getInstance();
   private final String USER_COLLECTION = "user";
-  private static final String USER_ID_FIELD = "id";
+  private static final String USER_ID_FIELD = "'id'";
   private static final String USER_NAME_FIELD = "username";
+  private static final String TABLE_NAME_USER = "user";
+  private static final String OKAPI_HEADER_TENANT = "x-okapi-tenant";
   private final Logger logger = LoggerFactory.getLogger(UsersAPI.class);
   
   @Validate
@@ -48,6 +56,51 @@ public class UsersAPI implements UsersResource {
           Handler<AsyncResult<Response>> asyncResultHandler, 
           Context vertxContext) throws Exception {
     logger.debug("Getting users");
+    try {
+      vertxContext.runOnContext(v -> {
+        try {
+          String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_HEADER_TENANT));
+          Criterion criterion = Criterion.json2Criterion(query);
+          criterion.setLimit(new Limit(limit)).setOffset(new Offset(offset));
+          logger.debug("Headers present are: " + okapiHeaders.keySet().toString());
+          logger.debug("Using criterion: " + criterion.toString());
+          logger.debug("tenantId = " + tenantId);
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tenantId + "." + TABLE_NAME_USER,
+                  User.class, criterion, true, reply -> {
+            try {
+              if(reply.succeeded()) {
+                UserdataCollection userCollection = new UserdataCollection();
+                List<User> users = (List<User>)reply.result()[0];
+                userCollection.setUsers(users);
+                userCollection.setTotalRecords(users.size());
+                asyncResultHandler.handle(Future.succeededFuture(
+                        GetUsersResponse.withJsonOK(userCollection)));
+              } else {
+                asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
+                        GetUsersResponse.withPlainInternalServerError(
+                                reply.cause().getMessage())));
+              }
+            } catch(Exception e) {
+              asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
+                        GetUsersResponse.withPlainInternalServerError(
+                                reply.cause().getMessage())));
+            }            
+          });
+        } catch(Exception e) {
+          asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
+                        GetUsersResponse.withPlainInternalServerError(
+                                messages.getMessage(lang,
+                                        MessageConsts.InternalServerError))));
+        }
+      });
+    } catch(Exception e) {
+      logger.debug(e.getMessage());
+      asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
+                        GetUsersResponse.withPlainInternalServerError(
+                                messages.getMessage(lang,
+                                        MessageConsts.InternalServerError))));
+    }
+    /*
     try {
       vertxContext.runOnContext( v -> {
         try {
@@ -74,6 +127,7 @@ public class UsersAPI implements UsersResource {
               GetUsersResponse.withPlainInternalServerError(messages.getMessage(
                       lang, MessageConsts.InternalServerError))));
     }
+  */
   }
 
   @Validate
@@ -84,6 +138,74 @@ public class UsersAPI implements UsersResource {
           Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext( v -> {
+        try {
+          String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_HEADER_TENANT));
+          Criteria c = new Criteria();
+          c.addField(USER_ID_FIELD);
+          c.setOperation("=");
+          c.setValue(entity.getId());
+          c.setJSONB(true);
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tenantId + "." + TABLE_NAME_USER, 
+                  User.class, new Criterion(c), true, getReply -> { 
+              logger.debug("Attempting to get existing users of same id");
+              if(getReply.failed()) {
+                logger.debug("Attempt to get users failed: " + getReply.cause().getMessage());
+                asyncResultHandler.handle(Future.succeededFuture(
+                              PostUsersResponse.withPlainInternalServerError(
+                                      getReply.cause().getMessage())));
+              } else {
+                List<User> userList = (List<User>)getReply.result()[0];
+                if(userList.size() > 0) {
+                  logger.debug("User with this id already exists");
+                  asyncResultHandler.handle(Future.succeededFuture(
+                          PostUsersResponse.withPlainBadRequest(
+                                  messages.getMessage(
+                                          lang, MessageConsts.UnableToProcessRequest))));
+                  //uh oh
+                } else {   
+                  PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+                  postgresClient.startTx(beginTx -> {
+                    logger.debug("Attempting to save new record");
+                    try {
+                      postgresClient.save(beginTx, tenantId + "." + TABLE_NAME_USER, entity, reply -> {
+                        try {
+                          if(reply.succeeded()) {
+                            logger.debug("Save successful");
+                            final User user = entity;
+                            user.setId(entity.getId());
+                            OutStream stream = new OutStream();
+                            stream.setData(user);
+                            postgresClient.endTx(beginTx, done -> {
+                              asyncResultHandler.handle(Future.succeededFuture(PostUsersResponse.withJsonCreated(reply.result(), stream)));
+                            });
+                          } else {
+                            asyncResultHandler.handle(Future.succeededFuture(
+                                    PostUsersResponse.withPlainBadRequest(
+                                            messages.getMessage(
+                                                    lang, MessageConsts.UnableToProcessRequest))));
+
+                          }
+                        } catch(Exception e) {
+                          asyncResultHandler.handle(Future.succeededFuture(
+                              PostUsersResponse.withPlainInternalServerError(
+                                      e.getMessage())));
+                        }
+                      });
+                    } catch(Exception e) {
+                      asyncResultHandler.handle(Future.succeededFuture(
+                              PostUsersResponse.withPlainInternalServerError(
+                                      getReply.cause().getMessage())));
+                    }
+                  });
+                }
+             }
+            });         
+        } catch(Exception e) {
+          asyncResultHandler.handle(Future.succeededFuture(
+                        PostUsersResponse.withPlainInternalServerError(
+                        messages.getMessage(lang, MessageConsts.InternalServerError))));
+        }
+        /*
         try {
           JsonObject id_query = new JsonObject().put(USER_ID_FIELD, entity.getId());
           JsonObject username_query = new JsonObject().put(USER_NAME_FIELD, entity.getUsername());
@@ -131,6 +253,7 @@ public class UsersAPI implements UsersResource {
                         PostUsersResponse.withPlainInternalServerError(
                         messages.getMessage(lang, MessageConsts.InternalServerError))));            
         }
+        */
       });
     } catch(Exception e) {
       asyncResultHandler.handle(Future.succeededFuture(
