@@ -44,10 +44,16 @@ public class UsersAPI implements UsersResource {
   private final String USER_COLLECTION = "user";
   private static final String USER_ID_FIELD = "'id'";
   private static final String USER_NAME_FIELD = "'username'";
-  private static final String TABLE_NAME_USER = "users.user";
+  private static final String TABLE_NAME_USER = "user";
   private static final String OKAPI_HEADER_TENANT = "x-okapi-tenant";
   private final Logger logger = LoggerFactory.getLogger(UsersAPI.class);
   
+  
+  private String getTableName(String tenantId, String tableBase) {
+    //This hardly deserves to be a method, but since details may change, I'm
+    //trying to keep it flexible
+    return "tenantId" + "." + tableBase;
+  }
   
   private void initDB(Context vertxContext, String tenantId, String tableName, Handler<AsyncResult> initHandler) {
     String[] parts = tableName.split("\\.");
@@ -86,15 +92,16 @@ public class UsersAPI implements UsersResource {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_HEADER_TENANT));
+        String tableName = getTableName(tenantId, TABLE_NAME_USER);
         Criterion criterion = Criterion.json2Criterion(query);
         criterion.setLimit(new Limit(limit)).setOffset(new Offset(offset));
         logger.debug("Headers present are: " + okapiHeaders.keySet().toString());
         logger.debug("Using criterion: " + criterion.toString());
         logger.debug("tenantId = " + tenantId);
-        initDB(vertxContext, tenantId, TABLE_NAME_USER, init-> {
+        initDB(vertxContext, tenantId, tableName, init-> {
           if(init.succeeded()) {
             try {          
-              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_USER,
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tableName,
                       User.class, criterion, true, false, reply -> {
                 try {
                   if(reply.succeeded()) {
@@ -158,10 +165,11 @@ public class UsersAPI implements UsersResource {
         nameCrit.setValue(entity.getUsername());
         Criterion crit = new Criterion();
         crit.addCriterion(idCrit, "OR", nameCrit);
-        initDB(vertxContext, tenantId, TABLE_NAME_USER, init-> {
+        String tableName = getTableName(tenantId, TABLE_NAME_USER);
+        initDB(vertxContext, tenantId, tableName, init-> {
           if(init.succeeded()) {
             try {
-              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_USER, 
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tableName, 
                       User.class, crit, true, getReply -> { 
                   logger.debug("Attempting to get existing users of same id and/or username");
                   if(getReply.failed()) {
@@ -183,7 +191,7 @@ public class UsersAPI implements UsersResource {
                       postgresClient.startTx(beginTx -> {
                         logger.debug("Attempting to save new record");
                         try {
-                          postgresClient.save(beginTx, TABLE_NAME_USER, entity, reply -> {
+                          postgresClient.save(beginTx, tableName, entity, reply -> {
                             try {
                               if(reply.succeeded()) {
                                 logger.debug("Save successful");
@@ -249,10 +257,11 @@ public class UsersAPI implements UsersResource {
         idCrit.addField(USER_ID_FIELD);
         idCrit.setOperation("=");
         idCrit.setValue(userId);
-        initDB(vertxContext, tenantId, TABLE_NAME_USER, init-> {
+        String tableName = getTableName(tenantId, TABLE_NAME_USER);
+        initDB(vertxContext, tenantId, tableName, init-> {
           if(init.succeeded()) {
             try {
-               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_USER, User.class, new Criterion(idCrit),
+               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tableName, User.class, new Criterion(idCrit),
                        true, false, getReply -> {
                  if(getReply.failed()) {
                    asyncResultHandler.handle(Future.succeededFuture(
@@ -310,10 +319,12 @@ public class UsersAPI implements UsersResource {
         idCrit.addField(USER_ID_FIELD);
         idCrit.setOperation("=");
         idCrit.setValue(userId);
-        initDB(vertxContext, tenantId, TABLE_NAME_USER, init-> {
+        String tableName = getTableName(tenantId, TABLE_NAME_USER);
+        initDB(vertxContext, tenantId, tableName, init-> {
           if(init.succeeded()) {
             try {
-              PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_USER, new Criterion(idCrit), deleteReply -> {
+              PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(
+                      tableName, new Criterion(idCrit), deleteReply -> {
                 if(deleteReply.failed()) {
                   logger.debug("Delete failed: " + deleteReply.cause().getMessage());
                   asyncResultHandler.handle(Future.succeededFuture(
@@ -364,15 +375,19 @@ public class UsersAPI implements UsersResource {
         idCrit.addField(USER_ID_FIELD);
         idCrit.setOperation("=");
         idCrit.setValue(userId);
-        initDB(vertxContext, tenantId, TABLE_NAME_USER, init-> {
+        String tableName = getTableName(tenantId, TABLE_NAME_USER);
+        initDB(vertxContext, tenantId, tableName, init-> {
           if(init.succeeded()) {
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_USER, entity, new Criterion(idCrit), true, putReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).update(
+                  tableName, entity, new Criterion(idCrit), true, putReply -> {
             try {
               if(putReply.failed()) {
-                asyncResultHandler.handle(Future.succeededFuture(PutUsersByUserIdResponse.withPlainInternalServerError(putReply.cause().getMessage())));
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PutUsersByUserIdResponse.withPlainInternalServerError(putReply.cause().getMessage())));
               } else {
-                asyncResultHandler.handle(Future.succeededFuture(PutUsersByUserIdResponse.withNoContent()));
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PutUsersByUserIdResponse.withNoContent()));
               }
             } catch(Exception e) {
               asyncResultHandler.handle(Future.succeededFuture(
