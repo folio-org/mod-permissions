@@ -52,7 +52,7 @@ public class UsersAPI implements UsersResource {
   private String getTableName(String tenantId, String tableBase) {
     //This hardly deserves to be a method, but since details may change, I'm
     //trying to keep it flexible
-    return "tenantId" + "." + tableBase;
+    return tenantId + "." + tableBase;
   }
   
   private void initDB(Context vertxContext, String tenantId, String tableName, Handler<AsyncResult> initHandler) {
@@ -257,11 +257,13 @@ public class UsersAPI implements UsersResource {
         idCrit.addField(USER_ID_FIELD);
         idCrit.setOperation("=");
         idCrit.setValue(userId);
+        Criterion criterion = new Criterion(idCrit);
+        logger.debug("Using criterion: " + criterion.toString());
         String tableName = getTableName(tenantId, TABLE_NAME_USER);
         initDB(vertxContext, tenantId, tableName, init-> {
           if(init.succeeded()) {
             try {
-               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tableName, User.class, new Criterion(idCrit),
+               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(tableName, User.class, criterion,
                        true, false, getReply -> {
                  if(getReply.failed()) {
                    asyncResultHandler.handle(Future.succeededFuture(
