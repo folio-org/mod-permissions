@@ -7,6 +7,10 @@ documentation:
     title: mod-auth permissions API
     content: This module is responsible for managing and retrieving permissions in the FOLIO system
 
+schemas:
+    - permissionUser: !include ../schemas/user.json
+    - permissionUserList: !include ../schemas/userList.json
+
 /perms:
     /users:
         get:
@@ -24,6 +28,9 @@ documentation:
                         text/plain
         post:
             description: Add a new user
+            body:
+                application/json:
+                    schema: permissionUser
             responses:
                 201:
                     body:
@@ -36,8 +43,184 @@ documentation:
                     body:
                         text/plain
         /{username}:
+            get:
+                description: Get a permission user
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                schema: permissionUser
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                            text/plain
+            put:
+                description: Modify an existing user
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                schema: permissionUser
+                    400:
+                        body:
+                            text/plain
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                                text/plain
+            delete:
+                description: Remove a user
+                responses:
+                    204:
+                        body:
+                            text/plain
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                            text/plain
             /permissions:
+                get:
+                    description: Get a list of permissions for a user
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    schema: permissionNameList
+                        400:
+                            body:
+                                text/plain
+                        500:
+                            body:
+                                text/plain
+                post:
+                    description: Add a permission to a user
+                    body:
+                        application/json:
+                            schema: permissionName
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    schema: permissionName
+                        400:
+                            body:
+                                text/plain
+                        500:
+                            body:
+                                text/plain
+                /{permissionname}:
+                    delete:
+                        description: Remove a permission from a user
+                        responses:
+                            204:
+                                body:
+                                    text/plain
+                            404:
+                                body:
+                                    text/plain
+                            500:
+                                body:
+                                    text/plain
+
     /permissions:
+        get:
+            description: Get a list of existing permissions
+            responses:
+                200:
+                    body:
+                        application/json:
+                            schema: permissionList
+                400:
+                    body:
+                        text/plain
+                500:
+                    body:
+                        text/plain
+        post:
+            description: Add a new permission
+            body:
+                application/json:
+                    schema: permission
+            responses:
+                201:
+                    body:
+                        application/json:
+                            schema:
+                                permission
+                400:
+                    body:
+                        text/plain
+                500:
+                    body:
+                        text/plain
         /{permissionname}:
-            /{subpermissionname}:
+            get:
+                description: Get an existing permission by name
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                schema: permission
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                            text/plain
+            put:
+                description: Modify an existing permission
+                body:
+                    application/json:
+                        schema: permission
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                schema: permission
+                    400:
+                        body:
+                            text/plain
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                            text/plain
+            patch:
+                description: Modify an existing permission piecemeal
+                body:
+                    application/json:
+                        schema: permission-patch
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                schema: permission
+                    400:
+                        body:
+                            text/plain
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                            text/plain
+            delete:
+                description: Remove a permission
+                responses:
+                    204:
+                        body:
+                            text/plain
+                    404:
+                        body:
+                            text/plain
+                    500:
+                        body:
+                            text/plain
 
