@@ -9,7 +9,7 @@ Module to provide central user management for FOLIO systems.
 
 This module is built using the raml-module-builder framework.
 
-# Additional information
+## Additional information
 
 The [raml-module-builder](https://github.com/folio-org/raml-module-builder) framework.
 
