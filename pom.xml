@@ -31,12 +31,12 @@
       <dependency>
         <groupId>org.folio</groupId>
         <artifactId>domain-models-api-interfaces</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.1-mongo</version>
       </dependency>
       <dependency>
         <groupId>org.folio</groupId>
         <artifactId>domain-models-runtime</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.1-mongo</version>
       </dependency>
     </dependencies>
     <build>
@@ -78,6 +78,22 @@
                 </systemProperties>
               </configuration>
             </execution>
+            <execution>
+              <id>git submodule update</id>
+              <phase>initialize</phase>
+              <configuration>
+                <executable>git</executable>
+                <arguments>
+                  <argument>submodule</argument>
+                  <argument>update</argument>
+                  <argument>--init</argument>
+                  <argument>--recursive</argument>
+                </arguments>
+              </configuration>
+              <goals>
+                <goal>exec</goal>
+              </goals>
+            </execution> 
           </executions>
         </plugin>
 
@@ -188,8 +204,28 @@
             </execution>
           </executions>
         </plugin>      
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>2.5.3</version>
+          <configuration>
+            <preparationGoals>clean verify</preparationGoals>
+            <tagNameFormat>v@{project.version}</tagNameFormat>
+            <pushChanges>false</pushChanges>
+            <localCheckout>true</localCheckout>
+          </configuration>
+        </plugin>
       </plugins>
     </build>
+
+    <scm>
+      <url>https://github.com/folio-org/mod-users</url>
+      <connection>scm:git:git://github.com:folio-org/mod-users.git</connection>
+      <developerConnection>scm:git:git@github.com:folio-org/mod-users.git</developerConnection> 
+      <tag>HEAD</tag>
+    </scm>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
