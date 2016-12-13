@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.indexdata</groupId>
+    <groupId>org.folio</groupId>
     <artifactId>mod-users</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -31,12 +31,12 @@
       <dependency>
         <groupId>org.folio</groupId>
         <artifactId>domain-models-api-interfaces</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.1-mongo</version>
       </dependency>
       <dependency>
         <groupId>org.folio</groupId>
         <artifactId>domain-models-runtime</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.1-mongo</version>
       </dependency>
     </dependencies>
     <build>
@@ -78,6 +78,22 @@
                 </systemProperties>
               </configuration>
             </execution>
+            <execution>
+              <id>git submodule update</id>
+              <phase>initialize</phase>
+              <configuration>
+                <executable>git</executable>
+                <arguments>
+                  <argument>submodule</argument>
+                  <argument>update</argument>
+                  <argument>--init</argument>
+                  <argument>--recursive</argument>
+                </arguments>
+              </configuration>
+              <goals>
+                <goal>exec</goal>
+              </goals>
+            </execution> 
           </executions>
         </plugin>
 
@@ -188,8 +204,45 @@
             </execution>
           </executions>
         </plugin>      
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>2.5.3</version>
+          <configuration>
+            <preparationGoals>clean verify</preparationGoals>
+            <tagNameFormat>v@{project.version}</tagNameFormat>
+            <pushChanges>false</pushChanges>
+            <localCheckout>true</localCheckout>
+          </configuration>
+        </plugin>
       </plugins>
     </build>
+
+    <distributionManagement>
+      <repository>
+        <id>folio-nexus</id>
+        <name>FOLIO Release Repository</name>
+        <url>https://repository.folio.org/repository/maven-releases/</url>
+        <uniqueVersion>false</uniqueVersion>
+        <layout>default</layout>
+      </repository>
+      <snapshotRepository>
+        <id>folio-nexus</id>
+        <name>FOLIO Snapshot Repository</name>
+        <uniqueVersion>true</uniqueVersion>
+        <url>https://repository.folio.org/repository/maven-snapshots/</url>
+        <layout>default</layout>
+      </snapshotRepository>
+    </distributionManagement>
+
+    <scm>
+      <url>https://github.com/folio-org/mod-users</url>
+      <connection>scm:git:git://github.com:folio-org/mod-users.git</connection>
+      <developerConnection>scm:git:git@github.com:folio-org/mod-users.git</developerConnection> 
+      <tag>HEAD</tag>
+    </scm>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
