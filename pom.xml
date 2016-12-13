@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.folio</groupId>
     <artifactId>mod-users</artifactId>
-    <version>0.1-mongo</version>
+    <version>1.1.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <licenses>
@@ -239,7 +239,7 @@
       <url>https://github.com/folio-org/mod-users</url>
       <connection>scm:git:git://github.com:folio-org/mod-users.git</connection>
       <developerConnection>scm:git:git@github.com:folio-org/mod-users.git</developerConnection> 
-      <tag>v0.1-mongo</tag>
+      <tag>HEAD</tag>
     </scm>
 
     <properties>
