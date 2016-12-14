@@ -18,7 +18,6 @@ import org.folio.rest.jaxrs.resource.UsersResource.GetUsersResponse;
 import org.folio.rest.jaxrs.resource.UsersResource.PostUsersResponse;
 import org.folio.rest.jaxrs.resource.UsersResource.PutUsersByUserIdResponse;
 import org.folio.rest.jaxrs.resource.UsersResource.DeleteUsersByUserIdResponse;
-import org.folio.rest.persist.MongoCRUD;
 import org.folio.rest.tools.messages.Messages;
 import org.folio.rest.tools.messages.MessageConsts;
 import org.folio.rest.tools.utils.OutStream;
