@@ -36,7 +36,7 @@
       <dependency>
         <groupId>org.folio</groupId>
         <artifactId>domain-models-runtime</artifactId>
-        <version>0.0.1-mongo</version>
+        <version>1.1.1-SNAPSHOT</version>
       </dependency>
     </dependencies>
     <build>

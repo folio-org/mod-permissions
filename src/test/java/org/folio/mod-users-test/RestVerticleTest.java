@@ -10,7 +10,7 @@ import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.rest.RestVerticle;
-import org.folio.rest.persist.MongoCRUD;
+import org.folio.rest.persist.PostgresClient;
 import org.junit.AfterClass;
 import org.junit.Test;
 
@@ -29,9 +29,11 @@ public class RestVerticleTest {
     port = NetworkUtils.nextFreePort();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-      MongoCRUD.setIsEmbedded(true);
+      PostgresClient.setIsEmbedded(true);
+      //MongoCRUD.setIsEmbedded(true);
       try {
-        MongoCRUD.getInstance(vertx).startEmbeddedMongo();
+        //MongoCRUD.getInstance(vertx).startEmbeddedMongo();
+        PostgresClient.getInstance(vertx).startEmbeddedPostgres();
       } catch(Exception e) {
         e.printStackTrace();
       }
