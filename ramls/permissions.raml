@@ -15,6 +15,23 @@ schemas:
     /users:
         get:
             description: Get a list of users
+            queryParameters:
+                query:
+                    description: "A query string to filter users based on matching criteria in fields."
+                    required: false
+                    type: string
+                length:
+                    description: "The maximum number of results to return."
+                    required: false
+                    type: number
+                start:
+                    description: "The starting index in a list of results (starts at one)."
+                    required: false
+                    type: number
+                hasPermissions:
+                    description: "A list of permissions that any returned users must possess."
+                    required: false
+                    type: string
             responses:
                 200:
                     body:
@@ -85,29 +102,14 @@ schemas:
                         body:
                             text/plain
             /permissions:
-                get:
-                    description: Get a list of permissions for a user
-                    responses:
-                        200:
-                            body:
-                                application/json:
-                                    schema: permissionNameList
-                        400:
-                            body:
-                                text/plain
-                        500:
-                            body:
-                                text/plain
                 post:
                     description: Add a permission to a user
                     body:
-                        application/json:
-                            schema: permissionName
+                        text/plain
                     responses:
                         200:
                             body:
-                                application/json:
-                                    schema: permissionName
+                                text/plain
                         400:
                             body:
                                 text/plain
@@ -127,15 +129,36 @@ schemas:
                             500:
                                 body:
                                     text/plain
-
     /permissions:
         get:
             description: Get a list of existing permissions
+            queryParameters:
+                query:
+                    description: "A query string to filter permissions based on matching criteria in fields."
+                    required: false
+                    type: string
+                length:
+                    description: "The maximum number of results to return."
+                    required: false
+                    type: number
+                start:
+                    description: "The starting index in a list of results (starts at one)."
+                    required: false
+                    type: number
+                memberOf:
+                    description: "A list of permission names that any returned permissions must be a sub-permission of."
+                    required: false
+                    type: string
+                ownedBy:
+                    description: "A list of user names that any returned permissions must belong to."
+                    required: false
+                    type: string
+
             responses:
                 200:
                     body:
                         application/json:
-                            schema: permissionList
+                            schema: permissionListObject
                 400:
                     body:
                         text/plain
