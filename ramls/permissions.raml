@@ -4,12 +4,15 @@ version: v1
 baseUri: http://github.com/org/folio/mod-auth/permissions
 
 documentation:
-    title: mod-auth permissions API
-    content: This module is responsible for managing and retrieving permissions in the FOLIO system
+    - title: mod-auth permissions API
+      content: This module is responsible for managing and retrieving permissions in the FOLIO system
 
 schemas:
-    - permissionUser: !include ../schemas/user.json
-    - permissionUserList: !include ../schemas/userList.json
+    - permission: !include ../schemas/permission.json
+    - permission-patch: !include ../schemas/permission.json
+    - permissionListObject: !include ../schemas/permissionListObject.json
+    - permissionUser: !include ../schemas/permissionUser.json
+    - permissionUserListObject: !include ../schemas/permissionUserListObject.json
 
 /perms:
     /users:
@@ -23,11 +26,19 @@ schemas:
                 length:
                     description: "The maximum number of results to return."
                     required: false
-                    type: number
+                    type: integer
+                    minimum: 0
+                    maximum: 1000
                 start:
                     description: "The starting index in a list of results (starts at one)."
                     required: false
-                    type: number
+                    type: integer
+                    minimum: 0
+                    maximum: 5000
+                sortBy:
+                    description: "A comma-separated list of fieldnames to sort by"
+                    required: false
+                    type: string
                 hasPermissions:
                     description: "A list of permissions that any returned users must possess."
                     required: false
@@ -36,7 +47,7 @@ schemas:
                 200:
                     body:
                         application/json:
-                            schema: permissionUserList
+                            schema: permissionUserListObject
                 400:
                     body:
                         text/plain
@@ -140,11 +151,19 @@ schemas:
                 length:
                     description: "The maximum number of results to return."
                     required: false
-                    type: number
+                    type: integer
+                    minimum: 0
+                    maximum: 1000
                 start:
                     description: "The starting index in a list of results (starts at one)."
                     required: false
-                    type: number
+                    type: integer
+                    minimum: 0
+                    maximum: 5000
+                sortBy:
+                    description: "A comma-separated list of fieldnames to sort by"
+                    required: false
+                    type: string
                 memberOf:
                     description: "A list of permission names that any returned permissions must be a sub-permission of."
                     required: false

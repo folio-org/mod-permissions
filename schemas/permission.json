@@ -1,0 +1,26 @@
+{
+    "title" : "Permissions Definition Schema",
+    "type" : "object",
+    "properties" : {
+        "permission_name" : {
+            "type" : "string"
+        },
+        "tenant" : {
+            "type" : "string"
+        },
+        "description" : {
+            "type" : "string"
+        },
+        "tags" : {
+            "type" : "array",
+            "items" : { "type" : "string" }
+        },
+        "sub_permissions" : {
+            "type" : "array",
+            "items" : { "type" : "string" }
+        },
+        "mutable" : {
+            "type" : "boolean"
+        }
+    }
+}
