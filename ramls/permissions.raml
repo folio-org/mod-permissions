@@ -49,11 +49,16 @@ schemas:
                         application/json:
                             schema: permissionUserListObject
                 400:
+                    description: "Bad request"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Bad request"
+                        
                 500:
+                    description: "Internal server error"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Internal server error"
         post:
             description: Add a new user
             body:

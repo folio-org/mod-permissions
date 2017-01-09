@@ -11,14 +11,17 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import java.util.List;
 import java.util.Map;
 import javax.ws.rs.core.Response;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionPatch;
 import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.model.PermissionUserListObject;
 import org.folio.rest.jaxrs.resource.PermsResource;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.messages.MessageConsts;
 import org.folio.rest.tools.messages.Messages;
@@ -53,23 +56,42 @@ public class PermsAPI implements PermsResource {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         String[] fieldList = {"*"};
         try {
-          
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+                  TABLE_NAME_PERMS, PermissionUser.class, fieldList, cql, true,
+                  false, reply -> {
+            try {
+              if(reply.succeeded()) {
+                PermissionUserListObject permUserCollection = new PermissionUserListObject();
+                List<PermissionUser> permissionUsers = (List<PermissionUser>)reply.result()[0];
+                permUserCollection.setPermissionUsers(permissionUsers);
+                permUserCollection.setTotalRecords(permissionUsers.size());
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withJsonOK(permUserCollection)));
+              } else {
+                asyncResultHandler.handle(Future.succeededFuture(
+                        GetPermsUsersResponse.withPlainInternalServerError(
+                                reply.cause().getLocalizedMessage())));
+              }
+            } catch(Exception e) {
+              logger.debug("Error building response from reply: " + e.getLocalizedMessage());
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+            }
+          });
         } catch(Exception e) {
           if(e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
-                logger.debug("BAD CQL");
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withBadRequest() withPlainBadRequest(
+                logger.debug("BAD CQL:" + e.getLocalizedMessage());
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withPlainBadRequest(
                         "CQL Parsing Error for '" + query + "': " + e.getLocalizedMessage())));
               } else {
                 asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                              GetPermsUsersResponse.withInternalServerError()));
+                              GetPermsUsersResponse.withPlainInternalServerError("Internal server error")));
               }
         }
       });      
     } catch(Exception e) {
+      logger.debug("Error running vertx on context:" + e.getLocalizedMessage());
       asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                        GetPermsUsersResponse.withInternalServerError()));
+                        GetPermsUsersResponse.withPlainInternalServerError("Internal server error")));
     }
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
   @Override
