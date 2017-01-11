@@ -70,11 +70,15 @@ schemas:
                         application/json:
                             schema: permissionUser
                 400:
+                    description: "Bad request"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Bad request"
                 500:
+                    description: "Internal server error"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Internal server error"
         /{username}:
             get:
                 description: Get a permission user
@@ -84,11 +88,15 @@ schemas:
                             application/json:
                                 schema: permissionUser
                     404:
+                        description: "User not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "User does not exist"
                     500:
+                        description: "Internal server error"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Internal server error"
             put:
                 description: Modify an existing user
                 responses:
@@ -97,14 +105,20 @@ schemas:
                             application/json:
                                 schema: permissionUser
                     400:
+                        description: "Bad request"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Bad request"
                     404:
+                        description: "User not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "User not found"
                     500:
+                        description: "Internal server error"
                         body:
-                                text/plain
+                            text/plain:
+                                example: "Internal server error"
             delete:
                 description: Remove a user
                 responses:
@@ -112,11 +126,15 @@ schemas:
                         body:
                             text/plain
                     404:
+                        description: "User not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "User not found"
                     500:
+                        description: "Internal server error"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Internal server error"
             /permissions:
                 post:
                     description: Add a permission to a user
@@ -124,14 +142,20 @@ schemas:
                         text/plain
                     responses:
                         200:
+                            description: "The added permission"
                             body:
-                                text/plain
+                                text/plain:
+                                    example: "edit_users"
                         400:
+                            description: "Bad request"
                             body:
-                                text/plain
+                                text/plain:
+                                    example: "Bad request"
                         500:
+                            description: "Internal server error"
                             body:
-                                text/plain
+                                text/plain:
+                                    example: "Internal server error"
                 /{permissionname}:
                     delete:
                         description: Remove a permission from a user
@@ -140,11 +164,15 @@ schemas:
                                 body:
                                     text/plain
                             404:
+                                description: "Permission not found in user"
                                 body:
-                                    text/plain
+                                    text/plain:
+                                        example: "Permission not found in user"
                             500:
+                                description: "Internal server error"
                                 body:
-                                    text/plain
+                                    text/plain:
+                                        example: "Internal server error"
     /permissions:
         get:
             description: Get a list of existing permissions
@@ -184,11 +212,15 @@ schemas:
                         application/json:
                             schema: permissionListObject
                 400:
+                    description: "Bad request"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Bad request"
                 500:
+                    description: "Internal server error"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Internal server error"
         post:
             description: Add a new permission
             body:
@@ -201,11 +233,15 @@ schemas:
                             schema:
                                 permission
                 400:
+                    description: "Bad request"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Bad request"
                 500:
+                    description: "Internal server error"
                     body:
-                        text/plain
+                        text/plain:
+                            example: "Internal server error"
         /{permissionname}:
             get:
                 description: Get an existing permission by name
@@ -215,11 +251,15 @@ schemas:
                             application/json:
                                 schema: permission
                     404:
+                        description: "Permission not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Permission not found"
                     500:
+                        description: "Internal server error"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Internal server error"
             put:
                 description: Modify an existing permission
                 body:
@@ -231,14 +271,20 @@ schemas:
                             application/json:
                                 schema: permission
                     400:
+                        description: "Bad request"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Bad request"
                     404:
+                        description: "Permission not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Permission not found"
                     500:
+                        description: "Internal server error"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Internal server error"
             patch:
                 description: Modify an existing permission piecemeal
                 body:
@@ -250,14 +296,20 @@ schemas:
                             application/json:
                                 schema: permission
                     400:
+                        description: "Bad request"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Bad request"
                     404:
+                        description: "Permission not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Permission not found"
                     500:
+                        description: "Internal server error"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Internal server error"
             delete:
                 description: Remove a permission
                 responses:
@@ -265,9 +317,13 @@ schemas:
                         body:
                             text/plain
                     404:
+                        description: "Permission not found"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Permission not found"
                     500:
+                        description: "Internal server error"
                         body:
-                            text/plain
+                            text/plain:
+                                example: "Internal server error"
 

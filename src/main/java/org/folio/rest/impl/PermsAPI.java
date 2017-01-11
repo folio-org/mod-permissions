@@ -19,6 +19,8 @@ import org.folio.rest.jaxrs.model.PermissionPatch;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.model.PermissionUserListObject;
 import org.folio.rest.jaxrs.resource.PermsResource;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Offset;
 import org.folio.rest.persist.PostgresClient;
@@ -35,7 +37,9 @@ import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
 public class PermsAPI implements PermsResource {
   
   private static final String TABLE_NAME_PERMS = "permissions";
+  private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
+  private static final String USER_NAME_FIELD = "'username'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   
   private CQLWrapper getCQL(String query, int limit, int offset){
@@ -57,7 +61,7 @@ public class PermsAPI implements PermsResource {
         String[] fieldList = {"*"};
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                  TABLE_NAME_PERMS, PermissionUser.class, fieldList, cql, true,
+                  TABLE_NAME_PERMSUSERS, PermissionUser.class, fieldList, cql, true,
                   false, reply -> {
             try {
               if(reply.succeeded()) {
@@ -95,7 +99,45 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void postPermsUsers(PermissionUser entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postPermsUsers(PermissionUser entity, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+    try {
+      vertxContext.runOnContext(v -> {
+        String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
+        //Check for existing user
+        Criteria nameCrit = new Criteria();
+        nameCrit.addField(USER_NAME_FIELD);
+        nameCrit.setOperation("=");
+        nameCrit.setValue(entity.getUsername());
+        try {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+                  TABLE_NAME_PERMSUSERS, PermissionUser.class,
+                  new Criterion(nameCrit), true, queryReply -> {
+            if(queryReply.failed()) {
+              logger.debug("Unable to query permissions users: " + queryReply.cause().getLocalizedMessage());
+              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+            } else {
+              List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
+              if(userList.size() > 0) {
+                //This means that we have an existing user matching this username, error 400
+                logger.debug("Permissions user" + entity.getUsername() + " already exists");
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PostPermsUsersResponse.withPlainBadRequest(
+                                "Username " + entity.getUsername() + " already exists")));
+              } else {
+                //Proceed to POST new user
+              }
+            }
+          });
+        } catch(Exception e) {
+          logger.debug("Error querying existing permissions user: " + e.getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+        }
+      });
+    } catch(Exception e) {
+      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+    }
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
