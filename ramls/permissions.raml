@@ -99,6 +99,9 @@ schemas:
                                 example: "Internal server error"
             put:
                 description: Modify an existing user
+                body:
+                    application/json:
+                        schema: permissionUser
                 responses:
                     200:
                         body:
