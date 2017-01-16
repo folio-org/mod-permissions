@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import javax.ws.rs.core.Response;
 import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.PermissionListObject;
 import org.folio.rest.jaxrs.model.PermissionPatch;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.model.PermissionUserListObject;
@@ -392,8 +393,35 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void putPermsPermissionsByPermissionname(String permissionname, Permission entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+  public void putPermsPermissionsByPermissionname(String permissionname, 
+          Permission entity, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler,
+          Context vertxContext) throws Exception {
+    try {
+      vertxContext.runOnContext(v-> {
+        String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
+        Criteria nameCrit = new Criteria();
+        nameCrit.addField(PERMISSION_NAME_FIELD);
+        nameCrit.setOperation("=");
+        nameCrit.setValue(entity.getPermissionName());
+        try {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMS, entity, new Criterion(nameCrit), true, putReply -> {
+            if(putReply.failed()) {
+              logger.debug("Error with put: " + putReply.cause().getLocalizedMessage());
+              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByPermissionnameResponse.withJsonOK(entity)));
+            }
+          });
+        } catch(Exception e) {
+          logger.debug("Error using Postgres instance: " + e.getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+        }
+      });
+    } catch(Exception e) {
+      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+    }
   }
 
   @Override
@@ -402,13 +430,75 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void deletePermsPermissionsByPermissionname(String permissionname, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+  public void deletePermsPermissionsByPermissionname(String permissionname,
+          Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+          Context vertxContext) throws Exception {
+    try {
+      vertxContext.runOnContext(v -> {
+        String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
+        Criteria nameCrit = new Criteria();
+        nameCrit.addField(PERMISSION_NAME_FIELD);
+        nameCrit.setOperation("=");
+        nameCrit.setValue(permissionname);
+        try {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMS, new Criterion(nameCrit), deleteReply -> {
+            if(deleteReply.failed()) {
+              logger.debug("deleteReply failed: " + deleteReply.cause().getLocalizedMessage());
+              asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByPermissionnameResponse.withNoContent()));
+            }
+          });
+        } catch(Exception e) {
+          logger.debug("Error using Postgres instance: " + e.getLocalizedMessage());
+          asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+        }
+      });
+    } catch(Exception e) {
+      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+    }
   }
 
   @Override
-  public void getPermsPermissions(String query, Integer length, Integer start, String sortBy, String memberOf, String ownedBy, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+  public void getPermsPermissions(String query, Integer length, Integer start,
+          String sortBy, String memberOf, String ownedBy, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+    try {
+      vertxContext.runOnContext(v -> {
+        CQLWrapper cql = getCQL(query, length, start);
+        String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
+        String[] fieldList = {"*"};
+        try {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+                  Permission.class, fieldList, cql, true, false, getReply -> {
+            if(getReply.succeeded()) {
+              PermissionListObject permCollection = new PermissionListObject();
+              List<Permission> permissions = (List<Permission>)getReply.result()[0];
+              permCollection.setPermissions(permissions);
+              permCollection.setTotalRecords(permissions.size());
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withJsonOK(permCollection)));
+            } else {
+              logger.debug("Error with getReply: " + getReply.cause().getLocalizedMessage());
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError(getReply.cause().getLocalizedMessage())));
+            }
+          });
+        } catch(Exception e) {
+          if(e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
+                logger.debug("BAD CQL:" + e.getLocalizedMessage());
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainBadRequest(
+                        "CQL Parsing Error for '" + query + "': " + e.getLocalizedMessage())));
+          } else {
+            logger.debug("Error getting Postgres client: " + e.getLocalizedMessage());
+            asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
+                    GetPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
+          }
+        }
+      });
+    } catch(Exception e) {
+      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
+    }
   }
 
 }
