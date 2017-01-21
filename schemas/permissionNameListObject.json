@@ -1,0 +1,21 @@
+{
+    "$schema" : "http://json-schema.org/draft-04/schema#",
+    "type" : "object",
+    "properties" : {
+        "permissionNames" : {
+            "type" : "array",
+            "id" : "permissionNameListObject",
+            "items" : {
+                "type" : "string"
+            }
+        },
+        "total_records" : {
+            "type" : "integer"
+        }
+    },
+    "required" : [
+        "permissionNames",
+        "total_records"
+    ]
+
+}

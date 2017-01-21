@@ -10,39 +10,72 @@ documentation:
 schemas:
     - permission: !include ../schemas/permission.json
     - permission-patch: !include ../schemas/permission.json
+    - permissionUpload: !include ../schemas/permissionUpload.json
     - permissionListObject: !include ../schemas/permissionListObject.json
     - permissionUser: !include ../schemas/permissionUser.json
     - permissionUserListObject: !include ../schemas/permissionUserListObject.json
+    - permissionNameListObject: !include ../schemas/permissionNameListObject.json
+
+traits:
+    - pageable:
+         queryParameters:
+            length:
+                description: "The maximum number of results to return."
+                required: false
+                type: integer
+                example: 0
+                minimum: 1
+                default: 10
+                maximum: 1000
+            start:
+                description: "The starting index in a list of results (starts at one)."
+                required: false
+                type: integer
+                minimum: 1
+                default: 1
+                maximum: 1000
+    - sortable:
+        queryParameters:
+            sortBy:
+                description: "A comma-separated list of fieldnames to sort by"
+                required: false
+                type: string
+    - queryable:
+        queryParameters:
+            query:
+                description: "A query string to filter users based on matching criteria in fields."
+                required: false
+                type: string
+    - byPermission:
+        queryParameters:
+            hasPermissions:
+                description: "A list of permissions that any returned users must possess."
+                required: false
+                type: string
+    - byMember:
+        queryParameters:
+            memberOf:
+                description: "A list of permission names that any returned permission must be a sub-permission of."
+                required: false
+                type: string
+    - byOwner:
+        queryParameters:
+            ownedBy:
+                description: "A list of user names that any returned permissions must belong to."
+                required: false
+                type: string
+            
 
 /perms:
     /users:
         get:
             description: Get a list of users
-            queryParameters:
-                query:
-                    description: "A query string to filter users based on matching criteria in fields."
-                    required: false
-                    type: string
-                length:
-                    description: "The maximum number of results to return."
-                    required: false
-                    type: integer
-                    minimum: 0
-                    maximum: 1000
-                start:
-                    description: "The starting index in a list of results (starts at one)."
-                    required: false
-                    type: integer
-                    minimum: 0
-                    maximum: 5000
-                sortBy:
-                    description: "A comma-separated list of fieldnames to sort by"
-                    required: false
-                    type: string
-                hasPermissions:
-                    description: "A list of permissions that any returned users must possess."
-                    required: false
-                    type: string
+            is: [
+                pageable,
+                sortable,
+                queryable,
+                byPermission
+            ]
             responses:
                 200:
                     body:
@@ -127,7 +160,7 @@ schemas:
                 responses:
                     204:
                         body:
-                            text/plain
+                            text/plain: !!null
                     404:
                         description: "User not found"
                         body:
@@ -139,16 +172,41 @@ schemas:
                             text/plain:
                                 example: "Internal server error"
             /permissions:
+                get:
+                    description: Get permissions that a user has
+                    queryParameters:
+                        expanded:
+                            description: Recursively return all subpermissions
+                            required: false
+                            type: string
+                            example: "true"
+                    responses:
+                        200:
+                            description: "An object of returned permissions"
+                            body:
+                                application/json:
+                                    schema: permissionNameListObject
+                        404:
+                            description: "User not found"
+                            body:
+                                text/plain:
+                                    example: "User not found"
+                        500:
+                            description: "Internal server error"
+                            body:
+                                text/plain:
+                                    example: "Internal server error"
                 post:
                     description: Add a permission to a user
                     body:
-                        text/plain
+                        application/json:
+                            schema: permissionUpload
                     responses:
                         200:
                             description: "The added permission"
                             body:
-                                text/plain:
-                                    example: "edit_users"
+                                application/json:
+                                    schema: permissionUpload
                         400:
                             description: "Bad request"
                             body:
@@ -165,7 +223,11 @@ schemas:
                         responses:
                             204:
                                 body:
-                                    text/plain
+                                    text/plain: !!null
+                            400:
+                                description: "Bad request"
+                                body:
+                                    text/plain:
                             404:
                                 description: "Permission not found in user"
                                 body:
@@ -179,36 +241,13 @@ schemas:
     /permissions:
         get:
             description: Get a list of existing permissions
-            queryParameters:
-                query:
-                    description: "A query string to filter permissions based on matching criteria in fields."
-                    required: false
-                    type: string
-                length:
-                    description: "The maximum number of results to return."
-                    required: false
-                    type: integer
-                    minimum: 0
-                    maximum: 1000
-                start:
-                    description: "The starting index in a list of results (starts at one)."
-                    required: false
-                    type: integer
-                    minimum: 0
-                    maximum: 5000
-                sortBy:
-                    description: "A comma-separated list of fieldnames to sort by"
-                    required: false
-                    type: string
-                memberOf:
-                    description: "A list of permission names that any returned permissions must be a sub-permission of."
-                    required: false
-                    type: string
-                ownedBy:
-                    description: "A list of user names that any returned permissions must belong to."
-                    required: false
-                    type: string
-
+            is: [
+                pageable,
+                sortable,
+                queryable,
+                byMember,
+                byOwner
+            ]
             responses:
                 200:
                     body:
@@ -288,37 +327,12 @@ schemas:
                         body:
                             text/plain:
                                 example: "Internal server error"
-            patch:
-                description: Modify an existing permission piecemeal
-                body:
-                    application/json:
-                        schema: permission-patch
-                responses:
-                    200:
-                        body:
-                            application/json:
-                                schema: permission
-                    400:
-                        description: "Bad request"
-                        body:
-                            text/plain:
-                                example: "Bad request"
-                    404:
-                        description: "Permission not found"
-                        body:
-                            text/plain:
-                                example: "Permission not found"
-                    500:
-                        description: "Internal server error"
-                        body:
-                            text/plain:
-                                example: "Internal server error"
             delete:
                 description: Remove a permission
                 responses:
                     204:
                         body:
-                            text/plain
+                            text/plain: !!null
                     404:
                         description: "Permission not found"
                         body:
