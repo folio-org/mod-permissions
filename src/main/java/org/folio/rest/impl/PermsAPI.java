@@ -118,7 +118,7 @@ public class PermsAPI implements PermsResource {
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMSUSERS, PermissionUser.class,
-                  new Criterion(nameCrit), true, queryReply -> {
+                  new Criterion(nameCrit), true, false, queryReply -> {
             if(queryReply.failed()) {
               logger.debug("Unable to query permissions users: " + queryReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
