@@ -5,7 +5,7 @@
         "permission_name" : {
             "type" : "string"
         },
-        "tenant" : {
+        "id" : {
             "type" : "string"
         },
         "description" : {
