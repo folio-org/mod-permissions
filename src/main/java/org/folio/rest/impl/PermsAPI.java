@@ -15,6 +15,7 @@ import io.vertx.core.logging.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionListObject;
@@ -480,6 +481,8 @@ public class PermsAPI implements PermsResource {
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                 postgresClient.startTx(beginTx-> {
                   logger.debug("Attempting to save new Permission");
+                  String newId = UUID.randomUUID().toString();
+                  entity.setId(newId);
                   try {
                     postgresClient.save(beginTx, TABLE_NAME_PERMS, entity, postReply -> {
                       if(postReply.failed()) {
@@ -564,12 +567,34 @@ public class PermsAPI implements PermsResource {
         idCrit.setOperation("=");
         idCrit.setValue(entity.getId());
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMS, entity, new Criterion(idCrit), true, putReply -> {
-            if(putReply.failed()) {
-              logger.debug("Error with put: " + putReply.cause().getLocalizedMessage());
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
+            if(getReply.failed()) {
+              logger.debug("Error with get: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("Internal server error")));
+            }
+            List<Permission> permList = (List<Permission>)getReply.result()[0];
+            if(permList.size() < 1) {
+              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("No such permission")));
             } else {
-              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withJsonOK(entity)));
+              Permission perm = permList.get(0);
+              if(perm.getPermissionName() != entity.getPermissionName()) {
+                asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainBadRequest("permission name property cannot change")));
+              } else {   
+                try {  
+                  PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMS, entity, new Criterion(idCrit), true, putReply -> {
+                    if(putReply.failed()) {
+                      logger.debug("Error with put: " + putReply.cause().getLocalizedMessage());
+                      asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("Internal server error")));
+                    } else {
+                      asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withJsonOK(entity)));
+                    }
+                  });
+                } 
+                catch(Exception e) {
+                  logger.debug("Error using Postgres instance: " + e.getLocalizedMessage());
+                  asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("Internal server error")));
+                } 
+              }          
             }
           });
         } catch(Exception e) {
