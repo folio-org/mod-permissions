@@ -1,9 +1,0 @@
-{
-    "title" : "Permissions Upload Schema",
-    "type" : "object",
-    "properties" : {
-        "permission_name" : {
-            "type" : "string"
-        }
-    }
-}

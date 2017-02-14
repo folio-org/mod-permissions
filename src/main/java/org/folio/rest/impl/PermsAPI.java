@@ -19,8 +19,8 @@ import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionListObject;
+import org.folio.rest.jaxrs.model.PermissionNameObject;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
-import org.folio.rest.jaxrs.model.PermissionUpload;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.model.PermissionUserListObject;
 import org.folio.rest.jaxrs.resource.PermsResource;
@@ -338,7 +338,7 @@ public class PermsAPI implements PermsResource {
     }
   }
   @Override
-  public void postPermsUsersByUsernamePermissions(String username, PermissionUpload entity,
+  public void postPermsUsersByUsernamePermissions(String username, PermissionNameObject entity,
           Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {

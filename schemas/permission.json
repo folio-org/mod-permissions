@@ -2,7 +2,10 @@
     "title" : "Permissions Definition Schema",
     "type" : "object",
     "properties" : {
-        "permission_name" : {
+        "permissionName" : {
+            "type" : "string"
+        },
+        "displayName" : {
             "type" : "string"
         },
         "id" : {
@@ -15,7 +18,7 @@
             "type" : "array",
             "items" : { "type" : "string" }
         },
-        "sub_permissions" : {
+        "subPermissions" : {
             "type" : "array",
             "items" : { "type" : "string" }
         },

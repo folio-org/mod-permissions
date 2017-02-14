@@ -10,7 +10,7 @@ documentation:
 schemas:
     - permission: !include ../schemas/permission.json
     - permission-patch: !include ../schemas/permission.json
-    - permissionUpload: !include ../schemas/permissionUpload.json
+    - permissionNameObject: !include ../schemas/permissionNameObject.json
     - permissionListObject: !include ../schemas/permissionListObject.json
     - permissionUser: !include ../schemas/permissionUser.json
     - permissionUserListObject: !include ../schemas/permissionUserListObject.json
@@ -200,13 +200,13 @@ traits:
                     description: Add a permission to a user
                     body:
                         application/json:
-                            schema: permissionUpload
+                            schema: permissionNameObject
                     responses:
                         200:
                             description: "The added permission"
                             body:
                                 application/json:
-                                    schema: permissionUpload
+                                    schema: permissionNameObject
                         400:
                             description: "Bad request"
                             body:

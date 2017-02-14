@@ -10,13 +10,13 @@
                 "$ref" : "permissionUser"
             }
         },
-        "total_records" : {
+        "totalRecords" : {
             "type" : "integer"
         }
     },
     "required" : [
         "permissionUsers",
-        "total_records"
+        "totalRecords"
     ]
 
 }

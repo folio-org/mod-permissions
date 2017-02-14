@@ -9,13 +9,13 @@
                 "type" : "string"
             }
         },
-        "total_records" : {
+        "totalRecords" : {
             "type" : "integer"
         }
     },
     "required" : [
         "permissionNames",
-        "total_records"
+        "totalRecords"
     ]
 
 }
