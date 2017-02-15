@@ -46,7 +46,7 @@ public class PermsAPI implements PermsResource {
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   private static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   private static final String USER_NAME_FIELD = "'username'";
-  private static final String PERMISSION_NAME_FIELD = "'permission_name'";
+  private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final String ID_FIELD = "'id'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   
@@ -769,6 +769,7 @@ public class PermsAPI implements PermsResource {
   }
   
   private Future<List<String>> getExpandedPermissions(String permissionName, Context vertxContext, String tenantId) {
+    logger.debug("Getting expanded permissions for permission '" + permissionName + "'");
     Future<List<String>> future = Future.future();
     List<String> expandedPermissions = new ArrayList<>();
     expandedPermissions.add(permissionName);
