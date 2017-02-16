@@ -311,7 +311,9 @@ public class PermsAPI implements PermsResource {
                 Future<List<String>> future;
                 List<String> permNameList = new ArrayList<>();
                   for(Object perm : user.getPermissions()) {
-                    permNameList.add((String)perm);
+                    if(perm != null) {
+                      permNameList.add((String)perm);
+                    }
                 }
                 if(expanded == null || !expanded.equals("true")) {
                   future = Future.succeededFuture(permNameList);
@@ -319,10 +321,15 @@ public class PermsAPI implements PermsResource {
                   future = this.getAllExpandedPermissions(permNameList, vertxContext, tenantId);
                 }
                 future.setHandler(res-> {
-                  PermissionNameListObject pnlo = new PermissionNameListObject();
-                  pnlo.setPermissionNames(res.result());
-                  pnlo.setTotalRecords(res.result().size());
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withJsonOK(pnlo)));
+                  if(res.failed()) { 
+                    logger.debug("Error getting expanded permissions: " + res.cause().getLocalizedMessage());
+                    asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal Server Error")));
+                  } else {
+                    PermissionNameListObject pnlo = new PermissionNameListObject();
+                    pnlo.setPermissionNames(res.result());
+                    pnlo.setTotalRecords(res.result().size());
+                    asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withJsonOK(pnlo)));
+                  }
                 });
               }
             }
@@ -746,8 +753,10 @@ public class PermsAPI implements PermsResource {
     List<String> masterPermissionList = new ArrayList<>();
     List<Future> futureList = new ArrayList<>();
     for(String permission : permissionList) {
-      Future permFuture = getExpandedPermissions(permission, vertxContext, tenantId);
-      futureList.add(permFuture);
+      if(permission != null) {
+      	Future permFuture = getExpandedPermissions(permission, vertxContext, tenantId);
+      	futureList.add(permFuture);
+      }
     }
     CompositeFuture compositeFuture = CompositeFuture.all(futureList);
     compositeFuture.setHandler(res->{
@@ -787,31 +796,35 @@ public class PermsAPI implements PermsResource {
               future.fail(getReply.cause());
             } else {
               List<Permission> permList = (List<Permission>)getReply.result()[0];
-              Permission permission = permList.get(0);
-              if(!permission.getSubPermissions().isEmpty()) {
-                List<Future> futureList = new ArrayList<Future>();
-                for(String subPermissionName : permission.getSubPermissions()) {
-                  Future<List<String>> subPermFuture = getExpandedPermissions(subPermissionName, vertxContext, tenantId);
-                  futureList.add(subPermFuture);
-                }
-                CompositeFuture compositeFuture = CompositeFuture.all(futureList);
-                compositeFuture.setHandler(compRes -> {
-                  if(compRes.failed()) {
-                    future.fail(compRes.cause());
-                  } else {
-                    for(Future finishedFuture : futureList) {
-                      for(String subPermissionName : ((Future<List<String>>)finishedFuture).result()) {
-                        if(!expandedPermissions.contains(subPermissionName)) {
-                          expandedPermissions.add(subPermissionName);
+              if(permList.isEmpty()) {
+                 future.complete(new ArrayList<String>()); 
+              } else {
+                Permission permission = permList.get(0);
+                if(!permission.getSubPermissions().isEmpty()) {
+                  List<Future> futureList = new ArrayList<Future>();
+                  for(String subPermissionName : permission.getSubPermissions()) {
+                    Future<List<String>> subPermFuture = getExpandedPermissions(subPermissionName, vertxContext, tenantId);
+                    futureList.add(subPermFuture);
+                  }
+                  CompositeFuture compositeFuture = CompositeFuture.all(futureList);
+                  compositeFuture.setHandler(compRes -> {
+                    if(compRes.failed()) {
+                      future.fail(compRes.cause());
+                    } else {
+                      for(Future finishedFuture : futureList) {
+                        for(String subPermissionName : ((Future<List<String>>)finishedFuture).result()) {
+                          if(!expandedPermissions.contains(subPermissionName)) {
+                            expandedPermissions.add(subPermissionName);
+                          }
                         }
                       }
+                      future.complete(expandedPermissions);
                     }
-                    future.complete(expandedPermissions);
-                  }
-                });
-              } else {
-                future.complete(expandedPermissions);
-              }              
+                  });
+                } else {
+                  future.complete(expandedPermissions);
+                }              
+              }
             }
           });
         } catch(Exception e) {
