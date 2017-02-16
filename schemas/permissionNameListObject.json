@@ -4,10 +4,7 @@
     "properties" : {
         "permissionNames" : {
             "type" : "array",
-            "id" : "permissionNameListObject",
-            "items" : {
-                "type" : "string"
-            }
+            "id" : "permissionNameListObject"
         },
         "totalRecords" : {
             "type" : "integer"
