@@ -1,9 +1,9 @@
 {
-    "title" : "Permissions Name Schema",
-    "type" : "object",
-    "properties" : {
-        "permissionName" : {
-            "type" : "string"
-        }
+  "title": "Permissions Name Schema",
+  "type": "object",
+  "properties": {
+    "permissionName": {
+      "type": "string"
     }
+  }
 }

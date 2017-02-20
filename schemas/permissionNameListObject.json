@@ -1,18 +1,17 @@
 {
-    "$schema" : "http://json-schema.org/draft-04/schema#",
-    "type" : "object",
-    "properties" : {
-        "permissionNames" : {
-            "type" : "array",
-            "id" : "permissionNameListObject"
-        },
-        "totalRecords" : {
-            "type" : "integer"
-        }
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "permissionNames": {
+      "type": "array",
+      "id": "permissionNameListObject"
     },
-    "required" : [
-        "permissionNames",
-        "totalRecords"
-    ]
-
+    "totalRecords": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "permissionNames",
+    "totalRecords"
+  ]
 }
