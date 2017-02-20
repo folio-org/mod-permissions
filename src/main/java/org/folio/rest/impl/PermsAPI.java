@@ -765,8 +765,8 @@ public class PermsAPI implements PermsResource {
     List<Future> futureList = new ArrayList<>();
     for(String permission : permissionList) {
       if(permission != null) {
-      	Future permFuture = getExpandedPermissions(permission, vertxContext, tenantId);
-      	futureList.add(permFuture);
+        Future permFuture = getExpandedPermissions(permission, vertxContext, tenantId);
+        futureList.add(permFuture);
       }
     }
     CompositeFuture compositeFuture = CompositeFuture.all(futureList);
