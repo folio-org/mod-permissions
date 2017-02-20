@@ -4,6 +4,6 @@
     "properties" : {
         "permissionName" : {
             "type" : "string"
-        }    
+        }
     }
 }

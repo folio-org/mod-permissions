@@ -22,6 +22,6 @@ WORKDIR $VERTICLE_HOME
 # Expose this port locally in the container.
 EXPOSE 8081
 
-# Pass options to Java such as MongoDB location i.e. 
+# Pass options to Java such as MongoDB location i.e.
 # 'docker run -d -e JAVA_OPTS="-Dmongo.url=mongodb://mongo:27017/test" mod-permissions'
 ENTRYPOINT exec java $JAVA_OPTS -jar module.jar
