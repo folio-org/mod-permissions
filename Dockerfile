@@ -7,7 +7,7 @@ ENV VERTICLE_HOME /usr/verticles
 
 # Copy your fat jar to the container
 COPY target/$VERTICLE_FILE $VERTICLE_HOME/module.jar
-COPY ../docker/docker-entrypoint.sh $VERTICLE_HOME/docker-entrypoint.sh
+COPY docker/docker-entrypoint.sh $VERTICLE_HOME/docker-entrypoint.sh
 
 # Create user/group 'folio'
 RUN addgroup folio && \
