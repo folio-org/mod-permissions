@@ -12,7 +12,8 @@ COPY docker/docker-entrypoint.sh $VERTICLE_HOME/docker-entrypoint.sh
 # Create user/group 'folio'
 RUN addgroup folio && \
     adduser -H -h $VERTICLE_HOME -G folio -D folio && \
-    chown -R folio.folio $VERTICLE_HOME
+    chown -R folio.folio $VERTICLE_HOME && \
+    apk add --update bash && rm -rf /var/cache/apk/*
 
 # Run as this user
 USER folio
