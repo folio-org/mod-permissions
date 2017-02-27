@@ -10,9 +10,11 @@ COPY target/$VERTICLE_FILE $VERTICLE_HOME/module.jar
 COPY docker/docker-entrypoint.sh $VERTICLE_HOME/docker-entrypoint.sh
 
 # Create user/group 'folio'
-RUN addgroup folio && \
-    adduser -H -h $VERTICLE_HOME -G folio -D folio && \
-    chown -R folio.folio $VERTICLE_HOME
+RUN groupadd folio && \
+    useradd -r -d $VERTICLE_HOME -g folio -M folio && \
+    chown -R folio.folio $VERTICLE_HOME && \
+    chown -R folio.folio ${VERTICLE_HOME}/docker-entrypoint.sh && \
+    chmod +x ${VERTICLE_HOME}/docker-entrypoint.sh
 
 # Run as this user
 USER folio
