@@ -1,4 +1,4 @@
-FROM openjdk:8-jre-alpine
+FROM openjdk:8-jre
 
 ENV VERTICLE_FILE permissions-module-fat.jar
 
@@ -12,8 +12,7 @@ COPY docker/docker-entrypoint.sh $VERTICLE_HOME/docker-entrypoint.sh
 # Create user/group 'folio'
 RUN addgroup folio && \
     adduser -H -h $VERTICLE_HOME -G folio -D folio && \
-    chown -R folio.folio $VERTICLE_HOME && \
-    apk add --update bash && rm -rf /var/cache/apk/*
+    chown -R folio.folio $VERTICLE_HOME
 
 # Run as this user
 USER folio
