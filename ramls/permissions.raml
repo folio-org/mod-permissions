@@ -86,7 +86,11 @@ traits:
           body:
             text/plain:
               example: "Bad request"
-
+        403:
+          description: "Access Denied"
+          body:
+            text/plain:
+              example: "Access Denied"
         500:
           description: "Internal server error"
           body:
@@ -120,6 +124,11 @@ traits:
             body:
               application/json:
                 schema: permissionUser
+          403:
+            description: "Access Denied"
+            body:
+              text/plain:
+                example: "Access Denied"
           404:
             description: "User not found"
             body:
@@ -191,6 +200,11 @@ traits:
               body:
                 application/json:
                   schema: permissionNameListObject
+            403:
+              description: "Access Denied"
+              body:
+                text/plain:
+                  example: "Access Denied"
             404:
               description: "User not found"
               body:
