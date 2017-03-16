@@ -190,7 +190,7 @@ public class PermsAPI implements PermsResource {
         nameCrit.setOperation("=");
         nameCrit.setValue(username);
         if(!allowAccessByNameorPermission(okapiHeaders.get(OKAPI_PERMISSIONS_HEADER),
-                READ_PERMISSION_USERS_NAME, 
+                READ_PERMISSION_USERS_NAME,
                 okapiHeaders.get(OKAPI_TOKEN_HEADER), username)) {
           asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainForbidden("Access denied, insufficient permissions")));
         } else {
@@ -307,7 +307,7 @@ public class PermsAPI implements PermsResource {
         nameCrit.setOperation("=");
         nameCrit.setValue(username);
         if(!allowAccessByNameorPermission(okapiHeaders.get(OKAPI_PERMISSIONS_HEADER),
-                READ_PERMISSION_USERS_NAME, 
+                READ_PERMISSION_USERS_NAME,
                 okapiHeaders.get(OKAPI_TOKEN_HEADER), username)) {
           asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainForbidden("Access denied, insufficient permissions")));
         } else {
@@ -937,28 +937,28 @@ public class PermsAPI implements PermsResource {
       String encodedPayload = tokenParts[1];
       byte[] decodedJsonBytes = Base64.getDecoder().decode(encodedPayload);
       String decodedJson = new String(decodedJsonBytes);
-      return new JsonObject(decodedJson);  
+      return new JsonObject(decodedJson);
     } else {
       return null;
     }
   }
-  
+
   private String getUsername(String token) {
     JsonObject payload = parseTokenPayload(token);
     if(payload == null) { return null; }
     String username = payload.getString("sub");
     return username;
   }
-  
+
   private boolean allowAccessByNameorPermission(String permissions, String permissionName, String token, String username) {
     String tokenUsername = getUsername(token);
     if(tokenUsername.equals(username)) {
       logger.debug("Permission allowed for own username (" + username + ")");
       return true;
-    }  
+    }
     return allowAccessByPermission(permissions, permissionName);
   }
-  
+
   private boolean allowAccessByPermission(String permissions, String permissionName) {
     JsonArray permissionsArray = new JsonArray(permissions);
     if(permissionsArray != null && permissionsArray.contains(permissionName)) {
