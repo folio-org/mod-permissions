@@ -960,6 +960,9 @@ public class PermsAPI implements PermsResource {
   }
 
   private boolean allowAccessByPermission(String permissions, String permissionName) {
+    if(permissions == null || permissions.isEmpty()) {
+      return false;
+    }
     JsonArray permissionsArray = new JsonArray(permissions);
     if(permissionsArray != null && permissionsArray.contains(permissionName)) {
       logger.debug("Permission allowed for possessing permission bit '" + permissionName + "'");
