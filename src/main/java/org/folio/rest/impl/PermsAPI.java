@@ -680,7 +680,7 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void getPermsPermissions(int length, int start, String sortBy, String query,
+  public void getPermsPermissions(String expanded, int length, int start, String sortBy, String query,
           String memberOf, String ownedBy, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
           throws Exception {
@@ -835,8 +835,8 @@ public class PermsAPI implements PermsResource {
                 Permission permission = permList.get(0);
                 if(!permission.getSubPermissions().isEmpty()) {
                   List<Future> futureList = new ArrayList<Future>();
-                  for(String subPermissionName : permission.getSubPermissions()) {
-                    Future<List<String>> subPermFuture = getExpandedPermissions(subPermissionName, vertxContext, tenantId);
+                  for(Object subPermissionName : permission.getSubPermissions()) {
+                    Future<List<String>> subPermFuture = getExpandedPermissions((String)subPermissionName, vertxContext, tenantId);
                     futureList.add(subPermFuture);
                   }
                   CompositeFuture compositeFuture = CompositeFuture.all(futureList);

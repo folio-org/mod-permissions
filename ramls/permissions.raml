@@ -260,6 +260,12 @@ traits:
   /permissions:
     get:
       description: Get a list of existing permissions
+      queryParameters:
+        expanded:
+          description: Return subpermissions as objects
+          required: false
+          type: string
+          example: "true"
       is: [
         pageable,
         sortable,

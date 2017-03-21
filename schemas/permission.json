@@ -21,10 +21,7 @@
       }
     },
     "subPermissions": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "type": "array"
     },
     "mutable": {
       "type": "boolean"
