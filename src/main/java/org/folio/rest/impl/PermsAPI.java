@@ -688,7 +688,7 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void getPermsPermissions(String expanded, int length, int start, String sortBy, String query,
+  public void getPermsPermissions(String expandSubs, int length, int start, String sortBy, String query,
           String memberOf, String ownedBy, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
           throws Exception {
@@ -713,7 +713,12 @@ public class PermsAPI implements PermsResource {
               List<Future> futureList = new ArrayList<>();
               for(Permission permission : permissions) {
                 List<Object> subPermList = permission.getSubPermissions();
-                Future<Permission> permFuture = Future.succeededFuture(permission);
+                Future<Permission> permFuture;
+                if(expandSubs != null && expandSubs.equals("true")) { 
+                  permFuture = expandSubPermissions(permission, vertxContext, tenantId);
+                } else {
+                  permFuture = Future.succeededFuture(permission);
+                }
                 futureList.add(permFuture);
               }
               CompositeFuture compositeFuture = CompositeFuture.join(futureList);
@@ -1003,6 +1008,35 @@ public class PermsAPI implements PermsResource {
       return true;
     }
     return false;
+  }
+
+  private Future<Permission> expandSubPermissions(Permission permission, Context vertxContext, String tenantId) {
+    Future<Permission> future = Future.future();
+    List<Object> subPerms = permission.getSubPermissions();
+    if(subPerms.isEmpty()) {
+      future.complete(permission);
+    } else {
+      List<Object> newSubPerms = new ArrayList<>();
+      List<Future> futureList = new ArrayList<>();
+      for(Object o : subPerms) {
+        Future<Permission> subPermFuture = getFullPermissions((String)o, vertxContext, tenantId);
+        futureList.add(subPermFuture);
+      }
+      CompositeFuture compositeFuture = CompositeFuture.join(futureList);
+      compositeFuture.setHandler(compositeResult -> {
+        if(compositeResult.failed()) {
+          future.fail(compositeResult.cause().getLocalizedMessage());
+        } else {
+          for(Future f : futureList) {
+            newSubPerms.add(f.result());
+          }
+          permission.setSubPermissions(newSubPerms);
+          future.complete(permission);
+        }
+      });
+    }
+    
+    return future;
   }
 
 }
