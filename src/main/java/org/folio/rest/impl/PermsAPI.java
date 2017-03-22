@@ -720,7 +720,7 @@ public class PermsAPI implements PermsResource {
               compositeFuture.setHandler(compositeResult -> {
                 if(compositeFuture.failed()) {
                   logger.debug("Error expanding permissions: " + compositeFuture.cause().getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(compositeResult.withPlainInternalServerError(getReply.cause().getLocalizedMessage())));
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError(compositeResult.cause().getLocalizedMessage())));
                 } else {
                   List<Permission> newPermList = new ArrayList<>();
                   for(Future f : futureList) {
