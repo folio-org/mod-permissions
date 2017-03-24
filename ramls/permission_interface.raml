@@ -1,0 +1,34 @@
+#%RAML 0.8
+title: Permissions Interface
+version: v1
+baseUri: http://github.com/org/folio/mod-auth/_tenantPermissions
+
+documentation:
+  - title: mod-auth permissions API
+    content: This module is responsible for managing and retrieving permissions in the FOLIO system
+
+schemas:
+  - okapiPermissionSet: !include ../schemas/okapiPermissionSet.json
+
+/_tenantPermissions:
+    post:
+        description: Add new permissionSets to the tenant
+        body:
+            application/json:
+                schema: okapiPermissionSet
+        responses:
+            201:
+                body:
+                    application/json:
+                        schema: okapiPermissionSet
+            400:
+                description: "Bad request"
+                body:
+                    text/plain:
+                        example: "Bad request"
+            500:
+                description: "Internal server error"
+                body:
+                    text/plain:
+                        example: "Error"
+

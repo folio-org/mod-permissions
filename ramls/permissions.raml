@@ -15,6 +15,7 @@ schemas:
   - permissionUser: !include ../schemas/permissionUser.json
   - permissionUserListObject: !include ../schemas/permissionUserListObject.json
   - permissionNameListObject: !include ../schemas/permissionNameListObject.json
+  - okapiPermissionSet: !include ../schemas/okapiPermissionSet.json
 
 traits:
   - pageable:
@@ -64,7 +65,6 @@ traits:
           description: "A list of user names that any returned permissions must belong to."
           required: false
           type: string
-
 
 /perms:
   /users:

@@ -1,0 +1,32 @@
+{
+    "title" : "Okapi Permissions Set",
+    "type" : "object",
+    "properties" : {
+        "moduleId" : {
+            "type" : "string"
+        },
+        "perms" : {
+            "type" : "array",
+            "items" :  {
+                "type" : "object",
+                "properties" : {
+                    "permissionName" : {
+                        "type" : "string"
+                    },
+                    "displayName" : {
+                        "type" : "string"
+                    },
+                    "description" : {
+                        "type" : "string"
+                    },
+                    "subPermissions" : {
+                        "type" : "array",
+                        "items" : {
+                            "type" : "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
