@@ -4,13 +4,24 @@ version: v1
 baseUri: http://github.com/org/folio/mod-auth/_tenantPermissions
 
 documentation:
-  - title: mod-auth permissions API
-    content: This module is responsible for managing and retrieving permissions in the FOLIO system
+  - title: tenant permissions API implementation
+    content: This API provides a callback point for Okapi when new permission sets are added to the tenant
 
 schemas:
+  - okapiPermission: !include ../schemas/okapiPermission.json
   - okapiPermissionSet: !include ../schemas/okapiPermissionSet.json
 
 /_tenantPermissions:
+    get:
+        description: Dummy get endpoint
+        body:
+            text/plain:
+                example: "Blah"
+        responses:
+            200:
+                body:
+                    text/plain:
+                        example: "Blah"
     post:
         description: Add new permissionSets to the tenant
         body:

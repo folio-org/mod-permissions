@@ -512,7 +512,7 @@ public class PermsAPI implements PermsResource {
         nameCrit.setOperation("=");
         nameCrit.setValue(entity.getPermissionName());
         try {
-          PostgresClient.getInstance(vertxContext.owner(), TenantTool.calculateTenantId(tenantId)).get(
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true, false, getReply-> {
             if(getReply.failed()) {
               logger.debug("Error getting existing permissions: " + getReply.cause().getLocalizedMessage());
