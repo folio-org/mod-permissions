@@ -714,7 +714,7 @@ public class PermsAPI implements PermsResource {
               for(Permission permission : permissions) {
                 List<Object> subPermList = permission.getSubPermissions();
                 Future<Permission> permFuture;
-                if(expandSubs != null && expandSubs.equals("true")) { 
+                if(expandSubs != null && expandSubs.equals("true")) {
                   permFuture = expandSubPermissions(permission, vertxContext, tenantId);
                 } else {
                   permFuture = Future.succeededFuture(permission);
@@ -735,8 +735,8 @@ public class PermsAPI implements PermsResource {
                   permCollection.setTotalRecords(newPermList.size());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withJsonOK(permCollection)));
                 }
-                
-              });        
+
+              });
             } else {
               logger.debug("Error with getReply: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError(getReply.cause().getLocalizedMessage())));
@@ -1035,7 +1035,7 @@ public class PermsAPI implements PermsResource {
         }
       });
     }
-    
+
     return future;
   }
 
