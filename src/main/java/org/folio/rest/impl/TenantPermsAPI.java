@@ -21,7 +21,7 @@ import org.folio.rest.jaxrs.model.Perm;
 import org.folio.rest.jaxrs.model.Permission;
 
 
-import org.folio.rest.jaxrs.resource.TenantPermissionsResource;
+import org.folio.rest.jaxrs.resource.TenantpermissionsResource;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
@@ -30,7 +30,7 @@ import org.folio.rest.tools.utils.TenantTool;
  *
  * @author kurt
  */
-public class TenantPermsAPI implements TenantPermissionsResource {
+public class TenantPermsAPI implements TenantpermissionsResource {
   private static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final String TABLE_NAME_PERMS = "permissions";
@@ -38,13 +38,13 @@ public class TenantPermsAPI implements TenantPermissionsResource {
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
 
   @Override
-  public void getTenantPermissions(String entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void getTenantpermissions(String entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
 
   @Override
-  public void postTenantPermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
@@ -53,19 +53,22 @@ public class TenantPermsAPI implements TenantPermissionsResource {
         Future savePermFuture = savePerm(perm, tenantId, vertxContext);
         futureList.add(savePermFuture);
       }
+      if(futureList.isEmpty()) {
+        futureList.add(Future.succeededFuture());
+      }
       CompositeFuture compositeFuture = CompositeFuture.join(futureList);
       compositeFuture.setHandler(compositeResult->{
         if(compositeResult.failed()) {
           logger.debug("Error adding permissions set: " + compositeResult.cause().getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PostTenantPermissionsResponse.withPlainInternalServerError("Internal Server Error")));
+          asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
         } else {
-          asyncResultHandler.handle(Future.succeededFuture(PostTenantPermissionsResponse.withJsonCreated(entity)));
+          asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
         }
       });
     });
     } catch(Exception e) {
       logger.debug("Error adding permissions set: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostTenantPermissionsResponse.withPlainInternalServerError("Internal Server Error")));
+      asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
     }
 
   }
