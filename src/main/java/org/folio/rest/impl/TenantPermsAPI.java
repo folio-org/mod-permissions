@@ -49,12 +49,13 @@ public class TenantPermsAPI implements TenantpermissionsResource {
       vertxContext.runOnContext(v -> {
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
       List<Future> futureList = new ArrayList<>();
+      if(entity.getPerms() == null) {
+        asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
+        return;
+      }
       for(Perm perm : entity.getPerms()) {
         Future savePermFuture = savePerm(perm, tenantId, vertxContext);
         futureList.add(savePermFuture);
-      }
-      if(futureList.isEmpty()) {
-        futureList.add(Future.succeededFuture());
       }
       CompositeFuture compositeFuture = CompositeFuture.join(futureList);
       compositeFuture.setHandler(compositeResult->{
@@ -75,6 +76,9 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   
   private Future savePerm(Perm perm, String tenantId, Context vertxContext) {
     Future future = Future.future();
+    if(perm.getPermissionName() == null) {
+      return Future.succeededFuture();
+    }
     Permission permission = new Permission();
     permission.setMutable(false);
     permission.setPermissionName(perm.getPermissionName());
