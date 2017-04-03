@@ -544,6 +544,9 @@ public class PermsAPI implements PermsResource {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
                   entity.setAdditionalProperty("id", newId);
+                  if(entity.getPermissionName() == null) {
+                    entity.setPermissionName(newId);
+                  }
                   try {
                     postgresClient.save(beginTx, TABLE_NAME_PERMS, entity, postReply -> {
                       if(postReply.failed()) {
