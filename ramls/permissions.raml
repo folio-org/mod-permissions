@@ -8,15 +8,19 @@ documentation:
     content: This module is responsible for managing and retrieving permissions in the FOLIO system
 
 schemas:
-  - permission: !include ../schemas/permission.json
-  - permission-patch: !include ../schemas/permission.json
-  - permissionNameObject: !include ../schemas/permissionNameObject.json
-  - permissionListObject: !include ../schemas/permissionListObject.json
-  - permissionUser: !include ../schemas/permissionUser.json
-  - permissionUserListObject: !include ../schemas/permissionUserListObject.json
-  - permissionNameListObject: !include ../schemas/permissionNameListObject.json
-
+  - permission: !include schemas/permission.json
+  - permission-patch: !include schemas/permission.json
+  - permissionNameObject: !include schemas/permissionNameObject.json
+  - permissionListObject: !include schemas/permissionListObject.json
+  - permissionUser: !include schemas/permissionUser.json
+  - permissionUserListObject: !include schemas/permissionUserListObject.json
+  - permissionNameListObject: !include schemas/permissionNameListObject.json
+  - errors: !include ../../raml-util/schemas/errors.schema
+  - error: !include ../../raml-util/schemas/error.schema
+  - parameters: !include ../../raml-util/schemas/parameters.schema
+  
 traits:
+  - validate: !include ../../raml-util/traits/validation.raml
   - pageable:
       queryParameters:
         length:
@@ -97,6 +101,7 @@ traits:
               example: "Internal server error"
     post:
       description: Add a new user
+      is: [validate]
       body:
         application/json:
           schema: permissionUser
@@ -216,6 +221,7 @@ traits:
                   example: "Internal server error"
         post:
           description: Add a permission to a user
+          is: [validate]
           body:
             application/json:
               schema: permissionNameObject
@@ -289,6 +295,7 @@ traits:
               example: "Internal server error"
     post:
       description: Add a new permission
+      is: [validate]
       body:
         application/json:
           schema: permission

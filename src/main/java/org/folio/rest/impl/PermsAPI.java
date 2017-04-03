@@ -1,5 +1,32 @@
 package org.folio.rest.impl;
 
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.ws.rs.core.Response;
+
+import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.PermissionListObject;
+import org.folio.rest.jaxrs.model.PermissionNameListObject;
+import org.folio.rest.jaxrs.model.PermissionNameObject;
+import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.model.PermissionUserListObject;
+import org.folio.rest.jaxrs.resource.PermsResource;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.tools.messages.Messages;
+import org.folio.rest.tools.utils.TenantTool;
+import org.folio.rest.tools.utils.ValidationHelper;
+import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
+import org.z3950.zing.cql.cql2pgjson.FieldException;
+
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -9,31 +36,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import javax.ws.rs.core.Response;
-import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.PermissionListObject;
-import org.folio.rest.jaxrs.model.PermissionNameObject;
-import org.folio.rest.jaxrs.model.PermissionNameListObject;
-import org.folio.rest.jaxrs.model.PermissionUser;
-import org.folio.rest.jaxrs.model.PermissionUserListObject;
-import org.folio.rest.jaxrs.resource.PermsResource;
-import org.folio.rest.persist.Criteria.Criteria;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.cql.CQLWrapper;
-import org.folio.rest.tools.messages.MessageConsts;
-import org.folio.rest.tools.messages.Messages;
-import org.folio.rest.tools.utils.OutStream;
-import org.folio.rest.tools.utils.TenantTool;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
-import org.z3950.zing.cql.cql2pgjson.FieldException;
 
 /**
  *
@@ -143,8 +145,10 @@ public class PermsAPI implements PermsResource {
                 //This means that we have an existing user matching this username, error 400
                 logger.debug("Permissions user" + entity.getUsername() + " already exists");
                 asyncResultHandler.handle(Future.succeededFuture(
-                        PostPermsUsersResponse.withPlainBadRequest(
-                                "Username " + entity.getUsername() + " already exists")));
+                  PostPermsUsersResponse.withJsonUnprocessableEntity(
+                    ValidationHelper.createValidationErrorMessage(
+                      USER_NAME_FIELD, entity.getUsername(),
+                      "Username already exists"))));
               } else {
                 //Proceed to POST new user
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
@@ -351,7 +355,7 @@ public class PermsAPI implements PermsResource {
                     } else {
                       if(full == null || !full.equals("true")) {
                         PermissionNameListObject pnlo = new PermissionNameListObject();
-                        List<Object> objectList = new ArrayList<Object>();
+                        List<Object> objectList = new ArrayList<>();
                         for( String s : res.result() ) {
                           objectList.add(s);
                         }
@@ -401,17 +405,24 @@ public class PermsAPI implements PermsResource {
                   PermissionUser.class, new Criterion(usernameCrit), true, false, getReply-> {
             if(getReply.failed()) {
               logger.debug("Error checking for user: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal server error")));
+              asyncResultHandler.handle(Future.succeededFuture(
+                PostPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal server error")));
             } else {
               List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
               if(userList.size() == 0) {
-                asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUsernamePermissionsResponse.withPlainBadRequest("User " + username + " does not exist")));
+                asyncResultHandler.handle(Future.succeededFuture(
+                  PostPermsUsersByUsernamePermissionsResponse.withPlainBadRequest("User " + username + " does not exist")));
               } else {
                 //now we can actually add it
                 String permissionName = entity.getPermissionName();
                 PermissionUser user = userList.get(0);
                 if(user.getPermissions().contains(permissionName)) {
-                  asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUsernamePermissionsResponse.withPlainBadRequest("User " + username + " already has permission " + permissionName)));
+                  asyncResultHandler.handle(Future.succeededFuture(
+                    PostPermsUsersByUsernamePermissionsResponse
+                      .withJsonUnprocessableEntity(
+                        ValidationHelper.createValidationErrorMessage(
+                          USER_NAME_FIELD, username,
+                          "User " + username + " already has permission " + permissionName))));
                 } else {
                   user.getPermissions().add(permissionName);
                   try {
@@ -520,10 +531,12 @@ public class PermsAPI implements PermsResource {
             } else {
               List<Permission> permissionList = (List<Permission>)getReply.result()[0];
               if(permissionList.size() > 0) {
-                logger.debug("Permission with this name already exists");
                 asyncResultHandler.handle(Future.succeededFuture(
-                        PostPermsPermissionsResponse.withPlainBadRequest(
-                                "Permission with name " + entity.getPermissionName() + " already exists")));
+                  PostPermsPermissionsResponse.withJsonUnprocessableEntity(
+                  ValidationHelper.createValidationErrorMessage(
+                    PERMISSION_NAME_FIELD, entity.getPermissionName(),
+                    "Permission with name " + entity.getPermissionName() + " already exists"))));
+                logger.debug("Permission with this name already exists");
               } else {
                 //Do the actual POST of the new permission
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
@@ -531,6 +544,9 @@ public class PermsAPI implements PermsResource {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
                   entity.setAdditionalProperty("id", newId);
+                  if(entity.getPermissionName() == null) {
+                    entity.setPermissionName(newId);
+                  }
                   try {
                     postgresClient.save(beginTx, TABLE_NAME_PERMS, entity, postReply -> {
                       if(postReply.failed()) {
@@ -714,7 +730,7 @@ public class PermsAPI implements PermsResource {
               for(Permission permission : permissions) {
                 List<Object> subPermList = permission.getSubPermissions();
                 Future<Permission> permFuture;
-                if(expandSubs != null && expandSubs.equals("true")) { 
+                if(expandSubs != null && expandSubs.equals("true")) {
                   permFuture = expandSubPermissions(permission, vertxContext, tenantId);
                 } else {
                   permFuture = Future.succeededFuture(permission);
@@ -735,8 +751,8 @@ public class PermsAPI implements PermsResource {
                   permCollection.setTotalRecords(newPermList.size());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withJsonOK(permCollection)));
                 }
-                
-              });        
+
+              });
             } else {
               logger.debug("Error with getReply: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError(getReply.cause().getLocalizedMessage())));
@@ -873,7 +889,7 @@ public class PermsAPI implements PermsResource {
               } else {
                 Permission permission = permList.get(0);
                 if(!permission.getSubPermissions().isEmpty()) {
-                  List<Future> futureList = new ArrayList<Future>();
+                  List<Future> futureList = new ArrayList<>();
                   for(Object subPermissionName : permission.getSubPermissions()) {
                     Future<List<String>> subPermFuture = getExpandedPermissions((String)subPermissionName, vertxContext, tenantId);
                     futureList.add(subPermFuture);
@@ -1035,7 +1051,7 @@ public class PermsAPI implements PermsResource {
         }
       });
     }
-    
+
     return future;
   }
 

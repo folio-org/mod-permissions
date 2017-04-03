@@ -45,7 +45,6 @@
         "perms.users.modify"
       ]
     },
-
     {
       "methods": [
         "DELETE"
