@@ -75,7 +75,11 @@ public class RestVerticleTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    context.async().complete();
+    Async async = context.async();
+    vertx.close(context.asyncAssertSuccess( res-> {
+      PostgresClient.stopEmbeddedPostgres();
+      async.complete();
+    }));
   }
 
  @Test
