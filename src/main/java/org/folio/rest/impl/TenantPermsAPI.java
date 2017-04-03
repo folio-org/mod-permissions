@@ -37,6 +37,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
 
+  //The RAML won't do right if we don't provide a GET endpoint...
   @Override
   public void getTenantpermissions(String entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
