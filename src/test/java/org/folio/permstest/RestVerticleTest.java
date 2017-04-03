@@ -15,6 +15,7 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
+import io.vertx.core.Future;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -24,9 +25,11 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -81,6 +84,30 @@ public class RestVerticleTest {
       async.complete();
     }));
   }
+
+ @Test
+ public void testPermsSeq(TestContext context) {
+   Async async = context.async();
+   Future<Void> mainFuture;
+   Future<Void> beginFuture = Future.future();
+   sendPermissionSet(context).setHandler(beginFuture.completer());
+   mainFuture = beginFuture.compose(v -> {
+     Future<Void> f = Future.future();
+     postPermUser(context).setHandler(f.completer());
+     return f;
+   }).compose(v -> {
+     Future<Void> f = Future.future();
+     testUserPerms(context).setHandler(f.completer());
+     return f;
+   });
+   mainFuture.setHandler(res -> {
+     if(res.succeeded()) {
+       async.complete();
+     } else {
+       context.fail(res.cause());
+     }
+   });
+ }
 
  @Test
  public void testGroup(TestContext context){
@@ -230,5 +257,95 @@ public class RestVerticleTest {
    return false;
  }
 
-}
+ private Future<Void> sendPermissionSet(TestContext context) {
+   Future future = Future.future();
+   JsonObject permissionSet = new JsonObject()
+    .put("moduleId","dummy")
+    .put("perms", new JsonArray()
+      .add(new JsonObject()
+        .put("permissionName", "dummy.read")
+        .put("displayName", "Dummy Read")
+        .put("description", "Read Dummy Entries")
+      )
+      .add(new JsonObject()
+        .put("permissionName", "dummy.write")
+        .put("displayName", "Dummy Write")
+        .put("description", "Write Dummy Entries")
+      )
+      .add(new JsonObject()
+        .put("permissionName", "dummy.all")
+        .put("displayName", "Dummy All")
+        .put("description", "All Dummy Permissions")
+        .put("subPermissions", new JsonArray()
+          .add("dummy.read")
+          .add("dummy.write")
+        )
+      )
+    );
+   HttpClient client = vertx.createHttpClient();
+   client.post(port, "localhost", "/_/tenantpermissions", res -> {
+     if(res.statusCode() == 201) {
+        future.complete();
+     } else {
+      res.bodyHandler(buf -> {
+          future.fail("Post Permission set failed. Got return code " + res.statusCode() + " : " + buf.toString());
+      });
+    }
+   })
+    .putHeader("X-Okapi-Tenant", "diku")
+    .putHeader("Content-type", "application/json")
+    .putHeader("Accept", "application/json,text/plain")
+    .end(permissionSet.encode());
+    return future;
+  }
 
+  private Future<Void> postPermUser(TestContext context) {
+    Future future = Future.future();
+    HttpClient client = vertx.createHttpClient();
+    JsonObject newUser = new JsonObject()
+      .put("username", "armandhammer")
+      .put("permissions", new JsonArray().add("dummy.all"));
+    client.post(port, "localhost", "/perms/users", res -> {
+       if(res.statusCode() == 201) {
+          future.complete();
+        } else {
+          res.bodyHandler(buf -> {
+            future.fail("Post permission user failed. Got return code " + res.statusCode() + " : " + buf.toString());
+          });
+        }
+    })
+      .putHeader("X-Okapi-Tenant", "diku")
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json,text/plain")
+      .end(newUser.encode());
+      return future;
+  }
+
+  private Future<Void> testUserPerms(TestContext context) {
+    Future future = Future.future();
+    HttpClient client = vertx.createHttpClient();
+    client.get(port, "localhost", "/perms/users/armandhammer/permissions?expanded=true", res -> {
+      if(res.statusCode() != 200) {
+        res.bodyHandler(buf -> {
+          future.fail("Get permissions failed. Got return code " + res.statusCode() + " : " + buf.toString());
+        });
+      } else {
+        res.bodyHandler(buf -> {
+          JsonObject result = new JsonObject(buf.toString());
+          JsonArray nameList = result.getJsonArray("permissionNames");
+          if(nameList.contains("dummy.read") && nameList.contains("dummy.write")) {
+            future.complete();
+          } else {
+            future.fail("Namelist does not contain 'dummy.read' and 'dummy.write' " + "( " + buf.toString() + " )");
+          } 
+        });
+      }
+    })
+      .putHeader("X-Okapi-Tenant", "diku")
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json,text/plain")
+      .putHeader("X-Okapi-Permissions", "[ \"perms.users.read\" ]")
+      .end();
+    return future;
+  }
+}

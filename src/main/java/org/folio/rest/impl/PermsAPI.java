@@ -987,6 +987,9 @@ public class PermsAPI implements PermsResource {
   }
 
   private JsonObject parseTokenPayload(String token) {
+    if(token == null) {
+      return null;
+    }
     String[] tokenParts = token.split("\\.");
     if(tokenParts.length == 3) {
       String encodedPayload = tokenParts[1];
@@ -1007,7 +1010,7 @@ public class PermsAPI implements PermsResource {
 
   private boolean allowAccessByNameorPermission(String permissions, String permissionName, String token, String username) {
     String tokenUsername = getUsername(token);
-    if(tokenUsername.equals(username)) {
+    if(tokenUsername != null && tokenUsername.equals(username)) {
       logger.debug("Permission allowed for own username (" + username + ")");
       return true;
     }
