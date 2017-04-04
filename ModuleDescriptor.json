@@ -4,89 +4,108 @@
   "provides": [
     {
       "id": "permissions",
-      "version": "0.0.1"
+      "version": "0.0.1",
+      "handlers" : [
+        {
+          "methods": [
+            "POST"
+          ],
+          "pathPattern": "/perms/users*",
+          "level": "30",
+          "type": "request-response",
+          "permissionsRequired": [
+            "perms.users.create"
+          ]
+        },
+        {
+          "methods": [
+            "GET"
+          ],
+          "pathPattern": "/perms/users*",
+          "level": "30",
+          "type": "request-response",
+          "permissionsDesired": [
+            "perms.users.read"
+          ]
+        },
+        {
+          "methods": [
+            "PUT"
+          ],
+          "pathPattern": "/perms/users/{id}",
+          "level": "30",
+          "type": "request-response",
+          "permissionsRequired": [
+            "perms.users.modify"
+          ]
+        },
+
+        {
+          "methods": [
+            "DELETE"
+          ],
+          "pathPattern": "/perms/users/{id}",
+          "level": "30",
+          "type": "request-response",
+          "permissionsRequired": [
+            "perms.users.delete"
+          ]
+        },
+        {
+          "methods": [
+            "GET"
+          ],
+          "pathPattern": "/perms/permissions",
+          "level": "30",
+          "type": "request-response",
+          "permissionsRequired": [
+            "perms.permissions.read"
+          ]
+        },
+        {
+          "methods": [
+            "POST"
+          ],
+          "pathPattern": "/perms/permissions",
+          "level": "30",
+          "type": "request-response",
+          "permissionsRequired": [
+            "perms.permissions.create"
+          ]
+        },
+        {
+          "methods": [
+            "DELETE"
+          ],
+          "pathPattern": "/perms/permissions/{id}",
+          "level": "30",
+          "type": "request-response",
+          "permissionsRequired": [
+            "perms.permissions.delete "
+          ]
+        }
+      ]
     },
     {
       "id": "_tenant",
-      "version": "0.0.1"
-    }
-  ],
-  "routingEntries": [
-    {
-      "methods": [
-        "POST"
-      ],
-      "path": "/perms/users",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.users.create"
-      ]
+      "version": "1.0.0",
+      "interfaceType" : "system",
+      "handlers" : [
+        {
+          "methods" : [ "POST", "DELETE" ],
+          "pathPattern" : "/_/tenant"
+        }
+      ] 
     },
     {
-      "methods": [
-        "GET"
-      ],
-      "path": "/perms/users",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.users.read"
-      ]
-    },
-    {
-      "methods": [
-        "PUT"
-      ],
-      "path": "/perms/users",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.users.modify"
-      ]
-    },
-    {
-      "methods": [
-        "DELETE"
-      ],
-      "path": "/perms/users",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.users.delete"
-      ]
-    },
-    {
-      "methods": [
-        "GET"
-      ],
-      "path": "/perms/permissions",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.permissions.read"
-      ]
-    },
-    {
-      "methods": [
-        "POST"
-      ],
-      "path": "/perms/permissions",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.permissions.create"
-      ]
-    },
-    {
-      "methods": [
-        "DELETE"
-      ],
-      "path": "/perms/permissions",
-      "level": "30",
-      "type": "request-response",
-      "permissionsRequired": [
-        "perms.permissions.delete "
+      "id" : "_tenantPermissions",
+      "version" : "1.0.0",
+      "interfaceType" : "system",
+      "handlers" : [
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/_/tenantpermissions"
+        }
       ]
     }
   ]
