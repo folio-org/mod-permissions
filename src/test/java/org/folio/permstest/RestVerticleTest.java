@@ -337,7 +337,7 @@ public class RestVerticleTest {
             future.complete();
           } else {
             future.fail("Namelist does not contain 'dummy.read' and 'dummy.write' " + "( " + buf.toString() + " )");
-          } 
+          }
         });
       }
     })
