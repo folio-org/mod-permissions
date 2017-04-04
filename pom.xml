@@ -174,6 +174,8 @@
         </executions>
       </plugin>
 
+      <!-- Replace the baseUri and the protocols in the RAMLs that have been copied to
+        apidocs directory so that they can be used via the local html api console. -->
       <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
         <version>1.8</version>
@@ -182,6 +184,16 @@
             <phase>prepare-package</phase>
             <configuration>
               <target>
+                <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*"
+                  replace="baseUri: http://localhost:{http.port}">
+                  <fileset dir="${basedir}/target/classes/apidocs/raml">
+                    <include name="**/*.raml" />
+                  </fileset>
+                </replaceregexp>
+                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]"
+                  dir="${basedir}/target/classes/apidocs/raml">
+                  <include name="**/*.raml" />
+                </replace>
                 <replace token="../../raml-util"
                   value="../raml-util"
                   dir="${basedir}/target/classes/apidocs/raml">
