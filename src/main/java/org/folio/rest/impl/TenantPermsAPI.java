@@ -1,9 +1,5 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.folio.rest.impl;
+
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -34,7 +30,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   private static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final String TABLE_NAME_PERMS = "permissions";
-  
+
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
 
   //The RAML won't do right if we don't provide a GET endpoint...
@@ -74,7 +70,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     }
 
   }
-  
+
   private Future savePerm(Perm perm, String tenantId, Context vertxContext) {
     Future future = Future.future();
     if(perm.getPermissionName() == null) {
@@ -137,6 +133,6 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     }
     return future;
   }
-  
+
 
 }

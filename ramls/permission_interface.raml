@@ -12,34 +12,34 @@ schemas:
   - okapiPermissionSet: !include ../schemas/okapiPermissionSet.json
 
 /_/tenantpermissions:
-    get:
-        description: Dummy get endpoint
+  get:
+    description: Dummy get endpoint
+    body:
+      text/plain:
+        example: "Blah"
+    responses:
+      200:
         body:
-            text/plain:
-                example: "Blah"
-        responses:
-            200:
-                body:
-                    text/plain:
-                        example: "Blah"
-    post:
-        description: Add new permissionSets to the tenant
+          text/plain:
+            example: "Blah"
+  post:
+    description: Add new permissionSets to the tenant
+    body:
+      application/json:
+        schema: okapiPermissionSet
+    responses:
+      201:
         body:
-            application/json:
-                schema: okapiPermissionSet
-        responses:
-            201:
-                body:
-                    application/json:
-                        schema: okapiPermissionSet
-            400:
-                description: "Bad request"
-                body:
-                    text/plain:
-                        example: "Bad request"
-            500:
-                description: "Internal server error"
-                body:
-                    text/plain:
-                        example: "Error"
+          application/json:
+            schema: okapiPermissionSet
+      400:
+        description: "Bad request"
+        body:
+          text/plain:
+            example: "Bad request"
+      500:
+        description: "Internal server error"
+        body:
+          text/plain:
+            example: "Error"
 
