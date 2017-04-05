@@ -7,77 +7,45 @@
       "version": "0.1",
       "handlers" : [
         {
-          "methods": [
-            "POST"
-          ],
+          "methods": [ "POST" ],
           "pathPattern": "/perms/users*",
-          "permissionsRequired": [
-            "perms.users.item.post"
-          ]
+          "permissionsRequired": [ "perms.users.item.post" ]
         },
         {
-          "methods": [
-            "GET"
-          ],
+          "methods": [ "GET" ],
           "pathPattern": "/perms/users*",
-          "permissionsDesired": [
-            "perms.users.get"
-          ]
+          "permissionsDesired": [ "perms.users.get" ]
         },
         {
-          "methods": [
-            "PUT"
-          ],
+          "methods": [ "PUT" ],
           "pathPattern": "/perms/users/{id}",
-          "permissionsRequired": [
-            "perms.users.item.put"
-          ]
+          "permissionsRequired": [ "perms.users.item.put" ]
         },
         {
-          "methods": [
-            "DELETE"
-          ],
+          "methods": [ "DELETE" ],
           "pathPattern": "/perms/users/{id}",
-          "permissionsRequired": [
-            "perms.users.item.delete"
-          ]
+          "permissionsRequired": [ "perms.users.item.delete" ]
         },
         {
-          "methods": [
-            "DELETE"
-          ],
+          "methods": [ "DELETE" ],
           "pathPattern": "/perms/users/{id}/permissions/{perm}",
-          "permissionsRequired": [
-            "perms.users.item.delete"
-          ]
+          "permissionsRequired": [ "perms.users.item.delete" ]
         },
 
         {
-          "methods": [
-            "GET"
-          ],
+          "methods": [ "GET" ],
           "pathPattern": "/perms/permissions",
-          "permissionsRequired": [
-            "perms.permissions.get"
-          ]
+          "permissionsRequired": [ "perms.permissions.get" ]
         },
         {
-          "methods": [
-            "POST"
-          ],
+          "methods": [ "POST" ],
           "pathPattern": "/perms/permissions",
-          "permissionsRequired": [
-            "perms.permissions.item.post"
-          ]
+          "permissionsRequired": [ "perms.permissions.item.post" ]
         },
         {
-          "methods": [
-            "DELETE"
-          ],
+          "methods": [ "DELETE" ],
           "pathPattern": "/perms/permissions/{id}",
-          "permissionsRequired": [
-            "perms.permissions.item.delete "
-          ]
+          "permissionsRequired": [ "perms.permissions.item.delete " ]
         }
       ]
     },
