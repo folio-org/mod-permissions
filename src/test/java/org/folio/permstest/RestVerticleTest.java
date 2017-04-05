@@ -344,7 +344,7 @@ public class RestVerticleTest {
       .putHeader("X-Okapi-Tenant", "diku")
       .putHeader("Content-type", "application/json")
       .putHeader("Accept", "application/json,text/plain")
-      .putHeader("X-Okapi-Permissions", "[ \"perms.users.read\" ]")
+      .putHeader("X-Okapi-Permissions", "[ \"perms.users.get\" ]")
       .end();
     return future;
   }

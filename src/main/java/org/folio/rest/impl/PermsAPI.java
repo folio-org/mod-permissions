@@ -52,7 +52,7 @@ public class PermsAPI implements PermsResource {
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final String ID_FIELD = "'id'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
-  private static final String READ_PERMISSION_USERS_NAME = "perms.users.read";
+  private static final String READ_PERMISSION_USERS_NAME = "perms.users.get";
 
   private CQLWrapper getCQL(String query, int limit, int offset) throws FieldException{
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_PERMS + ".jsonb");

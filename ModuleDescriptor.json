@@ -71,5 +71,71 @@
         }
       ]
     }
+  ],
+  "permissionSets" : [
+    {
+      "permissionName" : "perms.users.get",
+      "displayName" : "permission users read",
+      "description" : "Read or list permissions user(s)"
+    },
+    {
+      "permissionName" : "perms.users.item.post",
+      "displayName" : "permission users item create",
+      "description" : "Add a new permissions user"
+    },
+    {
+      "permissionName" : "perms.users.item.put",
+      "displayName" : "permission users item modify",
+      "description" : "Modify a permissions user"
+    }, 
+    {
+      "permissionName" : "perms.users.item.delete",
+      "displayName" : "permission users item delete",
+      "description" : "Remove a permissions user or remove permissions from a user"
+    }, 
+    {
+      "permissionName" : "perms.permissions.get",
+      "displayName" : "permission read",
+      "description" : "Read or list permissions"
+    }, 
+    {
+      "permissionName" : "perms.permissions.item.post",
+      "displayName" : "permission item create",
+      "description" : "Add a new permission"
+    }, 
+    {
+      "permissionName" : "perms.permissions.item.put",
+      "displayName" : "permission item modify",
+      "description" : "Modify a permission"
+    }, 
+    {
+      "permissionName" : "perms.permissions.item.delete",
+      "displayName" : "permission item delete",
+      "description" : "Remove a permission"
+    },
+    {
+      "permissionName" : "perms.permissions",
+      "displayName" : "permissions",
+      "description" : "All permissions for permission objects",
+      "subPermissions" : [
+          "perms.permissions.get",
+          "perms.permissions.item.post",
+          "perms.permissions.item.put",
+          "perms.permissions.item.delete"
+      ]
+    },
+    {
+      "permissionName" : "perms.users",
+      "displayName" : "permission users",
+      "description" : "All permissions for permission user objects",
+      "subPermissions" : [
+        "perms.users.get",
+        "perms.users.item.post",
+        "perms.users.item.put",
+        "perms.users.item.delete"
+      ]
+    }
+
   ]
+
 }
