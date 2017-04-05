@@ -38,6 +38,16 @@
           "permissionsRequired": [ "perms.permissions.get" ]
         },
         {
+          "methods": [ "GET" ],
+          "pathPattern": "/perms/permissions/{id}",
+          "permissionsRequired": [ "perms.permissions.get" ]
+        },
+        {
+          "methods" : [ "PUT" ],
+          "pathPattern": "/perms/permissions/{id}",
+          "permissionsRequired" : [ "perms.users.item.put" ]
+        },
+        {
           "methods": [ "POST" ],
           "pathPattern": "/perms/permissions",
           "permissionsRequired": [ "perms.permissions.item.post" ]

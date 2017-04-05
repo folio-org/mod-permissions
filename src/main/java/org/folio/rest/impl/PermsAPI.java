@@ -641,7 +641,7 @@ public class PermsAPI implements PermsResource {
               asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("No such permission")));
             } else {
               Permission perm = permList.get(0);
-              if(perm.getPermissionName() != entity.getPermissionName()) {
+              if(!perm.getPermissionName().equals(entity.getPermissionName())) {
                 asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainBadRequest("permission name property cannot change")));
               } else {
                 try {
