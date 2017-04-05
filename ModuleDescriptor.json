@@ -44,6 +44,15 @@
         },
         {
           "methods": [
+            "DELETE"
+          ],
+          "pathPattern": "/perms/users/{id}/permissions/{perm}",
+          "permissionsRequired": [
+            "perms.users.delete"
+          ]
+        },
+        {
+          "methods": [
             "GET"
           ],
           "pathPattern": "/perms/permissions",
