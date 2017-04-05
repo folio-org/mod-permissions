@@ -12,7 +12,7 @@
           ],
           "pathPattern": "/perms/users*",
           "permissionsRequired": [
-            "perms.users.create"
+            "perms.users.item.post"
           ]
         },
         {
@@ -21,7 +21,7 @@
           ],
           "pathPattern": "/perms/users*",
           "permissionsDesired": [
-            "perms.users.read"
+            "perms.users.get"
           ]
         },
         {
@@ -30,7 +30,7 @@
           ],
           "pathPattern": "/perms/users/{id}",
           "permissionsRequired": [
-            "perms.users.modify"
+            "perms.users.item.put"
           ]
         },
         {
@@ -39,7 +39,7 @@
           ],
           "pathPattern": "/perms/users/{id}",
           "permissionsRequired": [
-            "perms.users.delete"
+            "perms.users.item.delete"
           ]
         },
         {
@@ -48,16 +48,17 @@
           ],
           "pathPattern": "/perms/users/{id}/permissions/{perm}",
           "permissionsRequired": [
-            "perms.users.delete"
+            "perms.users.item.delete"
           ]
         },
+
         {
           "methods": [
             "GET"
           ],
           "pathPattern": "/perms/permissions",
           "permissionsRequired": [
-            "perms.permissions.read"
+            "perms.permissions.get"
           ]
         },
         {
@@ -66,7 +67,7 @@
           ],
           "pathPattern": "/perms/permissions",
           "permissionsRequired": [
-            "perms.permissions.create"
+            "perms.permissions.item.post"
           ]
         },
         {
@@ -75,7 +76,7 @@
           ],
           "pathPattern": "/perms/permissions/{id}",
           "permissionsRequired": [
-            "perms.permissions.delete "
+            "perms.permissions.item.delete "
           ]
         }
       ]
