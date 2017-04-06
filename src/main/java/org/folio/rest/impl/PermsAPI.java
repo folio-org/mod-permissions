@@ -714,6 +714,7 @@ public class PermsAPI implements PermsResource {
         try {
           cql = getCQL(query, length, start-1);
         } catch(Exception e) {
+          logger.debug("Error parsing CQL: " + e.getLocalizedMessage());
           asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainBadRequest(
                         "CQL Parsing Error for '" + query + "': " + e.getLocalizedMessage())));
           return;
@@ -741,7 +742,7 @@ public class PermsAPI implements PermsResource {
               compositeFuture.setHandler(compositeResult -> {
                 if(compositeFuture.failed()) {
                   logger.debug("Error expanding permissions: " + compositeFuture.cause().getLocalizedMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError(compositeResult.cause().getLocalizedMessage())));
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainInternalServerError("Error getting expanded permissions: " + compositeResult.cause().getLocalizedMessage())));
                 } else {
                   List<Permission> newPermList = new ArrayList<>();
                   for(Future f : futureList) {
@@ -897,6 +898,7 @@ public class PermsAPI implements PermsResource {
                   CompositeFuture compositeFuture = CompositeFuture.all(futureList);
                   compositeFuture.setHandler(compRes -> {
                     if(compRes.failed()) {
+                      logger.debug("Error getting expanded permissions for '" + permissionName + "' : " + compRes.cause().getLocalizedMessage());
                       future.fail(compRes.cause());
                     } else {
                       for(Future finishedFuture : futureList) {
@@ -954,6 +956,7 @@ public class PermsAPI implements PermsResource {
 
   private Future<Permission> getFullPermissions(String permissionName, Context vertxContext, String tenantId) {
    Future<Permission> future = Future.future();
+   logger.debug("Getting full permissions for " + permissionName);
    try {
      vertxContext.runOnContext(v-> {
        Criteria nameCrit = new Criteria();
@@ -964,12 +967,16 @@ public class PermsAPI implements PermsResource {
          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
                   Permission.class, new Criterion(nameCrit), true, false, getReply -> {
            if(getReply.failed()) {
+             logger.debug("postgres client 'get' failed: " + getReply.cause().getLocalizedMessage());
              future.fail(getReply.cause());
            } else {
              List<Permission> permList = (List<Permission>)getReply.result()[0];
              if(permList.isEmpty()) {
-               future.fail("No permission object found for name '" + permissionName + "'");
+               logger.debug("No permission object '" + permissionName + "' exists");
+               //future.fail("No permission object found for name '" + permissionName + "'");
+               future.complete(null);
              } else {
+               logger.debug("Completing future for getFullPermissions for '" + permissionName + "'");
                future.complete(permList.get(0));
              }
            }
@@ -1030,6 +1037,7 @@ public class PermsAPI implements PermsResource {
   }
 
   private Future<Permission> expandSubPermissions(Permission permission, Context vertxContext, String tenantId) {
+    logger.debug("Expanding subPermissions for " + permission.getPermissionName());
     Future<Permission> future = Future.future();
     List<Object> subPerms = permission.getSubPermissions();
     if(subPerms.isEmpty()) {
@@ -1044,10 +1052,13 @@ public class PermsAPI implements PermsResource {
       CompositeFuture compositeFuture = CompositeFuture.join(futureList);
       compositeFuture.setHandler(compositeResult -> {
         if(compositeResult.failed()) {
+          logger.debug("Failed to expand subpermissions for '" + permission.getPermissionName() + "' : " + compositeResult.cause().getLocalizedMessage());
           future.fail(compositeResult.cause().getLocalizedMessage());
         } else {
           for(Future f : futureList) {
-            newSubPerms.add(f.result());
+            if(f.result() != null) {
+              newSubPerms.add(f.result());
+            }
           }
           permission.setSubPermissions(newSubPerms);
           future.complete(permission);
