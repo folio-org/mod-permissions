@@ -944,8 +944,10 @@ public class PermsAPI implements PermsResource {
         PermissionNameListObject pnlo = new PermissionNameListObject();
         List<Object> permList = new ArrayList<>();
         for(Future doneFuture : futureList) {
-         Object result = doneFuture.result();
-         permList.add(result);
+          Object result = doneFuture.result();
+          if(result != null) {
+            permList.add(result);
+          }
         }
         pnlo.setPermissionNames(permList);
         future.complete(pnlo);
