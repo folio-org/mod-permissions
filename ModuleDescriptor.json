@@ -42,6 +42,7 @@
           "pathPattern": "/perms/permissions/{id}",
           "permissionsRequired": [ "perms.permissions.get" ]
         },
+
         {
           "methods" : [ "PUT" ],
           "pathPattern": "/perms/permissions/{id}",
@@ -143,6 +144,15 @@
         "perms.users.item.post",
         "perms.users.item.put",
         "perms.users.item.delete"
+      ]
+    },
+    {
+      "permissionName" : "perms.all",
+      "displayName" : "perms all",
+      "description" : "All permissions for the permissions module",
+      "subPermissions" : [
+        "perms.users",
+        "perms.permissions"
       ]
     }
 
