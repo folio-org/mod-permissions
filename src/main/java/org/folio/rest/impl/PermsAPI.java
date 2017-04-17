@@ -53,13 +53,20 @@ public class PermsAPI implements PermsResource {
   private static final String ID_FIELD = "'id'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static final String READ_PERMISSION_USERS_NAME = "perms.users.get";
-
+  private static boolean suppressErrorResponse = false;
   private CQLWrapper getCQL(String query, int limit, int offset) throws FieldException{
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_PERMS + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
 
   private final Messages messages = Messages.getInstance();
+
+  private String getErrorResponse(String response) {
+    if(suppressErrorResponse) {
+      return "Internal Server Error: Please contact Admin";
+    }
+    return response;
+  }
 
   @Override
   public void getPermsUsers(int length, int start, String sortBy, String query,
@@ -98,8 +105,9 @@ public class PermsAPI implements PermsResource {
                                   reply.cause().getLocalizedMessage())));
                 }
               } catch(Exception e) {
-                logger.debug("Error building response from reply: " + e.getLocalizedMessage());
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+                String errStr = "Error building response from reply: " + e.getLocalizedMessage();
+                logger.debug(errStr);
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               }
             });
           } catch(Exception e) {
@@ -108,16 +116,19 @@ public class PermsAPI implements PermsResource {
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withPlainBadRequest(
                           "CQL Parsing Error for '" + query + "': " + e.getLocalizedMessage())));
                 } else {
+                  String errStr = e.getLocalizedMessage();
+                  logger.debug(errStr);
                   asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                                GetPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+                                GetPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                 }
           }
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running vertx on context:" + e.getLocalizedMessage());
+      String errStr = "Error running vertx on context:" + e.getLocalizedMessage();
+      logger.debug(errStr);
       asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                        GetPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+                        GetPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
 
@@ -137,8 +148,9 @@ public class PermsAPI implements PermsResource {
                   TABLE_NAME_PERMSUSERS, PermissionUser.class,
                   new Criterion(nameCrit), true, false, queryReply -> {
             if(queryReply.failed()) {
-              logger.debug("Unable to query permissions users: " + queryReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+              String errStr = "Unable to query permissions users: " + queryReply.cause().getLocalizedMessage();
+              logger.debug(errStr);
+              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
             } else {
               List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
               if(userList.size() > 0) {
@@ -163,30 +175,35 @@ public class PermsAPI implements PermsResource {
                             asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withJsonCreated(entity)));
                           });
                         } else {
-                          logger.debug("Unable to save: " + postReply.cause().getLocalizedMessage());
-                          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+                          String errStr = "Unable to save: " + postReply.cause().getLocalizedMessage();
+                          logger.debug(errStr);
+                          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                         }
                       } catch(Exception e) {
-                        logger.debug("Error saving entity " + entity.toString() + ": " + e.getLocalizedMessage());
-                        asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+                        String errStr = "Error saving entity " + entity.toString() + ": " + e.getLocalizedMessage();
+                        logger.debug(errStr);
+                        asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                       }
                      });
                   } catch(Exception e) {
-                    logger.debug("Error in transaction for entity " + entity.toString() + ": " + e.getLocalizedMessage());
-                    asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+                    String errStr = "Error in transaction for entity " + entity.toString() + ": " + e.getLocalizedMessage();
+                    logger.debug(errStr);
+                    asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                   }
                 });
               }
             }
           });
         } catch(Exception e) {
-          logger.debug("Error querying existing permissions user: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+          String errStr = "Error querying existing permissions user: " + e.getLocalizedMessage();
+          logger.debug(errStr);
+          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError("Internal server error")));
+      String errStr = "Error running vertx on context: " + e.getLocalizedMessage();
+      logger.debug(errStr);
+      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
 
@@ -211,8 +228,9 @@ public class PermsAPI implements PermsResource {
                     TABLE_NAME_PERMSUSERS, PermissionUser.class,
                     new Criterion(nameCrit), true, false, queryReply -> {
               if(queryReply.failed()) {
-                logger.debug("queryReply failed: " + queryReply.cause().getLocalizedMessage());
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+                String errStr = "queryReply failed: " + queryReply.cause().getLocalizedMessage();
+                logger.debug(errStr);
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               } else {
                 List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
                 if(userList.size() < 1) {
@@ -220,8 +238,9 @@ public class PermsAPI implements PermsResource {
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainNotFound("No user with username: " + username)));
                 } else if(userList.size() > 1) {
                   //WTF, we got multiples for a single username? That ain't right
-                  logger.debug("Multiple permissions users matched for username: " + username);
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+                  String errStr = "Multiple permissions users matched for username: " + username;
+                  logger.debug(errStr);
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                 } else {
                   //return the permissions user object
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withJsonOK(userList.get(0))));
@@ -229,14 +248,16 @@ public class PermsAPI implements PermsResource {
               }
             });
           } catch(Exception e) {
-            logger.debug("Error getting query from Postgres: " + e.getLocalizedMessage());
-            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+            String errStr = "Error getting query from Postgres: " + e.getLocalizedMessage();
+            logger.debug(errStr);
+            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
           }
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+      String errStr = "Error running vertx on context: " + e.getLocalizedMessage();
+      logger.debug(errStr);
+      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
 
@@ -256,23 +277,28 @@ public class PermsAPI implements PermsResource {
                    TABLE_NAME_PERMSUSERS, entity, new Criterion(nameCrit), true, putReply -> {
             try {
               if(putReply.failed()) {
-                logger.debug("Error with put: " + putReply.cause().getLocalizedMessage());
+                String errStr = "Error with put: " + putReply.cause().getLocalizedMessage();
+                logger.debug(errStr);
+                asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               } else {
                 asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withJsonOK(entity)));
               }
             } catch(Exception e) {
-              logger.debug("Error getting put reply: " + e.getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+              String errStr = "Error getting put reply: " + e.getLocalizedMessage();
+              logger.debug(errStr);
+              asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
             }
           });
          } catch(Exception e) {
-           logger.debug("Error using Postgres instance: " + e.getLocalizedMessage());
-           asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+           String errStr = "Error using Postgres instance: " + e.getLocalizedMessage();
+           logger.debug(errStr);
+           asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
          }
        });
     } catch(Exception e) {
-      logger.debug("Error running vertx on context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError("Internal server error")));
+      String errStr ="Error running vertx on context: " + e.getLocalizedMessage();
+      logger.debug(errStr);
+      asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUsernameResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
 
@@ -327,8 +353,9 @@ public class PermsAPI implements PermsResource {
             PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
                     PermissionUser.class, new Criterion(nameCrit), true, false, getReply -> {
               if(getReply.failed()) {
-                logger.debug("Error from get reply: " + getReply.cause().getLocalizedMessage());
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal server error")));
+                String errStr = "Error from get reply: " + getReply.cause().getLocalizedMessage();
+                logger.debug(errStr);
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               } else {
                 List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
                 if(userList.isEmpty()) {
@@ -350,8 +377,9 @@ public class PermsAPI implements PermsResource {
                   }
                   future.setHandler(res-> {
                     if(res.failed()) {
-                      logger.debug("Error getting expanded permissions: " + res.cause().getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal Server Error")));
+                      String errStr = "Error getting expanded permissions: " + res.cause().getLocalizedMessage();
+                      logger.debug(errStr);
+                      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                     } else {
                       if(full == null || !full.equals("true")) {
                         PermissionNameListObject pnlo = new PermissionNameListObject();
@@ -366,8 +394,9 @@ public class PermsAPI implements PermsResource {
                         Future<PermissionNameListObject> pnloFuture = getAllFullPermissions(res.result(), vertxContext, tenantId);
                         pnloFuture.setHandler(fullRes -> {
                           if(fullRes.failed()) {
-                            logger.debug("Error getting full permission objects: " + fullRes.cause().getLocalizedMessage());
-                            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal server error")));
+                            String errStr = "Error getting full permission objects: " + fullRes.cause().getLocalizedMessage();
+                            logger.debug(errStr);
+                            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                           } else {
                             asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withJsonOK(fullRes.result())));
                           }
@@ -379,14 +408,16 @@ public class PermsAPI implements PermsResource {
               }
             });
           } catch(Exception e) {
-            logger.debug("Error using Postgres instance: " + e.getLocalizedMessage());
-            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal server error")));
+            String errStr = "Error using Postgres instance: " + e.getLocalizedMessage();
+            logger.debug(errStr);
+            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
           }
         }
       });
     } catch(Exception e) {
-      logger.debug("Error running on vertx context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError("Internal server error")));
+      String errStr = "Error running on vertx context: " + e.getLocalizedMessage();
+      logger.debug(errStr);
+      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernamePermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
   @Override
