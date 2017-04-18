@@ -69,7 +69,7 @@
           "methods" : [ "POST", "DELETE" ],
           "pathPattern" : "/_/tenant"
         }
-      ] 
+      ]
     },
     {
       "id" : "_tenantPermissions",
@@ -98,27 +98,27 @@
       "permissionName" : "perms.users.item.put",
       "displayName" : "permission users item modify",
       "description" : "Modify a permissions user"
-    }, 
+    },
     {
       "permissionName" : "perms.users.item.delete",
       "displayName" : "permission users item delete",
       "description" : "Remove a permissions user or remove permissions from a user"
-    }, 
+    },
     {
       "permissionName" : "perms.permissions.get",
       "displayName" : "permission read",
       "description" : "Read or list permissions"
-    }, 
+    },
     {
       "permissionName" : "perms.permissions.item.post",
       "displayName" : "permission item create",
       "description" : "Add a new permission"
-    }, 
+    },
     {
       "permissionName" : "perms.permissions.item.put",
       "displayName" : "permission item modify",
       "description" : "Modify a permission"
-    }, 
+    },
     {
       "permissionName" : "perms.permissions.item.delete",
       "displayName" : "permission item delete",
