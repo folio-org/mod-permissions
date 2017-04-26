@@ -46,7 +46,7 @@
         {
           "methods" : [ "PUT" ],
           "pathPattern": "/perms/permissions/{id}",
-          "permissionsRequired" : [ "perms.users.item.put" ]
+          "permissionsRequired" : [ "perms.permissions.item.put" ]
         },
         {
           "methods": [ "POST" ],
