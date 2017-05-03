@@ -19,4 +19,7 @@ The [raml-module-builder](https://github.com/folio-org/raml-module-builder) fram
 
 Other [modules](http://dev.folio.org/source-code/#server-side).
 
+See project [MODPERMS](https://issues.folio.org/browse/MODPERMS)
+at the [FOLIO issue tracker](http://dev.folio.org/community/guide-issues).
+
 Other FOLIO Developer documentation is at [dev.folio.org](http://dev.folio.org/)
