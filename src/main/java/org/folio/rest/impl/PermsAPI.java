@@ -938,7 +938,16 @@ public class PermsAPI implements PermsResource {
                 Permission permission = permList.get(0);
                 if(!permission.getSubPermissions().isEmpty()) {
                   List<Future> futureList = new ArrayList<>();
-                  for(Object subPermissionName : permission.getSubPermissions()) {
+                  for(Object subPermissionOb : permission.getSubPermissions()) {
+										String subPermissionName = null;
+										try {
+											subPermissionName = (String)subPermissionOb;
+										} catch(Exception e) {
+											String message = "Error getting string value of subpermissions from permission '" +
+												permission.getPermissionName() + "': " + e.getLocalizedMessage();
+											logger.error(message);
+											future.fail(message);
+										}
                     Future<List<String>> subPermFuture = getExpandedPermissions((String)subPermissionName, vertxContext, tenantId);
                     futureList.add(subPermFuture);
                   }
