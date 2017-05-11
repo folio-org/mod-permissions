@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>permissions-module</artifactId>
-  <version>3.0.0-SNAPSHOT</version>
+  <version>3.0.0</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -185,19 +185,15 @@
             <phase>prepare-package</phase>
             <configuration>
               <target>
-                <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*"
-                  replace="baseUri: http://localhost:{http.port}">
+                <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*" replace="baseUri: http://localhost:{http.port}">
                   <fileset dir="${basedir}/target/classes/apidocs/raml">
                     <include name="**/*.raml" />
                   </fileset>
                 </replaceregexp>
-                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]"
-                  dir="${basedir}/target/classes/apidocs/raml">
+                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
                   <include name="**/*.raml" />
                 </replace>
-                <replace token="../../raml-util"
-                  value="../raml-util"
-                  dir="${basedir}/target/classes/apidocs/raml">
+                <replace token="../../raml-util" value="../raml-util" dir="${basedir}/target/classes/apidocs/raml">
                   <include name="**/*.raml" />
                 </replace>
               </target>
@@ -270,7 +266,7 @@
     <url>https://github.com/folio-org/mod-users</url>
     <connection>scm:git:git://github.com:folio-org/mod-users.git</connection>
     <developerConnection>scm:git:git@github.com:folio-org/mod-users.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>v3.0.0</tag>
   </scm>
 
   <properties>
