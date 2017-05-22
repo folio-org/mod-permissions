@@ -108,6 +108,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
             postgresClient.startTx(beginTx -> {
               String newId = UUID.randomUUID().toString();
               permission.setId(newId);
+              permission.setVisible(false);
               try {
                 postgresClient.save(beginTx, TABLE_NAME_PERMS, permission, postReply -> {
                   if(postReply.failed()) {
