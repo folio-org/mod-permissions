@@ -585,7 +585,9 @@ public class PermsAPI implements PermsResource {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
                   entity.setAdditionalProperty("id", newId);
-                  entity.setVisible(true);
+                  if(entity.getVisible() == null) {
+                    entity.setVisible(true);
+                  }
                   if(entity.getPermissionName() == null) {
                     entity.setPermissionName(newId);
                   }

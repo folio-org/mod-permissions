@@ -77,7 +77,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
       return Future.succeededFuture();
     }
     Permission permission = new Permission();
-    permission.setMutable(false);
+    permission.setMutable(false); //All permissions created via tenantPermissions API are immutable
     permission.setPermissionName(perm.getPermissionName());
     permission.setDisplayName(perm.getDisplayName());
     permission.setDescription(perm.getDescription());
@@ -108,7 +108,9 @@ public class TenantPermsAPI implements TenantpermissionsResource {
             postgresClient.startTx(beginTx -> {
               String newId = UUID.randomUUID().toString();
               permission.setId(newId);
-              permission.setVisible(false);
+              if(permission.getVisible() == null) {
+                permission.setVisible(false);
+              }
               try {
                 postgresClient.save(beginTx, TABLE_NAME_PERMS, permission, postReply -> {
                   if(postReply.failed()) {
