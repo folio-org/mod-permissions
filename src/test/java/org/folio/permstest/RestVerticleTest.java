@@ -99,6 +99,10 @@ public class RestVerticleTest {
      Future<Void> f = Future.future();
      testUserPerms(context).setHandler(f.completer());
      return f;
+   }).compose(v -> {
+     Future<Void> f = Future.future();
+     testTenantPermissionVisible(context).setHandler(f.completer());
+     return f;
    });
    mainFuture.setHandler(res -> {
      if(res.succeeded()) {
@@ -266,6 +270,7 @@ public class RestVerticleTest {
         .put("permissionName", "dummy.read")
         .put("displayName", "Dummy Read")
         .put("description", "Read Dummy Entries")
+        .put("visible", true)
       )
       .add(new JsonObject()
         .put("permissionName", "dummy.write")
@@ -348,4 +353,54 @@ public class RestVerticleTest {
       .end();
     return future;
   }
+
+  private Future<Void> testTenantPermissionVisible(TestContext context) {
+    Future future = Future.future();
+    HttpClient client = vertx.createHttpClient();
+    client.get(port, "localhost", "/perms/permissions?query=permissionName=dummy*", res -> {
+        if(res.statusCode() != 200) {
+          res.bodyHandler(buf -> {
+            future.fail("Unable to get permissions. Got return code " + res.statusCode() + " : " + buf.toString());
+          });
+        } else {
+          res.bodyHandler(buf -> {
+            JsonObject result = new JsonObject(buf.toString());
+            JsonArray permList = result.getJsonArray("permissions");
+            boolean dummyReadFound = false;
+            boolean dummyWriteFound = false;
+            for( Object ob : permList ) {
+              JsonObject permJson = (JsonObject)ob;
+              if(permJson.getString("permissionName").equals("dummy.read")) {
+                dummyReadFound = true;
+                boolean visible = permJson.getBoolean("visible");
+                if(visible != true) {
+                  future.fail("visible field of dummy.read should be true. Value is " + visible);
+                  return;
+                }
+              } else if(permJson.getString("permissionName").equals("dummy.write")) {
+                dummyWriteFound = true;
+                boolean visible = permJson.getBoolean("visible");
+                if(visible != false) {
+                  future.fail("visible field of dummy.write should be true. Value is " + visible);
+                  return;
+                }
+
+              }
+            }
+            if(dummyReadFound && dummyWriteFound) {
+              future.complete();
+            } else {
+              future.fail("Unable to locate all added permissions");
+            }
+          });
+        }
+    })
+      .putHeader("X-Okapi-Tenant", "diku")
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json,text/plain")
+      .putHeader("X-Okapi-Permissions", "[ \"perms.users.get\" ]")
+      .end();
+    return future;
+  }
+
 }
