@@ -585,7 +585,8 @@ public class PermsAPI implements PermsResource {
                 postgresClient.startTx(beginTx-> {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
-                  entity.setAdditionalProperty("id", newId);
+                  //entity.setAdditionalProperty("id", newId);
+									entity.setId(newId);
                   if(entity.getVisible() == null) {
                     entity.setVisible(true);
                   }
