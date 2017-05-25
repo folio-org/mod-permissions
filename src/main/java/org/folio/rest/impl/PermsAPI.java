@@ -54,8 +54,8 @@ public class PermsAPI implements PermsResource {
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static final String READ_PERMISSION_USERS_NAME = "perms.users.get";
   private static boolean suppressErrorResponse = false;
-  private CQLWrapper getCQL(String query, int limit, int offset) throws FieldException{
-    CQL2PgJSON cql2pgJson = new CQL2PgJSON(TABLE_NAME_PERMS + ".jsonb");
+  private CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException{
+    CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
 
@@ -77,7 +77,7 @@ public class PermsAPI implements PermsResource {
       vertxContext.runOnContext(v -> {
         CQLWrapper cql;
         try {
-          cql = getCQL(query, length, start-1);
+          cql = getCQL(query, TABLE_NAME_PERMSUSERS, length, start-1);
         } catch(Exception e) {
           logger.error(e.getMessage(), e);
           asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withPlainBadRequest(
@@ -101,9 +101,10 @@ public class PermsAPI implements PermsResource {
                   permUserCollection.setTotalRecords(permissionUsers.size());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withJsonOK(permUserCollection)));
                 } else {
+									String errStr = "Get operation from PostgresClient failed: " + reply.cause().getLocalizedMessage();
+									logger.error(errStr);
                   asyncResultHandler.handle(Future.succeededFuture(
-                          GetPermsUsersResponse.withPlainInternalServerError(
-                                  reply.cause().getLocalizedMessage())));
+                          GetPermsUsersResponse.withPlainInternalServerError(errStr)));
                 }
               } catch(Exception e) {
                 String errStr = "Error building response from reply: " + e.getLocalizedMessage();
@@ -756,7 +757,7 @@ public class PermsAPI implements PermsResource {
       vertxContext.runOnContext(v -> {
         CQLWrapper cql;
         try {
-          cql = getCQL(query, length, start-1);
+          cql = getCQL(query, TABLE_NAME_PERMS, length, start-1);
         } catch(Exception e) {
           logger.error("Error parsing CQL: " + e.getLocalizedMessage());
           asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withPlainBadRequest(

@@ -85,6 +85,10 @@ public class RestVerticleTest {
     }));
   }
 
+/*
+	Call our various tests for the permissions module, but do so in a sequential fashion,
+	chaning each future's completion to the next in line
+*/
  @Test
  public void testPermsSeq(TestContext context) {
    Async async = context.async();
@@ -100,6 +104,10 @@ public class RestVerticleTest {
      testUserPerms(context).setHandler(f.completer());
      return f;
    }).compose(v -> {
+		 Future<Void> f = Future.future();
+		 testUserPermsQuery(context).setHandler(f.completer());
+		 return f;
+	 }).compose(v -> {
      Future<Void> f = Future.future();
      testTenantPermissionVisible(context).setHandler(f.completer());
      return f;
@@ -343,6 +351,43 @@ public class RestVerticleTest {
           } else {
             future.fail("Namelist does not contain 'dummy.read' and 'dummy.write' " + "( " + buf.toString() + " )");
           }
+        });
+      }
+    })
+      .putHeader("X-Okapi-Tenant", "diku")
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json,text/plain")
+      .putHeader("X-Okapi-Permissions", "[ \"perms.users.get\" ]")
+      .end();
+    return future;
+  }
+	
+	private Future<Void> testUserPermsQuery(TestContext context) {
+    Future future = Future.future();
+    HttpClient client = vertx.createHttpClient();
+    client.get(port, "localhost", "/perms/users?query=permissions=dummy*", res -> {
+      if(res.statusCode() != 200) {
+        res.bodyHandler(buf -> {
+          future.fail("Query failed. Got return code " + res.statusCode() + " : " + buf.toString());
+        });
+      } else {
+        res.bodyHandler(buf -> {
+          JsonObject result = new JsonObject(buf.toString());
+          JsonArray userList = result.getJsonArray("permissionUsers");
+					JsonObject userObject = null;
+					for(Object ob : userList) {
+						JsonObject userCandidateObject = (JsonObject)ob;
+						if(userCandidateObject.getString("username").equals("armandhammer")) {
+							userObject = userCandidateObject;
+							break;
+						} 
+					}
+					if(userObject == null) {
+						future.fail("User 'armandhammer' not found in permissionUsers listing");
+						return;
+					} else {
+						future.complete();
+					}
         });
       }
     })
