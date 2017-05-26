@@ -1,5 +1,5 @@
 ## 2017-05-25
- * Update to RMB release 12.1.0
+ * Update to RMB release 12.2.0
  * Add new "visible" field to permissions schema
  * Fix bug with CQL for /perms/users endpoint
  * Disallow extra properties in permissions and permission user schemas
