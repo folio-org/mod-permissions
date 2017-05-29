@@ -193,7 +193,7 @@
                 <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
                   <include name="**/*.raml" />
                 </replace>
-                <replace token="../../raml-util" value="../raml-util" dir="${basedir}/target/classes/apidocs/raml">
+                <replace token="../.." value="../raml-util" dir="${basedir}/target/classes/apidocs/raml">
                   <include name="**/*.raml" />
                 </replace>
               </target>
@@ -274,6 +274,6 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <ramlfiles_path>${basedir}/raml-util/ramls/mod-permissions</ramlfiles_path>
-    <ramlfiles_util_path>${basedir}/../raml-util</ramlfiles_util_path>
+    <ramlfiles_util_path>${basedir}/raml-util</ramlfiles_util_path>
   </properties>
 </project>
