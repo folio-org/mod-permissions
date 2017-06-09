@@ -947,14 +947,16 @@ public class PermsAPI implements PermsResource {
 										String subPermissionName = null;
 										try {
 											subPermissionName = (String)subPermissionOb;
+                      Future<List<String>> subPermFuture = getExpandedPermissions((String)subPermissionName, vertxContext, tenantId);
+                      futureList.add(subPermFuture);
 										} catch(Exception e) {
 											String message = "Error getting string value of subpermissions from permission '" +
 												permission.getPermissionName() + "': " + e.getLocalizedMessage();
 											logger.error(message);
 											future.fail(message);
+                      return;
 										}
-                    Future<List<String>> subPermFuture = getExpandedPermissions((String)subPermissionName, vertxContext, tenantId);
-                    futureList.add(subPermFuture);
+                    
                   }
                   CompositeFuture compositeFuture = CompositeFuture.all(futureList);
                   compositeFuture.setHandler(compRes -> {
