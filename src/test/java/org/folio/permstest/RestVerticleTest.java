@@ -111,7 +111,12 @@ public class RestVerticleTest {
      Future<Void> f = Future.future();
      testTenantPermissionVisible(context).setHandler(f.completer());
      return f;
+   }).compose( v-> {
+     Future<Void> f = Future.future();
+     testPostBadPermission(context).setHandler(f.completer());
+     return f;
    });
+
    mainFuture.setHandler(res -> {
      if(res.succeeded()) {
        async.complete();
@@ -331,7 +336,7 @@ public class RestVerticleTest {
       .putHeader("Content-type", "application/json")
       .putHeader("Accept", "application/json,text/plain")
       .end(newUser.encode());
-      return future;
+    return future;
   }
 
   private Future<Void> testUserPerms(TestContext context) {
@@ -445,6 +450,37 @@ public class RestVerticleTest {
       .putHeader("Accept", "application/json,text/plain")
       .putHeader("X-Okapi-Permissions", "[ \"perms.users.get\" ]")
       .end();
+    return future;
+  }
+
+
+  private Future<Void> testPostBadPermission(TestContext context) {
+    Future future = Future.future();
+    JsonObject badPermission = new JsonObject()
+      .put("permissionName", "setOne")
+      .put("subPermissions", new JsonArray()
+        .add(new JsonObject()
+          .put("permissionName", "dummy.read")
+         )
+        .add(new JsonObject()
+          .put("permissionName", "dummy.write")
+        )
+      );
+    HttpClient client = vertx.createHttpClient();
+    client.post(port, "localhost", "/perms/permissions", res -> {
+      if(res.statusCode() != 422) {
+        res.bodyHandler(buf -> {
+          future.fail("Error, expected code 422, got return code '" +
+            res.statusCode() + "' : " + buf.toString());
+        });
+      } else {
+        future.complete();
+      }
+    })
+      .putHeader("X-Okapi-Tenant", "diku")
+      .putHeader("Content-Type", "application/json")
+      .putHeader("Accept", "application/json,text/plain")
+      .end(badPermission.encode());
     return future;
   }
 
