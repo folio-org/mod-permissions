@@ -14,6 +14,7 @@ import org.folio.rest.jaxrs.model.PermissionNameListObject;
 import org.folio.rest.jaxrs.model.PermissionNameObject;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.model.PermissionUserListObject;
+import org.folio.rest.jaxrs.model.PermissionUploadJson;
 import org.folio.rest.jaxrs.resource.PermsResource;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -554,7 +555,7 @@ public class PermsAPI implements PermsResource {
 
 
   @Override
-  public void postPermsPermissions(Permission entity, Map<String, String> okapiHeaders,
+  public void postPermsPermissions(PermissionUploadJson entity, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
           throws Exception {
     try {
@@ -666,7 +667,7 @@ public class PermsAPI implements PermsResource {
 
   @Override
   public void putPermsPermissionsById(String id,
-          Permission entity, Map<String, String> okapiHeaders,
+          PermissionUploadJson entity, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {

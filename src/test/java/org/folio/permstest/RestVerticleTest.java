@@ -468,7 +468,7 @@ public class RestVerticleTest {
       );
     HttpClient client = vertx.createHttpClient();
     client.post(port, "localhost", "/perms/permissions", res -> {
-      if(res.statusCode() != 422) {
+      if(res.statusCode() != 400) {
         res.bodyHandler(buf -> {
           future.fail("Error, expected code 422, got return code '" +
             res.statusCode() + "' : " + buf.toString());
