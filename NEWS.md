@@ -1,3 +1,6 @@
+## 2017-06-21 v4.0.2
+ * Close hole that allowed erroneously formatted permissions to be added
+
 ## 2017-06-09 v4.0.1
  * Update to RMB 12.1.3
  * Fix flaw in exception handling for expanded subpermissions
