@@ -809,7 +809,7 @@ public class PermsAPI implements PermsResource {
             } catch (Exception e) {
               logger.error("Error getting Postgres client: " + e.getLocalizedMessage(), e);
               asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                      GetPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
+                      GetPermsPermissionsResponse.withPlainInternalServerError("Internal server error: " + e.getLocalizedMessage())));
             }
           });
         } catch(Exception e) {
@@ -820,7 +820,7 @@ public class PermsAPI implements PermsResource {
           } else {
             logger.error("Error getting Postgres client: " + e.getLocalizedMessage());
             asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                    GetPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
+                    GetPermsPermissionsResponse.withPlainInternalServerError("Internal server error: " + e.getLocalizedMessage())));
           }
         }
       });

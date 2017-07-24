@@ -53,7 +53,7 @@ public class RestVerticleTest {
   public static void setup(TestContext context) {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("localhost", port, "diku");
+    TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
     try {
@@ -268,7 +268,7 @@ public class RestVerticleTest {
  }
 
  private boolean isSizeMatch(Response r, int size){
-   if(r.body.getInteger("total_records") == size){
+   if(r.body.getInteger("totalRecords") == size){
      return true;
    }
    return false;
