@@ -1,3 +1,7 @@
+## 2017-07-24 v4.0.3
+ * Upgrade to RMB 13.0.1
+ * Provide more detail for error messages
+
 ## 2017-06-21 v4.0.2
  * Close hole that allowed erroneously formatted permissions to be added
 
