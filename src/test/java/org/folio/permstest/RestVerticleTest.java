@@ -1,6 +1,7 @@
 package org.folio.permstest;
 
 import java.net.HttpURLConnection;
+import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -115,7 +116,11 @@ public class RestVerticleTest {
      Future<Void> f = Future.future();
      testPostBadPermission(context).setHandler(f.completer());
      return f;
-   });
+   }).compose(v -> {
+   	 Future<Void> f = Future.future();
+   	 testNonAsciiUser(context).setHandler(f.completer());
+   	 return f;
+	 });
 
    mainFuture.setHandler(res -> {
      if(res.succeeded()) {
@@ -481,6 +486,48 @@ public class RestVerticleTest {
       .putHeader("Content-Type", "application/json")
       .putHeader("Accept", "application/json,text/plain")
       .end(badPermission.encode());
+    return future;
+  }
+
+	private Future<Void> testNonAsciiUser(TestContext context) {
+    Future future = Future.future();
+    HttpClient client = vertx.createHttpClient();
+    JsonObject newUser = new JsonObject()
+      .put("username", "sschönberger")
+      .put("permissions", new JsonArray());
+    client.post(port, "localhost", "/perms/users", res -> {
+       if(res.statusCode() == 201) {
+          //Try to retrieve the new user
+					HttpClient getClient = vertx.createHttpClient();
+					try {
+						client.get(port, "localhost", "/perms/users/" + URLEncoder.encode("sschönberger"), getRes-> {
+							if(getRes.statusCode() == 200) {
+								future.complete();
+							} else {
+								getRes.bodyHandler(body -> {
+									future.fail("Expected status code 200, got " + getRes.statusCode() +
+											" : " + body.toString());
+								});
+							}
+						})
+							.putHeader("X-Okapi-Tenant", "diku")
+							.putHeader("Content-type", "application/json")
+							.putHeader("Accept", "application/json,text/plain")
+							.putHeader("X-Okapi-Permissions", "[ \"perms.users.get\" ]")
+							.end();
+					} catch(Exception e) {
+						future.fail(e);
+					}
+        } else {
+          res.bodyHandler(buf -> {
+            future.fail("Post permission user failed. Got return code " + res.statusCode() + " : " + buf.toString());
+          });
+        }
+    })
+      .putHeader("X-Okapi-Tenant", "diku")
+      .putHeader("Content-type", "application/json")
+      .putHeader("Accept", "application/json,text/plain")
+      .end(newUser.encode());
     return future;
   }
 

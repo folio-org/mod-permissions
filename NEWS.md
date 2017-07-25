@@ -1,3 +1,6 @@
+## 2017-07-25 v4.0.4
+ * Unescape input from URL before using it for search criteria
+
 ## 2017-07-24 v4.0.3
  * Upgrade to RMB 13.0.1
  * Provide more detail for error messages

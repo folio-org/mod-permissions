@@ -5,7 +5,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
+import java.net.URLDecoder;
 import javax.ws.rs.core.Response;
 
 import org.folio.rest.jaxrs.model.Permission;
@@ -214,15 +214,16 @@ public class PermsAPI implements PermsResource {
           String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
+    	String decodedUsername = URLDecoder.decode(username);
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         Criteria nameCrit = new Criteria();
         nameCrit.addField(USER_NAME_FIELD);
         nameCrit.setOperation("=");
-        nameCrit.setValue(username);
+        nameCrit.setValue(decodedUsername);
         if(!allowAccessByNameorPermission(okapiHeaders.get(OKAPI_PERMISSIONS_HEADER),
                 READ_PERMISSION_USERS_NAME,
-                okapiHeaders.get(OKAPI_TOKEN_HEADER), username)) {
+                okapiHeaders.get(OKAPI_TOKEN_HEADER), decodedUsername)) {
           asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUsernameResponse.withPlainForbidden("Access denied, insufficient permissions")));
         } else {
           try {
