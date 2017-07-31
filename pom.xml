@@ -39,6 +39,12 @@
   <build>
     <plugins>
       <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.0.1</version>
+        <executions>
+                  </executions>
+      </plugin>
+      <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.1</version>
         <configuration>
@@ -140,6 +146,23 @@
         <artifactId>maven-resources-plugin</artifactId>
         <version>3.0.1</version>
         <executions>
+          <execution>
+            <id>copy-resources-3</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${basedir}/src/main/resources</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${ramlfiles_path}</directory>
+                  <filtering>true</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+
           <execution>
             <id>copy-resources</id>
             <phase>prepare-package</phase>
