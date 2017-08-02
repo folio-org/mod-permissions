@@ -143,14 +143,20 @@ public class PermsAPI implements PermsResource {
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
       vertxContext.runOnContext(v -> {
         //Check for existing user
+        Criteria userIdCrit = new Criteria();
+        userIdCrit.addField(USER_ID_FIELD);
+        userIdCrit.setOperation("=");
+        userIdCrit.setValue(entity.getUserId());
         Criteria idCrit = new Criteria();
-        idCrit.addField(USER_ID_FIELD);
+        idCrit.addField(ID_FIELD);
         idCrit.setOperation("=");
-        idCrit.setValue(entity.getUserId());
+        idCrit.setValue(entity.getId());
+        Criterion criterion = new Criterion();
+        criterion.addCriterion(idCrit, "OR", userIdCrit);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMSUSERS, PermissionUser.class,
-                  new Criterion(idCrit), true, false, queryReply -> {
+                  criterion, true, false, queryReply -> {
             if(queryReply.failed()) {
               String errStr = "Unable to query permissions users: " + queryReply.cause().getLocalizedMessage();
               logger.error(errStr, queryReply.cause());
@@ -159,14 +165,17 @@ public class PermsAPI implements PermsResource {
               List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
               if(userList.size() > 0) {
                 //This means that we have an existing user matching this username, error 400
-                logger.warn("Permissions user with Users id " + entity.getUserId() + " already exists");
+                logger.warn("Constraint violated for userId or id field (or both)");
                 asyncResultHandler.handle(Future.succeededFuture(
                   PostPermsUsersResponse.withJsonUnprocessableEntity(
                     ValidationHelper.createValidationErrorMessage(
-                      USER_ID_FIELD, entity.getUserId(),
-                      "Permissions user for User already exists"))));
+                      ID_FIELD, entity.getId(),
+                      "userId and id fields must not match values for any existing records"))));
               } else {
                 //Proceed to POST new user
+                if(entity.getId() == null) {
+                	entity.setId(UUID.randomUUID().toString());
+								}
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                 postgresClient.startTx(beginTx -> {
                   logger.debug("Starting transaction to save new permissions user");

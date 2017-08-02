@@ -38,9 +38,10 @@ public class RestVerticleTest {
   private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
   private static final String userId1 = "35d05a6a-d61e-4e81-9708-fc44daadbec5";
+  private static final String userId2 = "176bc0cc-b785-4cf9-9e8a-5fafe8178332";
 
-  private static String postPermUsersRequest = "{\"username\": \"a\",\"permissions\": ["+
-    "{\"permissionName\": \"a\", \"displayName\": \"b\"  } ]}";
+  private static String postPermUsersRequest = "{\"userId\": \"93cb7ed4-313e-4f06-bd4b-d44b1308c3f3\",\"permissions\": ["+
+    "{\"permissionName\": \"a\", \"displayName\": \"b\"  } ], \"id\" : \"" + userId2 + "\"}";
 
   private static String postPermRequest = "{\"permissionName\":\"a\",\"displayName\":\"b\"}";
 
@@ -117,11 +118,14 @@ public class RestVerticleTest {
      Future<Void> f = Future.future();
      testPostBadPermission(context).setHandler(f.completer());
      return f;
-   }).compose(v -> {
+   })
+   /*
+   	 .compose(v -> {
    	 Future<Void> f = Future.future();
    	 testNonAsciiUser(context).setHandler(f.completer());
    	 return f;
-	 });
+	 })
+	 */;
 
    mainFuture.setHandler(res -> {
      if(res.succeeded()) {
@@ -157,7 +161,7 @@ public class RestVerticleTest {
        "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
          + addPUURL2);
 
-     String addPermURL = url + "/a/permissions";
+     String addPermURL = url + "/" + userId2 + "/permissions";
      /**add a perm  for a user */
      CompletableFuture<Response> addPUCF3 = new CompletableFuture();
      send(addPermURL, context, HttpMethod.POST, postPermRequest,
@@ -390,13 +394,14 @@ public class RestVerticleTest {
 					JsonObject userObject = null;
 					for(Object ob : userList) {
 						JsonObject userCandidateObject = (JsonObject)ob;
-						if(userCandidateObject.getString("username").equals("armandhammer")) {
+						if(userCandidateObject.getString("userId").equals(userId1)) {
 							userObject = userCandidateObject;
 							break;
 						} 
 					}
 					if(userObject == null) {
-						future.fail("User 'armandhammer' not found in permissionUsers listing");
+						future.fail("Permissions record for userId matching " +
+								userId1 + " not found in permissionUsers listing");
 						return;
 					} else {
 						future.complete();
