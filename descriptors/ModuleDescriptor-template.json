@@ -1,5 +1,5 @@
 {
-  "id": "permissions-module-4.0.4",
+  "id": "${artifactId}-${version}",
   "name": "permissions",
   "provides": [
     {
