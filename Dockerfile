@@ -1,6 +1,6 @@
 FROM openjdk:8-jre
 
-ENV VERTICLE_FILE permissions-module-fat.jar
+ENV VERTICLE_FILE mod-permissions-fat.jar
 
 # Set the location of the verticles
 ENV VERTICLE_HOME /usr/verticles
