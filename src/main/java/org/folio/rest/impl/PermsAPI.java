@@ -343,8 +343,7 @@ public class PermsAPI implements PermsResource {
       asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridResponse.withPlainInternalServerError("Internal server error")));
     }
   }
-
-  @Override
+  
   public void _getPermsUsersByUseridPermissions(String userid, String expanded, String full,
           Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
