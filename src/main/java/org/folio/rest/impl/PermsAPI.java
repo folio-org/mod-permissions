@@ -343,100 +343,11 @@ public class PermsAPI implements PermsResource {
       asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridResponse.withPlainInternalServerError("Internal server error")));
     }
   }
-  
-  public void _getPermsUsersByUseridPermissions(String userid, String expanded, String full,
-          Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
-          Context vertxContext) throws Exception {
-
-    try {
-      vertxContext.runOnContext(v -> {
-        String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
-        Criteria idCrit = new Criteria();
-        idCrit.addField(ID_FIELD);
-        idCrit.setOperation("=");
-        idCrit.setValue(userid);
-        if(false) {
-        } else {
-          try {
-            PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
-                    PermissionUser.class, new Criterion(idCrit), true, false, getReply -> {
-              try {
-                if(getReply.failed()) {
-                  String errStr = "Error from get reply: " + getReply.cause().getLocalizedMessage();
-                  logger.error(errStr, getReply.cause());
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-                } else {
-                  List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
-                  if(userList.isEmpty()) {
-                    //404'd!
-                    asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainNotFound("No user found by id " + userid)));
-                  } else {
-                    PermissionUser user = userList.get(0);
-                    Future<List<String>> future;
-                    List<String> permNameList = new ArrayList<>();
-                      for(Object perm : user.getPermissions()) {
-                        if(perm != null) {
-                          permNameList.add((String)perm);
-                        }
-                    }
-                    if(expanded == null || !expanded.equals("true")) {
-                      future = Future.succeededFuture(permNameList);
-                    } else {
-                      future = this.getAllExpandedPermissions(permNameList, vertxContext, tenantId);
-                    }
-                    future.setHandler(res-> {
-                      if(res.failed()) {
-                        String errStr = "Error getting expanded permissions: " + res.cause().getLocalizedMessage();
-                        logger.error(errStr);
-                        asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-                      } else {
-                        if(full == null || !full.equals("true")) {
-                          PermissionNameListObject pnlo = new PermissionNameListObject();
-                          List<Object> objectList = new ArrayList<>();
-                          for( String s : res.result() ) {
-                            objectList.add(s);
-                          }
-                          pnlo.setPermissionNames(objectList);
-                          pnlo.setTotalRecords(res.result().size());
-                          asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withJsonOK(pnlo)));
-                        } else {
-                          Future<PermissionNameListObject> pnloFuture = getAllFullPermissions(res.result(), vertxContext, tenantId);
-                          pnloFuture.setHandler(fullRes -> {
-                            if(fullRes.failed()) {
-                              String errStr = "Error getting full permission objects: " + fullRes.cause().getLocalizedMessage();
-                              logger.error(errStr);
-                              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-                            } else {
-                              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withJsonOK(fullRes.result())));
-                            }
-                          });
-                        }
-                      }
-                    });
-                  }
-                }
-              } catch (Exception e) {
-                logger.error(e.getMessage(), e);
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(e.getMessage())));
-              }
-            });
-          } catch(Exception e) {
-            String errStr = "Error using Postgres instance: " + e.getLocalizedMessage();
-            logger.error(errStr);
-            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-          }
-        }
-      });
-    } catch(Exception e) {
-      String errStr = "Error running on vertx context: " + e.getLocalizedMessage();
-      logger.debug(errStr);
-      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-    }
-  }
-  
+    
   @Override
-  public void getPermsUsersByUseridPermissions(String userid, String expanded, String full,
-          Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+  public void getPermsUsersByUseridPermissions(String userid, String expanded,
+          String full, String indexField, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext( v -> {
@@ -446,7 +357,7 @@ public class PermsAPI implements PermsResource {
         if(expanded == null || !expanded.equals("true")) { expandedBool = false; } else { expandedBool = true; }
         
         Future<PermissionNameListObject> pnloFuture = this.getPermissionsForUser(
-                userid, expandedBool, fullBool, tenantId, vertxContext);
+                userid, expandedBool, fullBool, indexField, tenantId, vertxContext);
         pnloFuture.setHandler(res -> {
           if(res.failed()) {
             String errStr = "Error from get reply: " + res.cause().getLocalizedMessage();
@@ -1104,12 +1015,12 @@ public class PermsAPI implements PermsResource {
     String userId,
     boolean expanded,
     boolean full,
+    String indexField,
     String tenantId,
     Context vertxContext) {
     final Future<PermissionNameListObject> future = Future.future();
     try {
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
+      Criteria idCrit = getIdCriteria(indexField, "=", userId);
       idCrit.setOperation("=");
       idCrit.setValue(userId);
       try {
@@ -1186,7 +1097,8 @@ public class PermsAPI implements PermsResource {
       return null;
     }
   }
-
+  
+  
   private String getUsername(String token) {
     JsonObject payload = parseTokenPayload(token);
     if(payload == null) { return null; }
@@ -1215,7 +1127,8 @@ public class PermsAPI implements PermsResource {
     return false;
   }
 
-  private Future<Permission> expandSubPermissions(Permission permission, Context vertxContext, String tenantId) {
+  private Future<Permission> expandSubPermissions(Permission permission,
+          Context vertxContext, String tenantId) {
     logger.debug("Expanding subPermissions for " + permission.getPermissionName());
     Future<Permission> future = Future.future();
     List<Object> subPerms = permission.getSubPermissions();
@@ -1246,6 +1159,21 @@ public class PermsAPI implements PermsResource {
     }
 
     return future;
-}
-
+  }
+  
+  private Criteria getIdCriteria(String indexField, String operation, String value)
+          throws IllegalArgumentException {
+    Criteria crit = new Criteria();
+    if(indexField == null || indexField.equals("id")) {
+      crit.addField(ID_FIELD);
+    } else if(indexField.equals("userId")) {
+      crit.addField(USER_ID_FIELD);
+    } else {
+      throw new IllegalArgumentException("Invalid value '" + indexField + "' for indexField");
+    }
+    crit.setOperation(operation);
+    crit.setValue(value);
+    return crit;
+  }
+  
 }
