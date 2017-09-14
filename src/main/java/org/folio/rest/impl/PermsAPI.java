@@ -52,6 +52,7 @@ public class PermsAPI implements PermsResource {
   private static final String USER_NAME_FIELD = "'username'";
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ID_FIELD = "'id'";
+  private static final String PERMISSION_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-permissions/permission.json";
 
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
@@ -221,60 +222,56 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void getPermsUsersByUserid(String userid, Map<String,
+  public void getPermsUsersById(String id, String indexField, Map<String,
           String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
-    	String decodedUserid = URLDecoder.decode(userid);
+    	String decodedId = URLDecoder.decode(id);
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
-        Criteria idCrit = new Criteria();
-        idCrit.addField(ID_FIELD);
-        idCrit.setOperation("=");
-        idCrit.setValue(decodedUserid);
         if(false) {
         	//Do nothing, because it never happens
         } else {
           try {
-            PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                    TABLE_NAME_PERMSUSERS, PermissionUser.class,
+            Criteria idCrit = getIdCriteria(indexField, "=", decodedId);
+            PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
                     new Criterion(idCrit), true, false, queryReply -> {
               if(queryReply.failed()) {
                 String errStr = "queryReply failed: " + queryReply.cause().getLocalizedMessage();
                 logger.error(errStr);
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               } else {
                 List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
                 if(userList.size() < 1) {
                   //no users found
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridResponse.withPlainNotFound("No user with id: " + userid)));
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainNotFound("No user with id: " + id)));
                 } else if(userList.size() > 1) {
                   //WTF, we got multiples for a single username? That ain't right
-                  String errStr = "Multiple permissions users matched for id: " + userid;
+                  String errStr = "Multiple permissions users matched for id: " + id;
                   logger.error(errStr);
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                 } else {
                   //return the permissions user object
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridResponse.withJsonOK(userList.get(0))));
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withJsonOK(userList.get(0))));
                 }
               }
             });
           } catch(Exception e) {
             String errStr = "Error getting query from Postgres: " + e.getLocalizedMessage();
             logger.error(errStr, e);
-            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
           }
         }
       });
     } catch(Exception e) {
       String errStr = "Error running vertx on context: " + e.getLocalizedMessage();
       logger.error(errStr, e);
-      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
 
   @Override
-  public void putPermsUsersByUserid(String userid, PermissionUser entity, Map<String,
+  public void putPermsUsersById(String userid, PermissionUser entity, Map<String,
           String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
@@ -291,31 +288,31 @@ public class PermsAPI implements PermsResource {
               if(putReply.failed()) {
                 String errStr = "Error with put: " + putReply.cause().getLocalizedMessage();
                 logger.error(errStr, putReply.cause());
-                asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+                asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               } else {
-                asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUseridResponse.withJsonOK(entity)));
+                asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByIdResponse.withJsonOK(entity)));
               }
             } catch(Exception e) {
               String errStr = "Error getting put reply: " + e.getLocalizedMessage();
               logger.error(errStr, e);
-              asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+              asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
             }
           });
          } catch(Exception e) {
            String errStr = "Error using Postgres instance: " + e.getLocalizedMessage();
            logger.error(errStr, e);
-           asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+           asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
          }
        });
     } catch(Exception e) {
       String errStr ="Error running vertx on context: " + e.getLocalizedMessage();
       logger.error(errStr, e);
-      asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByUseridResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+      asyncResultHandler.handle(Future.succeededFuture(PutPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
 
   @Override
-  public void deletePermsUsersByUserid(String userid, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void deletePermsUsersById(String userid, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
@@ -327,48 +324,47 @@ public class PermsAPI implements PermsResource {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMSUSERS, new Criterion(idCrit), deleteReply-> {
             if(deleteReply.failed()) {
               logger.error("deleteReply failed: " + deleteReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridResponse.withPlainInternalServerError("Internal server error")));
+              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainInternalServerError("Internal server error")));
             } else {
               //We need a way to detect for 404 not found here.
-              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridResponse.withPlainNoContent("")));
+              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainNoContent("")));
             }
           });
         } catch(Exception e) {
           logger.error("Error using Postgres instance: " + e.getLocalizedMessage(), e);
-          asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridResponse.withPlainInternalServerError("Internal server error")));
+          asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainInternalServerError("Internal server error")));
         }
       });
     } catch(Exception e) {
       logger.error("Error running vertx on context: " + e.getLocalizedMessage(), e);
-      asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridResponse.withPlainInternalServerError("Internal server error")));
+      asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainInternalServerError("Internal server error")));
     }
   }
     
   @Override
-  public void getPermsUsersByUseridPermissions(String userid, String expanded,
+  public void getPermsUsersByIdPermissions(String id, String expanded,
           String full, String indexField, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
-      vertxContext.runOnContext( v -> {
+      vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         boolean fullBool, expandedBool;
         if(full == null || !full.equals("true")) { fullBool = false; } else { fullBool = true; }
         if(expanded == null || !expanded.equals("true")) { expandedBool = false; } else { expandedBool = true; }
         
-        Future<PermissionNameListObject> pnloFuture = this.getPermissionsForUser(
-                userid, expandedBool, fullBool, indexField, tenantId, vertxContext);
+        Future<PermissionNameListObject> pnloFuture = this.getPermissionsForUser(id, expandedBool, fullBool, indexField, tenantId, vertxContext);
         pnloFuture.setHandler(res -> {
           if(res.failed()) {
             String errStr = "Error from get reply: " + res.cause().getLocalizedMessage();
             logger.error(errStr, res.cause());
-            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
           } else {
             PermissionNameListObject pnlo = res.result();
             if(pnlo == null) { //404
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainNotFound("No user found by id " + userid)));               
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withPlainNotFound("No user found by id " + id)));               
             } else {
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withJsonOK(pnlo)));
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withJsonOK(pnlo)));
             }
           }
         });
@@ -376,120 +372,110 @@ public class PermsAPI implements PermsResource {
     } catch(Exception e) {
       String errStr = "Error running on vertx context: " + e.getLocalizedMessage();
       logger.debug(errStr);
-      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByUseridPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+      asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
   
   @Override
-  public void postPermsUsersByUseridPermissions(String userid, PermissionNameObject entity,
+  public void postPermsUsersByIdPermissions(String id, String indexField, PermissionNameObject entity,
           Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
-        Criteria useridCrit = new Criteria();
-        useridCrit.addField(ID_FIELD);
-        useridCrit.setOperation("=");
-        useridCrit.setValue(userid);
         try {
+          Criteria useridCrit = getIdCriteria(indexField, "=", id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
                   PermissionUser.class, new Criterion(useridCrit), true, false, getReply-> {
             try {
               if(getReply.failed()) {
                 logger.error("Error checking for user: " + getReply.cause().getLocalizedMessage(), getReply.cause());
                 asyncResultHandler.handle(Future.succeededFuture(
-                  PostPermsUsersByUseridPermissionsResponse.withPlainInternalServerError("Internal server error")));
+                  PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
               } else {
                 List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
                 if(userList.size() == 0) {
-                  asyncResultHandler.handle(Future.succeededFuture(
-                    PostPermsUsersByUseridPermissionsResponse.withPlainBadRequest("User with id " + userid + " does not exist")));
+                  asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainBadRequest("User with id " + id + " does not exist")));
                 } else {
                   //now we can actually add it
                   String permissionName = entity.getPermissionName();
                   PermissionUser user = userList.get(0);
                   if(user.getPermissions().contains(permissionName)) {
-                    asyncResultHandler.handle(Future.succeededFuture(
-                      PostPermsUsersByUseridPermissionsResponse
-                        .withJsonUnprocessableEntity(
-                          ValidationHelper.createValidationErrorMessage(
-                            USER_NAME_FIELD, userid,
-                            "User with id " + userid + " already has permission " + permissionName))));
+                    asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse
+                        .withJsonUnprocessableEntity(ValidationHelper.createValidationErrorMessage(USER_NAME_FIELD, id,
+                            "User with id " + id + " already has permission " + permissionName))));
                   } else {
                     user.getPermissions().add(permissionName);
                     try {
                     PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMSUSERS, user, new Criterion(useridCrit), true, putReply -> {
                       if(putReply.failed()) {
                         logger.error("Error attempting to update user: " + putReply.cause().getLocalizedMessage());
-                        asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUseridPermissionsResponse.withPlainInternalServerError("Internal server error")));
+                        asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
                       } else {
-                        asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUseridPermissionsResponse.withJsonOK(entity)));
+                        asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withJsonOK(entity)));
                       }
                     });
                     } catch(Exception e) {
                       logger.error("Error using Postgres instance to update user: " + e.getLocalizedMessage());
-                      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUseridPermissionsResponse.withPlainInternalServerError("Internal server error")));
+                      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
                     }
                   }
                 }
               }
             } catch (Exception e) {
               logger.error("Error using Postgres instance to retrieve user: " + e.getLocalizedMessage(), e);
-              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUseridPermissionsResponse.withPlainInternalServerError("Internal server error")));
+              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
             }
           });
         } catch(Exception e) {
           logger.error("Error using Postgres instance to retrieve user: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUseridPermissionsResponse.withPlainInternalServerError("Internal server error")));
+          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
         }
 
       });
     } catch(Exception e) {
       logger.error("Error running vertx on context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByUseridPermissionsResponse.withPlainInternalServerError("Internal server error")));
+      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
     }
   }
 
   @Override
-  public void deletePermsUsersByUseridPermissionsByPermissionname(String permissionname,
-          String userid, Map<String, String> okapiHeaders,
+  public void deletePermsUsersByIdPermissionsByPermissionname(String permissionname,
+          String id, String indexField, Map<String, String> okapiHeaders,
           Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
-        Criteria useridCrit = new Criteria();
-        useridCrit.addField(ID_FIELD);
-        useridCrit.setOperation("=");
-        useridCrit.setValue(userid);
         try {
+          Criteria idCrit = getIdCriteria(indexField, "=", id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
-                  PermissionUser.class, new Criterion(useridCrit), true, false, getReply-> {
+                  PermissionUser.class, new Criterion(idCrit), true, false, getReply-> {
             if(getReply.failed()) {
               logger.error("Error checking for user: " + getReply.cause().getLocalizedMessage());
-              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
             } else {
               List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
               if(userList.size() == 0) {
-                asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainBadRequest("User with id " + userid + " does not exist")));
+                asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainBadRequest("User with id " + id + " does not exist")));
               } else {
                 //attempt to delete permission
                 PermissionUser user = userList.get(0);
                 if(!user.getPermissions().contains(permissionname)) {
-                  asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainBadRequest("User with id " + userid + " does not contain " + permissionname)));
+                  asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainBadRequest("User with id " + id + " does not contain " + permissionname)));
                 } else {
                   try {
                     user.getPermissions().remove(permissionname);
-                    PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMSUSERS, user, new Criterion(useridCrit), true, putReply -> {
+                    PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMSUSERS, user, new Criterion(idCrit), true, putReply -> {
                       if(putReply.failed()) {
                          logger.error("Error attempting to update user: " + putReply.cause().getLocalizedMessage());
-                         asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+                         asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
                       } else {
-                        asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainNoContent("")));
+                        asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainNoContent("")));
                       }
                     });
                   } catch(Exception e) {
                     logger.error("Error using Postgres instance to delete permission from user");
-                    asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+                    asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
                   }
                 }
               }
@@ -497,12 +483,12 @@ public class PermsAPI implements PermsResource {
           });
         } catch(Exception e) {
           logger.error("Error using Postgres instance to retrieve user: " + e.getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+          asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
         }
       });
     } catch(Exception e) {
       logger.error("Error running vertx on context: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByUseridPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
+      asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
     }
   }
 
@@ -1162,7 +1148,8 @@ public class PermsAPI implements PermsResource {
   }
   
   private Criteria getIdCriteria(String indexField, String operation, String value)
-          throws IllegalArgumentException {
+          throws IllegalArgumentException, Exception {
+    //Criteria crit = new Criteria(PERMISSION_SCHEMA_PATH);
     Criteria crit = new Criteria();
     if(indexField == null || indexField.equals("id")) {
       crit.addField(ID_FIELD);
