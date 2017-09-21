@@ -91,7 +91,7 @@ public class PermsAPI implements PermsResource {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         String[] fieldList = {"*"};
         if(false) {
-        	//de nada
+          //de nada
         } else {
           try {
             PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
@@ -105,8 +105,8 @@ public class PermsAPI implements PermsResource {
                   permUserCollection.setTotalRecords(permissionUsers.size());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withJsonOK(permUserCollection)));
                 } else {
-									String errStr = "Get operation from PostgresClient failed: " + reply.cause().getLocalizedMessage();
-									logger.error(errStr);
+                  String errStr = "Get operation from PostgresClient failed: " + reply.cause().getLocalizedMessage();
+                  logger.error(errStr);
                   asyncResultHandler.handle(Future.succeededFuture(
                           GetPermsUsersResponse.withPlainInternalServerError(errStr)));
                 }
@@ -175,8 +175,8 @@ public class PermsAPI implements PermsResource {
               } else {
                 //Proceed to POST new user
                 if(entity.getId() == null) {
-                	entity.setId(UUID.randomUUID().toString());
-								}
+                  entity.setId(UUID.randomUUID().toString());
+                }
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                 postgresClient.startTx(beginTx -> {
                   logger.debug("Starting transaction to save new permissions user");
@@ -226,11 +226,11 @@ public class PermsAPI implements PermsResource {
           String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
-    	String decodedId = URLDecoder.decode(id);
+      String decodedId = URLDecoder.decode(id);
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         if(false) {
-        	//Do nothing, because it never happens
+          //Do nothing, because it never happens
         } else {
           try {
             Criteria idCrit = getIdCriteria(indexField, "=", decodedId);
@@ -340,7 +340,7 @@ public class PermsAPI implements PermsResource {
       asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainInternalServerError("Internal server error")));
     }
   }
-    
+
   @Override
   public void getPermsUsersByIdPermissions(String id, String expanded,
           String full, String indexField, Map<String, String> okapiHeaders,
@@ -352,7 +352,7 @@ public class PermsAPI implements PermsResource {
         boolean fullBool, expandedBool;
         if(full == null || !full.equals("true")) { fullBool = false; } else { fullBool = true; }
         if(expanded == null || !expanded.equals("true")) { expandedBool = false; } else { expandedBool = true; }
-        
+
         Future<PermissionNameListObject> pnloFuture = this.getPermissionsForUser(id, expandedBool, fullBool, indexField, tenantId, vertxContext);
         pnloFuture.setHandler(res -> {
           if(res.failed()) {
@@ -362,7 +362,7 @@ public class PermsAPI implements PermsResource {
           } else {
             PermissionNameListObject pnlo = res.result();
             if(pnlo == null) { //404
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withPlainNotFound("No user found by id " + id)));               
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withPlainNotFound("No user found by id " + id)));
             } else {
               asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withJsonOK(pnlo)));
             }
@@ -375,7 +375,7 @@ public class PermsAPI implements PermsResource {
       asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdPermissionsResponse.withPlainInternalServerError(getErrorResponse(errStr))));
     }
   }
-  
+
   @Override
   public void postPermsUsersByIdPermissions(String id, String indexField, PermissionNameObject entity,
           Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
@@ -526,7 +526,7 @@ public class PermsAPI implements PermsResource {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
                   //entity.setAdditionalProperty("id", newId);
-									entity.setId(newId);
+                  entity.setId(newId);
                   if(entity.getVisible() == null) {
                     entity.setVisible(true);
                   }
@@ -1031,7 +1031,7 @@ public class PermsAPI implements PermsResource {
             if(!expanded) {
               interimFuture = Future.succeededFuture(permissionNameList);
             } else {
-              interimFuture = getAllExpandedPermissions(permissionNameList, 
+              interimFuture = getAllExpandedPermissions(permissionNameList,
                       vertxContext, tenantId);
             }
             interimFuture.setHandler(res -> {
@@ -1058,7 +1058,7 @@ public class PermsAPI implements PermsResource {
                 }
               }
             });
-          }           
+          }
         });
       } catch(Exception e) {
         future.fail(e);
@@ -1068,7 +1068,7 @@ public class PermsAPI implements PermsResource {
     }
     return future;
   }
-  
+
   private JsonObject parseTokenPayload(String token) {
     if(token == null) {
       return null;
@@ -1083,8 +1083,8 @@ public class PermsAPI implements PermsResource {
       return null;
     }
   }
-  
-  
+
+
   private String getUsername(String token) {
     JsonObject payload = parseTokenPayload(token);
     if(payload == null) { return null; }
@@ -1146,7 +1146,7 @@ public class PermsAPI implements PermsResource {
 
     return future;
   }
-  
+
   private Criteria getIdCriteria(String indexField, String operation, String value)
           throws IllegalArgumentException, Exception {
     //Criteria crit = new Criteria(PERMISSION_SCHEMA_PATH);
@@ -1162,5 +1162,5 @@ public class PermsAPI implements PermsResource {
     crit.setValue(value);
     return crit;
   }
-  
+
 }

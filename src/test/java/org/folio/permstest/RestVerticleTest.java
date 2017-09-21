@@ -337,7 +337,7 @@ public class RestVerticleTest {
     	res.bodyHandler(buf -> {
     		if(res.statusCode() == 201) {
     			JsonObject permUser = new JsonObject(buf.toString());
-    			future.complete(permUser);	
+    			future.complete(permUser);
     		} else {
     			future.fail("Post permission user failed. Got return code " + res.statusCode() + " : " + buf.toString());
     		}
@@ -378,7 +378,7 @@ public class RestVerticleTest {
       .end();
     return future;
   }
-	
+
 	private Future<Void> testUserPermsQuery(TestContext context) {
     Future future = Future.future();
     HttpClient client = vertx.createHttpClient();
@@ -397,7 +397,7 @@ public class RestVerticleTest {
 						if(userCandidateObject.getString("userId").equals(userId1)) {
 							userObject = userCandidateObject;
 							break;
-						} 
+						}
 					}
 					if(userObject == null) {
 						future.fail("Permissions record for userId matching " +
