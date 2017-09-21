@@ -91,7 +91,7 @@ public class PermsAPI implements PermsResource {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         String[] fieldList = {"*"};
         if(false) {
-        	//de nada
+          //de nada
         } else {
           try {
             PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
@@ -105,8 +105,8 @@ public class PermsAPI implements PermsResource {
                   permUserCollection.setTotalRecords(permissionUsers.size());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withJsonOK(permUserCollection)));
                 } else {
-									String errStr = "Get operation from PostgresClient failed: " + reply.cause().getLocalizedMessage();
-									logger.error(errStr);
+                  String errStr = "Get operation from PostgresClient failed: " + reply.cause().getLocalizedMessage();
+                  logger.error(errStr);
                   asyncResultHandler.handle(Future.succeededFuture(
                           GetPermsUsersResponse.withPlainInternalServerError(errStr)));
                 }
@@ -175,8 +175,8 @@ public class PermsAPI implements PermsResource {
               } else {
                 //Proceed to POST new user
                 if(entity.getId() == null) {
-                	entity.setId(UUID.randomUUID().toString());
-								}
+                  entity.setId(UUID.randomUUID().toString());
+                }
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                 postgresClient.startTx(beginTx -> {
                   logger.debug("Starting transaction to save new permissions user");
@@ -226,11 +226,11 @@ public class PermsAPI implements PermsResource {
           String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
           Context vertxContext) throws Exception {
     try {
-    	String decodedId = URLDecoder.decode(id);
+      String decodedId = URLDecoder.decode(id);
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         if(false) {
-        	//Do nothing, because it never happens
+          //Do nothing, because it never happens
         } else {
           try {
             Criteria idCrit = getIdCriteria(indexField, "=", decodedId);
@@ -526,7 +526,7 @@ public class PermsAPI implements PermsResource {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
                   //entity.setAdditionalProperty("id", newId);
-									entity.setId(newId);
+                  entity.setId(newId);
                   if(entity.getVisible() == null) {
                     entity.setVisible(true);
                   }
