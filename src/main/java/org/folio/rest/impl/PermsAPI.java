@@ -616,15 +616,26 @@ public class PermsAPI implements PermsResource {
         idCrit.addField(ID_FIELD);
         idCrit.setOperation("=");
         idCrit.setValue(entity.getId());
+        if(entity.getId() == null || !entity.getId().equals(id)) {
+          asyncResultHandler.handle(Future.succeededFuture(
+                  PutPermsPermissionsByIdResponse.withPlainBadRequest("Invalid id value")));
+          return;
+        }
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+                  TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit),
+                  true, false, getReply -> {
             if(getReply.failed()) {
-              logger.error("Error with get: " + getReply.cause().getLocalizedMessage(), getReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("Internal server error")));
+              String message = "Error with get: " + getReply.cause().getLocalizedMessage();
+              logger.error(message, getReply.cause());
+              asyncResultHandler.handle(Future.succeededFuture(
+                      PutPermsPermissionsByIdResponse.withPlainInternalServerError(getErrorResponse(message))));
             }
             List<Permission> permList = (List<Permission>)getReply.result()[0];
             if(permList.size() < 1) {
-              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse.withPlainInternalServerError("No such permission")));
+              String message = "No permission found to match that id";
+              asyncResultHandler.handle(Future.succeededFuture(
+                      PutPermsPermissionsByIdResponse.withPlainNotFound(message)));
             } else {
               Permission perm = permList.get(0);
               if(!perm.getPermissionName().equals(entity.getPermissionName())) {
