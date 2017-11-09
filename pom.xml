@@ -226,6 +226,10 @@
                   <sourceFile>${project.build.directory}/ModuleDescriptor-template.json</sourceFile>
                   <destinationFile>${project.build.directory}/ModuleDescriptor.json</destinationFile>
                 </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/DeploymentDescriptor-template.json</sourceFile>
+                  <destinationFile>${project.build.directory}/DeploymentDescriptor.json</destinationFile>
+                </fileSet>
               </fileSets>
             </configuration>
           </execution>
