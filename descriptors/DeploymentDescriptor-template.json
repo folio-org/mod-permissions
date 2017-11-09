@@ -1,0 +1,7 @@
+{
+  "srvcId": "${artifactId}-${version}",
+  "nodeId": "localhost",
+  "descriptor": {
+    "exec": "java -Dport=%p -jar ../mod-permissions/target/mod-permissions-fat.jar -Dhttp.port=%p embed_postgres=true"
+  }
+}
