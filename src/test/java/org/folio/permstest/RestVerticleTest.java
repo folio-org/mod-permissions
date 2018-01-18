@@ -438,6 +438,16 @@ public class RestVerticleTest {
        context.assertEquals(getPermResponse.code, 404);
      }
      
+     /*Delete a permission that's not there */
+     {
+       CompletableFuture<Response> deleteBadPermCF = new CompletableFuture();
+       send(permUrl + "/ed145a0a-c4ff-46b3-8c44-62d89f32afea", context, 
+               HttpMethod.DELETE, null,SUPPORTED_CONTENT_TYPE_JSON_DEF, 404,
+               new HTTPResponseHandler(deleteBadPermCF) );
+       Response deleteBadPermResponse = deleteBadPermCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(deleteBadPermResponse.code, 404);
+     }
+     
 
   } catch (Exception e) {
     e.printStackTrace();

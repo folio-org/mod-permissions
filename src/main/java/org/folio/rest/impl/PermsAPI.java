@@ -100,9 +100,9 @@ public class PermsAPI implements PermsResource {
               try {
                 if(reply.succeeded()) {
                   PermissionUserListObject permUserCollection = new PermissionUserListObject();
-                  List<PermissionUser> permissionUsers = (List<PermissionUser>)reply.result()[0];
+                  List<PermissionUser> permissionUsers = (List<PermissionUser>)reply.result().getResults();
                   permUserCollection.setPermissionUsers(permissionUsers);
-                  permUserCollection.setTotalRecords(permissionUsers.size());
+                  permUserCollection.setTotalRecords(reply.result().getResultInfo().getTotalRecords());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.withJsonOK(permUserCollection)));
                 } else {
                   String errStr = "Get operation from PostgresClient failed: " + reply.cause().getLocalizedMessage();
@@ -163,7 +163,7 @@ public class PermsAPI implements PermsResource {
               logger.error(errStr, queryReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
             } else {
-              List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
+              List<PermissionUser> userList = (List<PermissionUser>)queryReply.result().getResults();
               if(userList.size() > 0) {
                 //This means that we have an existing user matching this username, error 400
                 logger.warn("Constraint violated for userId or id field (or both)");
@@ -241,7 +241,7 @@ public class PermsAPI implements PermsResource {
                 logger.error(errStr);
                 asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainInternalServerError(getErrorResponse(errStr))));
               } else {
-                List<PermissionUser> userList = (List<PermissionUser>)queryReply.result()[0];
+                List<PermissionUser> userList = (List<PermissionUser>)queryReply.result().getResults();
                 if(userList.size() < 1) {
                   //no users found
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.withPlainNotFound("No user with id: " + id)));
@@ -312,7 +312,9 @@ public class PermsAPI implements PermsResource {
   }
 
   @Override
-  public void deletePermsUsersById(String userid, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void deletePermsUsersById(String userid, Map<String, String> okapiHeaders,
+          Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext)
+          throws Exception {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
@@ -321,13 +323,17 @@ public class PermsAPI implements PermsResource {
         idCrit.setOperation("=");
         idCrit.setValue(userid);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMSUSERS, new Criterion(idCrit), deleteReply-> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(
+                  TABLE_NAME_PERMSUSERS, new Criterion(idCrit), deleteReply-> {
             if(deleteReply.failed()) {
               logger.error("deleteReply failed: " + deleteReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainInternalServerError("Internal server error")));
             } else {
-              //We need a way to detect for 404 not found here.
-              asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainNoContent("")));
+              if(deleteReply.result().getUpdated() == 0) {
+                asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainNotFound("Not found")));
+              } else {
+                asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdResponse.withPlainNoContent("")));
+              }
             }
           });
         } catch(Exception e) {
@@ -393,8 +399,8 @@ public class PermsAPI implements PermsResource {
                 asyncResultHandler.handle(Future.succeededFuture(
                   PostPermsUsersByIdPermissionsResponse.withPlainInternalServerError("Internal server error")));
               } else {
-                List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
-                if(userList.size() == 0) {
+                List<PermissionUser> userList = (List<PermissionUser>)getReply.result().getResults();
+                if(userList.isEmpty()) {
                   asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersByIdPermissionsResponse.withPlainBadRequest("User with id " + id + " does not exist")));
                 } else {
                   //now we can actually add it
@@ -454,7 +460,7 @@ public class PermsAPI implements PermsResource {
               logger.error("Error checking for user: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainInternalServerError("Internal server error")));
             } else {
-              List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
+              List<PermissionUser> userList = (List<PermissionUser>)getReply.result().getResults();
               if(userList.size() == 0) {
                 asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainBadRequest("User with id " + id + " does not exist")));
               } else {
@@ -511,7 +517,7 @@ public class PermsAPI implements PermsResource {
               logger.error("Error getting existing permissions: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
             } else {
-              List<Permission> permissionList = (List<Permission>)getReply.result()[0];
+              List<Permission> permissionList = (List<Permission>)getReply.result().getResults();
               if(permissionList.size() > 0) {
                 asyncResultHandler.handle(Future.succeededFuture(
                   PostPermsPermissionsResponse.withJsonUnprocessableEntity(
@@ -580,7 +586,7 @@ public class PermsAPI implements PermsResource {
               logger.error("Error in getReply: " + getReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.withPlainInternalServerError("Internal server error")));
             } else {
-              List<Permission> permList = (List<Permission>)getReply.result()[0];
+              List<Permission> permList = (List<Permission>)getReply.result().getResults();
               if(permList.size() < 1) {
                 //404'd!
                 asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.withPlainNotFound("No permission with ID " + id + " exists")));
@@ -631,7 +637,7 @@ public class PermsAPI implements PermsResource {
               asyncResultHandler.handle(Future.succeededFuture(
                       PutPermsPermissionsByIdResponse.withPlainInternalServerError(getErrorResponse(message))));
             }
-            List<Permission> permList = (List<Permission>)getReply.result()[0];
+            List<Permission> permList = (List<Permission>)getReply.result().getResults();
             if(permList.size() < 1) {
               String message = "No permission found to match that id";
               asyncResultHandler.handle(Future.succeededFuture(
@@ -686,7 +692,11 @@ public class PermsAPI implements PermsResource {
               logger.error("deleteReply failed: " + deleteReply.cause().getLocalizedMessage());
               asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.withPlainInternalServerError("Internal server error")));
             } else {
-              asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.withPlainNoContent("")));
+              if(deleteReply.result().getUpdated() == 0) {
+                asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.withPlainNotFound("Not found")));
+              } else {
+                asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.withPlainNoContent("")));
+              }
             }
           });
         } catch(Exception e) {
@@ -724,7 +734,7 @@ public class PermsAPI implements PermsResource {
             try {
               if(getReply.succeeded()) {
                 PermissionListObject permCollection = new PermissionListObject();
-                List<Permission> permissions = (List<Permission>)getReply.result()[0];
+                List<Permission> permissions = (List<Permission>)getReply.result().getResults();
                 List<Future> futureList = new ArrayList<>();
                 for(Permission permission : permissions) {
                   List<Object> subPermList = permission.getSubPermissions();
@@ -747,7 +757,7 @@ public class PermsAPI implements PermsResource {
                       newPermList.add((Permission)(f.result()));
                     }
                     permCollection.setPermissions(newPermList);
-                    permCollection.setTotalRecords(newPermList.size());
+                    permCollection.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
                     asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.withJsonOK(permCollection)));
                   }
 
@@ -780,7 +790,8 @@ public class PermsAPI implements PermsResource {
     }
   }
 
-  private Future<Boolean> checkPermissionExists(String permissionName, Context vertxContext, String tenantId) {
+  private Future<Boolean> checkPermissionExists(String permissionName, 
+          Context vertxContext, String tenantId) {
     Future<Boolean> future = Future.future();
     try {
       vertxContext.runOnContext(v -> {
@@ -795,8 +806,8 @@ public class PermsAPI implements PermsResource {
               logger.error("Error in getReply: " + getReply.cause().getLocalizedMessage());
               future.fail(getReply.cause());
             } else {
-              List<Permission> permList = (List<Permission>)getReply.result()[0];
-              if(permList.size() == 0) {
+              List<Permission> permList = (List<Permission>)getReply.result().getResults();
+              if(permList.isEmpty()) {
                 future.complete(Boolean.FALSE);
               } else {
                 future.complete(Boolean.TRUE);
@@ -815,6 +826,9 @@ public class PermsAPI implements PermsResource {
     return future;
 }
 
+  /*
+    Given a list of permissions, check to see if they all actually exist
+  */
   private Future<Boolean> checkPermissionListExists(List<Object> permissionList, Context vertxContext, String tenantId) {
     Future<Boolean> future = Future.future();
     List<Future> futureList = new ArrayList<>();
@@ -840,7 +854,8 @@ public class PermsAPI implements PermsResource {
     return future;
   }
 
-  private Future<List<String>> getAllExpandedPermissions(List<String> permissionList, Context vertxContext, String tenantId) {
+  private Future<List<String>> getAllExpandedPermissions(List<String> permissionList,
+          Context vertxContext, String tenantId) {
     Future<List<String>> future = Future.future();
     List<String> masterPermissionList = new ArrayList<>();
     List<Future> futureList = new ArrayList<>();
@@ -869,7 +884,8 @@ public class PermsAPI implements PermsResource {
     return future;
   }
 
-  private Future<List<String>> getExpandedPermissions(String permissionName, Context vertxContext, String tenantId) {
+  private Future<List<String>> getExpandedPermissions(String permissionName,
+          Context vertxContext, String tenantId) {
     logger.debug("Getting expanded permissions for permission '" + permissionName + "'");
     Future<List<String>> future = Future.future();
     List<String> expandedPermissions = new ArrayList<>();
@@ -887,7 +903,7 @@ public class PermsAPI implements PermsResource {
               logger.error("Error in get request: " + getReply.cause().getLocalizedMessage());
               future.fail(getReply.cause());
             } else {
-              List<Permission> permList = (List<Permission>)getReply.result()[0];
+              List<Permission> permList = (List<Permission>)getReply.result().getResults();
               if(permList.isEmpty()) {
                  future.complete(new ArrayList<String>());
               } else {
@@ -942,7 +958,8 @@ public class PermsAPI implements PermsResource {
     return future;
   }
 
-  private Future<PermissionNameListObject> getAllFullPermissions(List<String> nameList, Context vertxContext, String tenantId) {
+  private Future<PermissionNameListObject> getAllFullPermissions(List<String> nameList,
+          Context vertxContext, String tenantId) {
     Future<PermissionNameListObject> future = Future.future();
     List<Future> futureList = new ArrayList<>();
     for(String name : nameList) {
@@ -969,7 +986,8 @@ public class PermsAPI implements PermsResource {
     return future;
   }
 
-  private Future<Permission> getFullPermissions(String permissionName, Context vertxContext, String tenantId) {
+  private Future<Permission> getFullPermissions(String permissionName,
+          Context vertxContext, String tenantId) {
    Future<Permission> future = Future.future();
    logger.debug("Getting full permissions for " + permissionName);
    try {
@@ -979,23 +997,23 @@ public class PermsAPI implements PermsResource {
        nameCrit.setOperation("=");
        nameCrit.setValue(permissionName);
        try {
-         PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-                  Permission.class, new Criterion(nameCrit), true, false, getReply -> {
-           if(getReply.failed()) {
-             logger.debug("postgres client 'get' failed: " + getReply.cause().getLocalizedMessage());
-             future.fail(getReply.cause());
-           } else {
-             List<Permission> permList = (List<Permission>)getReply.result()[0];
-             if(permList.isEmpty()) {
-               logger.debug("No permission object '" + permissionName + "' exists");
-               //future.fail("No permission object found for name '" + permissionName + "'");
-               future.complete(null);
-             } else {
-               logger.debug("Completing future for getFullPermissions for '" + permissionName + "'");
-               future.complete(permList.get(0));
-             }
-           }
-         });
+        PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+                 Permission.class, new Criterion(nameCrit), true, false, getReply -> {
+          if (getReply.failed()) {
+            logger.debug("postgres client 'get' failed: " + getReply.cause().getLocalizedMessage());
+            future.fail(getReply.cause());
+          } else {
+            List<Permission> permList = (List<Permission>) getReply.result().getResults();
+            if (permList.isEmpty()) {
+              logger.debug("No permission object '" + permissionName + "' exists");
+              //future.fail("No permission object found for name '" + permissionName + "'");
+              future.complete(null);
+            } else {
+              logger.debug("Completing future for getFullPermissions for '" + permissionName + "'");
+              future.complete(permList.get(0));
+            }
+          }
+        });
        } catch(Exception e) {
         logger.error("Error from PostgresClient: " + e.getLocalizedMessage());
         future.fail(e);
@@ -1027,7 +1045,7 @@ public class PermsAPI implements PermsResource {
           if(getReply.failed()) {
             future.fail(getReply.cause());
           } else {
-            List<PermissionUser> userList = (List<PermissionUser>)getReply.result()[0];
+            List<PermissionUser> userList = (List<PermissionUser>)getReply.result().getResults();
             if(userList.isEmpty()) {
               future.complete(null);
               return;
@@ -1103,7 +1121,8 @@ public class PermsAPI implements PermsResource {
     return username;
   }
 
-  private boolean allowAccessByNameorPermission(String permissions, String permissionName, String token, String username) {
+  private boolean allowAccessByNameorPermission(String permissions, String permissionName,
+          String token, String username) {
     String tokenUsername = getUsername(token);
     if(tokenUsername != null && tokenUsername.equals(username)) {
       logger.debug("Permission allowed for own username (" + username + ")");

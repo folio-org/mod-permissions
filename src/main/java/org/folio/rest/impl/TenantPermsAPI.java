@@ -99,7 +99,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
           logger.debug("Error querying permission: " + getReply.cause().getLocalizedMessage());
           future.fail(getReply.cause());
         } else {
-          List<Permission> returnList = (List<Permission>)getReply.result()[0];
+          List<Permission> returnList = (List<Permission>)getReply.result().getResults();
           if(returnList.size() > 0) {
             future.complete(); //Perm already exists, no need to re-add
           } else {
