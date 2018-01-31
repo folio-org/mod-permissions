@@ -829,7 +829,8 @@ public class PermsAPI implements PermsResource {
   /*
     Given a list of permissions, check to see if they all actually exist
   */
-  private Future<Boolean> checkPermissionListExists(List<Object> permissionList, Context vertxContext, String tenantId) {
+  private Future<Boolean> checkPermissionListExists(List<Object> permissionList,
+          Context vertxContext, String tenantId) {
     Future<Boolean> future = Future.future();
     List<Future> futureList = new ArrayList<>();
     for(Object permissionName : permissionList ) {
@@ -1176,7 +1177,60 @@ public class PermsAPI implements PermsResource {
 
     return future;
   }
+  
+  /* If we are modifying (or creating) the subpermissions array of a permission
+  object, check for any changes and for any newly declared subpermissions, add
+  the permission name to the the 'childOf' field for those permisisons
+  */
+  private Future updateSubPermissions(String permissionName, JsonArray originalList,
+          JsonArray newList, Context vertxContext, String tenantId) {
+    Future future = Future.future();
+    Future<Boolean> checkExistsFuture = checkPermissionListExists(newList.getList(),
+            vertxContext, tenantId);
+    checkExistsFuture.setHandler(res -> {
+      if(res.failed()) {
+        future.fail(res.cause());
+      } else {
+        
+      }
+    });
+    return future;
+  }
 
+  private Future makeChildOf(String parentPermissionName, String childPermissionName,
+          Context vertxContext, String tenantId) {
+    Future future = Future.future();
+    try {
+      Criteria nameCrit = new Criteria()
+              .addField(PERMISSION_NAME_FIELD)
+              .setOperation("=")
+              .setValue(childPermissionName);
+      vertxContext.runOnContext( v -> {
+        PostgresClient.getInstance(vertxContext.owner()).get(TABLE_NAME_PERMS,
+                Permission.class, new Criterion(nameCrit), true, false,
+                getReply -> {
+          if(getReply.failed()) {
+            future.fail(getReply.cause());
+          } else {
+            List<Permission> permList = (List<Permission>)getReply.result().getResults();
+            if(permList.size() != 1) {
+              future.fail("Expected one result for " + PERMISSION_NAME_FIELD + 
+                      ": '" + childPermissionName + "', got " + permList.size() +
+                      " results");
+            } else {
+              Permission childPermission = permList.indexOf(0);
+              childPermission.
+            }
+          }
+        });
+      });
+    }
+    catch(Exception e) {
+      future.fail(e);
+    }
+    return future;
+  }
+  
   private Criteria getIdCriteria(String indexField, String operation, String value)
           throws IllegalArgumentException, Exception {
     //Criteria crit = new Criteria(PERMISSION_SCHEMA_PATH);
