@@ -1,0 +1,18 @@
+{
+  "title": "User Group Schema",
+  "type": "object",
+  "properties": {
+    "group": {
+      "type": "string",
+      "required": true
+    },
+    "desc": {
+      "type": "string",
+      "required": true
+    },
+    "id": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
