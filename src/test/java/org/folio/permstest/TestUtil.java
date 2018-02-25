@@ -75,16 +75,17 @@ public class TestUtil {
                   + expectedCode + ", got status code " + req.statusCode() + ": "
                   + buf.toString());
         } else {
+          System.out.println("Got status code " + req.statusCode() + " with payload of " + buf.toString());
           WrappedResponse wr = new WrappedResponse(req.statusCode(), buf.toString(), req);
           future.complete(wr);
         }
       });
     });
+    System.out.println("Sending " + method.toString() + " request to url '"+
+              url + " with payload: " + payload + "'\n");
     if(method == HttpMethod.PUT || method == HttpMethod.POST) {
       request.end(payload);
-    } else {
-      System.out.println("Sending " + method.toString() + " request to url '"+
-              url + "'\n");
+    } else {      
       request.end();
     }
     return future;

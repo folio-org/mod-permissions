@@ -7,6 +7,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.json.JsonArray;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,13 +36,14 @@ public class TenantPermsAPI implements TenantpermissionsResource {
 
   //The RAML won't do right if we don't provide a GET endpoint...
   @Override
-  public void getTenantpermissions(String entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void getTenantpermissions(String entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
 
 
+  /*
   @Override
-  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) throws Exception {
+  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       vertxContext.runOnContext(v -> {
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
@@ -70,8 +72,125 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     }
 
   }
+*/
+  
+  @Override
+  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+    try {
+      vertxContext.runOnContext(v -> {
+        String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
+        List<Future> futureList = new ArrayList<>();
+        if(entity.getPerms() == null) {
+          asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
+        } else {
+          //should we duplicate the list first?
+          savePermList(entity.getPerms(), vertxContext, tenantId).setHandler(savePermsRes -> {
+            if(savePermsRes.failed()) {
+              String err = savePermsRes.cause().getLocalizedMessage();
+              logger.error(err, savePermsRes.cause());
+              asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error: " + err)));
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
+            }
+          });
+        }
+      });
+    } catch(Exception e) {
+      logger.debug("Error adding permissions set: " + e.getLocalizedMessage());
+      asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
+    }
+  }
+  
+  private Future<Void> savePermList(List<Perm> permList, Context vertxContext, String tenantId) {
+    Future future = Future.future();
+    if(permList.isEmpty()) {
+      return Future.succeededFuture();
+    }
+    Perm perm = permList.get(0);
+    permList.remove(0); //pop
+    Future<Boolean> checkSubsExistFuture;
+    if(perm.getSubPermissions().isEmpty()) {
+      checkSubsExistFuture = Future.succeededFuture(true);
+    } else {
+      checkSubsExistFuture = checkSubsExist(perm.getSubPermissions(), vertxContext, tenantId);
+    }
+    checkSubsExistFuture.setHandler(subsExist -> {
+      if(subsExist.failed()) {
+        future.fail(subsExist.cause());
+      } else {
+        if(!subsExist.result()) {
+          if(permList.isEmpty()) {
+            future.fail("Unable to satisfy dependencies for permission " + perm.getPermissionName());
+          } else {
+            permList.add(perm); //Move it to the back
+            future.complete();
+          }
+        } else {
+          savePerm(perm, tenantId, vertxContext).setHandler(savePermRes -> {
+            if(savePermRes.failed()) {
+              future.fail(savePermRes.cause());
+            } else {
+              future.complete();
+            }
+          });
+        }
+      }
+    });
 
-  private Future savePerm(Perm perm, String tenantId, Context vertxContext) {
+    return future.compose( next -> { return savePermList(permList, vertxContext, tenantId); });
+
+  }
+  
+  private Future<Boolean> checkSubsExist(List<String> subPerms, Context vertxContext, String tenantId) {
+    Future<Boolean> future = Future.future();
+    List<Future> futureList = new ArrayList<>();
+    for(String permName : subPerms) {
+      Future<Boolean> permCheckFuture = checkPermExists(permName, vertxContext, tenantId);
+      futureList.add(permCheckFuture);
+    }
+    CompositeFuture compositeFuture = CompositeFuture.all(futureList);
+    compositeFuture.setHandler(compositeRes -> {
+      if(compositeRes.failed()) {
+        future.fail(compositeRes.cause());
+      } else {
+        boolean allExist = true;
+        for(Future<Boolean> existsCheckFuture : futureList) {
+          if(existsCheckFuture.result() == false) {
+            allExist = false;
+            break;
+          }
+        }
+        future.complete(allExist);
+      }
+    });
+    return future;
+  }
+  
+  private Future<Boolean> checkPermExists(String permName, Context vertxContext, String tenantId) {
+    Future<Boolean> future = Future.future();
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setOperation("=");
+    nameCrit.setValue(permName);
+    PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+            Permission.class, new Criterion(nameCrit), true, false, getReply -> {
+      if(getReply.failed()) {
+        String err = getReply.cause().getLocalizedMessage();
+        logger.error(err, getReply.cause());
+        future.fail(getReply.cause());
+      } else {
+        List<Permission> returnList = (List<Permission>)getReply.result().getResults();
+          if(returnList.size() > 0) {
+            future.complete(true); //Perm already exists, no need to re-add
+          } else {
+            future.complete(false);
+          }
+      }
+    });    
+    return future;
+  }
+
+  private Future<Void> savePerm(Perm perm, String tenantId, Context vertxContext) {
     Future future = Future.future();
     if(perm.getPermissionName() == null) {
       return Future.succeededFuture();
@@ -116,12 +235,26 @@ public class TenantPermsAPI implements TenantpermissionsResource {
               try {
                 postgresClient.save(beginTx, TABLE_NAME_PERMS, permission, postReply -> {
                   if(postReply.failed()) {
-                    logger.debug("Error saving permission: " + postReply.cause().getLocalizedMessage());
-                    future.fail(postReply.cause());
-                  } else {
-                    postgresClient.endTx(beginTx, done -> {
-                      future.complete();
+                    //rollback
+                    postgresClient.rollbackTx(beginTx, done -> {
+                      logger.debug("Error saving permission: " + postReply.cause().getLocalizedMessage());
+                      future.fail(postReply.cause());
                     });
+                  } else {                    
+                    PermsAPI.updateSubPermissions(beginTx, permission.getPermissionName(),
+                            new JsonArray(), new JsonArray(permission.getSubPermissions()),
+                            vertxContext, tenantId, logger).setHandler(updateSubPermsRes -> {
+                      if(updateSubPermsRes.failed()) {
+                        //rollback!
+                        postgresClient.rollbackTx(beginTx, done -> {
+                          future.fail(updateSubPermsRes.cause());
+                        });
+                      } else {
+                        postgresClient.endTx(beginTx, done -> {
+                          future.complete();
+                        });
+                      }
+                    });                  
                   }
                 });
               } catch(Exception e) {
