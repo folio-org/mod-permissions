@@ -1,0 +1,27 @@
+{
+  "scripts" : [],
+  "tables" : [
+    {
+      "tableName" : "permissions",
+      "generateId" : true,
+      "fromModuleVersion" : "5.0",
+      "withMetadata" : true,
+      "pkColumnName": "_id",
+      "uniqueIndex" : [
+        {
+          "fieldName" : "permissionName",
+          "tOps" : "ADD"
+        }
+      ]
+    },
+    {
+      "tableName" : "permissions_users",
+      "generateId" : true,
+      "fromModuleVersion" : "5.0",
+      "withMetadata" : true,
+      "pkColumnName": "_id"
+    }
+  ],
+  "views" : []
+
+}
