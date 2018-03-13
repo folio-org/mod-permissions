@@ -39,40 +39,6 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   public void getTenantpermissions(String entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
   }
-
-
-  /*
-  @Override
-  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
-    try {
-      vertxContext.runOnContext(v -> {
-      String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
-      List<Future> futureList = new ArrayList<>();
-      if(entity.getPerms() == null) {
-        asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
-        return;
-      }
-      for(Perm perm : entity.getPerms()) {
-        Future savePermFuture = savePerm(perm, tenantId, vertxContext);
-        futureList.add(savePermFuture);
-      }
-      CompositeFuture compositeFuture = CompositeFuture.join(futureList);
-      compositeFuture.setHandler(compositeResult->{
-        if(compositeResult.failed()) {
-          logger.debug("Error adding permissions set: " + compositeResult.cause().getLocalizedMessage());
-          asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
-        } else {
-          asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
-        }
-      });
-    });
-    } catch(Exception e) {
-      logger.debug("Error adding permissions set: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
-    }
-
-  }
-*/
   
   @Override
   public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -100,7 +66,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
       asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
     }
   }
-  
+
   private Future<Void> savePermList(List<Perm> permList, Context vertxContext, String tenantId) {
     Future future = Future.future();
     if(permList.isEmpty()) {
@@ -138,7 +104,6 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     });
 
     return future.compose( next -> { return savePermList(permList, vertxContext, tenantId); });
-
   }
   
   private Future<Boolean> checkSubsExist(List<String> subPerms, Context vertxContext, String tenantId) {
@@ -213,18 +178,27 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     nameCrit.setValue(perm.getPermissionName());
     //If already exists, we don't have to do anything
     try {
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true, false, getReply -> {
-        if(getReply.failed()) {
-          logger.debug("Error querying permission: " + getReply.cause().getLocalizedMessage());
-          future.fail(getReply.cause());
-        } else {
-          List<Permission> returnList = (List<Permission>)getReply.result().getResults();
-          if(returnList.size() > 0) {
-            future.complete(); //Perm already exists, no need to re-add
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
+              tenantId);
+      pgClient.startTx(connection -> {
+        pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
+                new Criterion(nameCrit), true, false, getReply -> {
+          if(getReply.failed()) {
+            //rollback the transaction
+            pgClient.rollbackTx(connection, rollback -> {
+              logger.debug(String.format("Error querying permission: %s",
+                      getReply.cause().getLocalizedMessage()));
+              future.fail(getReply.cause());
+            });
           } else {
-            //Need to save the new perm
-            PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-            postgresClient.startTx(beginTx -> {
+            List<Permission> returnList = (List<Permission>)getReply.result()
+                    .getResults();
+            if(returnList.size() > 0) {
+              //close the connection, complete future
+              pgClient.endTx(connection, done -> {
+                future.complete();
+              });
+            } else {
               String newId = UUID.randomUUID().toString();
               permission.setId(newId);
               if(perm.getVisible() == null) {
@@ -233,44 +207,47 @@ public class TenantPermsAPI implements TenantpermissionsResource {
                 permission.setVisible(perm.getVisible());
               }
               try {
-                postgresClient.save(beginTx, TABLE_NAME_PERMS, permission, postReply -> {
+                pgClient.save(connection, TABLE_NAME_PERMS, permission,
+                        postReply -> {
                   if(postReply.failed()) {
-                    //rollback
-                    postgresClient.rollbackTx(beginTx, done -> {
-                      logger.debug("Error saving permission: " + postReply.cause().getLocalizedMessage());
+                    pgClient.rollbackTx(connection, rollback -> {
+                      logger.debug(String.format("Error saving permission: %s",
+                              postReply.cause().getLocalizedMessage()));
                       future.fail(postReply.cause());
                     });
-                  } else {                    
-                    PermsAPI.updateSubPermissions(beginTx, permission.getPermissionName(),
+                  } else {
+                    PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
                             new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                            vertxContext, tenantId, logger).setHandler(updateSubPermsRes -> {
-                      if(updateSubPermsRes.failed()) {
-                        //rollback!
-                        postgresClient.rollbackTx(beginTx, done -> {
-                          future.fail(updateSubPermsRes.cause());
+                            vertxContext, tenantId, logger).setHandler(updateSubsRes -> {
+                      if(updateSubsRes.failed()) {
+                        pgClient.rollbackTx(connection, rollback -> {
+                          logger.debug(String.format("Error updating permission metadata: %s",
+                                  updateSubsRes.cause().getLocalizedMessage()));
+                          future.fail(updateSubsRes.cause());
                         });
                       } else {
-                        postgresClient.endTx(beginTx, done -> {
+                        pgClient.endTx(connection, done -> {
                           future.complete();
                         });
                       }
-                    });                  
+                    });
                   }
                 });
               } catch(Exception e) {
-                logger.debug("Error saving permission: " + e.getLocalizedMessage());
-                future.fail(e);
+                pgClient.rollbackTx(connection, rollback -> {
+                  logger.debug(String.format("Error: %s", e.getLocalizedMessage()));
+                  future.fail(e);
+                });
               }
-            });
+            }
           }
-        }
+        });
       });
+      
     } catch(Exception e) {
       logger.debug("Error running on vertx for savePerm: " + e.getLocalizedMessage());
       future.fail(e);
     }
     return future;
   }
-
-
 }

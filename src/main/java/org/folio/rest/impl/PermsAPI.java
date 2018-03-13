@@ -439,63 +439,67 @@ public class PermsAPI implements PermsResource {
         idCrit.setOperation("=");
         idCrit.setValue(userid);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
-                  PermissionUser.class, new Criterion(idCrit), true, false, getReply -> {
-            if(getReply.failed()) {
-              String errStr = "Error using Postgres instance: " 
-                      + getReply.cause().getLocalizedMessage();
-              logger.error(errStr, getReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(
+          PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
+                  tenantId);
+          pgClient.startTx(connection -> {
+            pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
+                    new Criterion(idCrit), true, false, getReply -> {
+              if(getReply.failed()) {
+                //rollback
+                pgClient.rollbackTx(connection, rollback -> {
+                  String errStr = String.format("Error getting existing users: %s",
+                          getReply.cause().getLocalizedMessage());
+                  logger.error(errStr, getReply.cause());
+                  asyncResultHandler.handle(Future.succeededFuture(
                       DeletePermsUsersByIdResponse.withPlainInternalServerError(
-                              getErrorResponse(errStr))));
-            } else {
-              List<PermissionUser> permUsers =
-                      (List<PermissionUser>)getReply.result().getResults();
-              if(permUsers.size() < 1) {
-                
+                      getErrorResponse(errStr))));
+                });                
               } else {
-                PermissionUser permUser = permUsers.get(0);
-                try {
-                  PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                  pgClient.startTx(beginTx -> {
-                    //Attempt to do update first, then delete
-                    //We pass an empty array, since the user is going away
-                    updateUserPermissions(beginTx, userid, new JsonArray(permUser.getPermissions()),
-                            new JsonArray(), vertxContext, tenantId, logger).setHandler(updateUserPermsRes -> {
+                List<PermissionUser> permUsers = (List<PermissionUser>)getReply
+                        .result().getResults();
+                if(permUsers.size() < 1) {
+                  //rollback, 404
+                  pgClient.rollbackTx(connection, rollback -> {
+                    asyncResultHandler.handle(Future.succeededFuture(
+                            DeletePermsUsersByIdResponse.withPlainNotFound(
+                            "Not found")));
+                  });
+                } else {
+                  PermissionUser permUser = permUsers.get(0);
+                  try {
+                    updateUserPermissions(connection, userid, 
+                            new JsonArray(permUser.getPermissions()), new JsonArray(),
+                            vertxContext, tenantId, logger).setHandler(updateUserPermsRes -> {
                       if(updateUserPermsRes.failed()) {
-                        //rollback
-                        pgClient.rollbackTx(beginTx, done -> {
-                          String errStr = "Error updating perms users " 
-                                    + updateUserPermsRes.cause().getLocalizedMessage();
+                        pgClient.rollbackTx(connection, rollback -> {
+                          String errStr = String.format("Error updating metadata: %s",
+                                  updateUserPermsRes.cause().getLocalizedMessage());
                           logger.error(errStr, updateUserPermsRes.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
-                                    DeletePermsUsersByIdResponse.withPlainInternalServerError(
-                                            getErrorResponse(errStr))));
+                              DeletePermsUsersByIdResponse.withPlainInternalServerError(
+                              getErrorResponse(errStr))));
                         });
                       } else {
-                        //perform the deletion
-                        PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(
-                          TABLE_NAME_PERMSUSERS, new Criterion(idCrit), deleteReply-> {
+                        pgClient.delete(connection, TABLE_NAME_PERMSUSERS, 
+                                new Criterion(idCrit), deleteReply -> {
                           if(deleteReply.failed()) {
-                            //rollback
-                            pgClient.rollbackTx(beginTx, done -> {
-                              String errStr = deleteReply.cause().getLocalizedMessage();
-                            logger.error(errStr, deleteReply.cause());
-                            asyncResultHandler.handle(Future.succeededFuture(
-                                    DeletePermsUsersByIdResponse.withPlainInternalServerError(
-                                            getErrorResponse(errStr))));
+                            pgClient.rollbackTx(connection, rollback -> {
+                              String errStr = String.format("Error deleting user: %s",
+                                      deleteReply.cause().getLocalizedMessage());
+                              logger.error(errStr, deleteReply.cause());
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                      DeletePermsUsersByIdResponse.withPlainInternalServerError(
+                                      getErrorResponse(errStr))));
                             });
                           } else {
                             if(deleteReply.result().getUpdated() == 0) {
-                              //rollback
-                              pgClient.rollbackTx(beginTx, done -> {
+                              pgClient.rollbackTx(connection, rollback -> {
                                 asyncResultHandler.handle(Future.succeededFuture(
                                         DeletePermsUsersByIdResponse.withPlainNotFound(
-                                                "Not found")));
+                                        "Not found")));
                               });
                             } else {
-                              //complete transaction
-                              pgClient.endTx(beginTx, done -> {
+                              pgClient.endTx(connection, done -> {
                                 asyncResultHandler.handle(Future.succeededFuture(
                                         DeletePermsUsersByIdResponse.withPlainNoContent("")));
                               });
@@ -504,16 +508,21 @@ public class PermsAPI implements PermsResource {
                         });
                       }
                     });
-                  });
-                } catch(Exception e) {
-                  logger.error("Error using Postgres instance: " + e.getLocalizedMessage(), e);
-                  asyncResultHandler.handle(Future.succeededFuture(
-                          DeletePermsUsersByIdResponse.withPlainInternalServerError(
-                                  "Internal server error")));
+                  } catch(Exception e) {
+                    //rollback
+                    pgClient.rollbackTx(connection, rollback -> {
+                      String errStr = String.format("Error deleting user: %s", 
+                              e.getLocalizedMessage());
+                      logger.error(errStr, e);
+                      asyncResultHandler.handle(Future.succeededFuture(
+                              DeletePermsUsersByIdResponse.withPlainInternalServerError(
+                              getErrorResponse(errStr))));
+                    });
+                  }
                 }
               }
-            }
-          });
+            });
+          });             
         } catch(Exception e) {
           String errStr = "Error using Postgres instance: " + e.getLocalizedMessage();
           logger.error(errStr, e);
@@ -1063,8 +1072,8 @@ public class PermsAPI implements PermsResource {
     }
   }
 
-  private static Future<Boolean> checkPermissionExists(String permissionName, 
-          Context vertxContext, String tenantId) {
+  private static Future<Boolean> checkPermissionExists(Object connection, 
+          String permissionName, Context vertxContext, String tenantId) {
     Logger logger = LoggerFactory.getLogger(PermsAPI.class);
     Future<Boolean> future = Future.future();
     try {
@@ -1074,8 +1083,9 @@ public class PermsAPI implements PermsResource {
         nameCrit.setOperation("=");
         nameCrit.setValue(permissionName);
         try {
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-                  Permission.class, new Criterion(nameCrit), true, false, getReply -> {
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(connection,
+                  TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
+                  true, false, getReply -> {
             if(getReply.failed()) {
               logger.error("Error in getReply: " + getReply.cause().getLocalizedMessage());
               future.fail(getReply.cause());
@@ -1103,12 +1113,13 @@ public class PermsAPI implements PermsResource {
   /*
     Given a list of permissions, check to see if they all actually exist
   */
-  private static Future<Boolean> checkPermissionListExists(List<Object> permissionList,
-          Context vertxContext, String tenantId) {
+  private static Future<Boolean> checkPermissionListExists(Object connection,
+          List<Object> permissionList, Context vertxContext, String tenantId) {
     Future<Boolean> future = Future.future();
     List<Future> futureList = new ArrayList<>();
     for(Object permissionName : permissionList ) {
-      Future<Boolean> checkFuture = checkPermissionExists((String)permissionName, vertxContext, tenantId);
+      Future<Boolean> checkFuture = checkPermissionExists(connection,
+              (String)permissionName, vertxContext, tenantId);
       futureList.add(checkFuture);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(futureList);
@@ -1469,7 +1480,7 @@ public class PermsAPI implements PermsResource {
       if(!newList.contains(ob)) { missingFromNewList.add(ob); }
     }
     Future<Boolean> checkExistsFuture = checkPermissionListExists(
-            missingFromOriginalList.getList(), vertxContext, tenantId);
+            connection, missingFromOriginalList.getList(), vertxContext, tenantId);
     checkExistsFuture.setHandler(checkExistsRes -> {
       if(checkExistsFuture.failed()) {
         future.fail(checkExistsFuture.cause());
@@ -1530,7 +1541,7 @@ public class PermsAPI implements PermsResource {
       for(Object ob : originalList) {
         if(!newList.contains(ob)) { missingFromNewList.add(ob); }
       }
-      Future<Boolean> checkExistsFuture = checkPermissionListExists(
+      Future<Boolean> checkExistsFuture = checkPermissionListExists(connection,
               missingFromOriginalList.getList(), vertxContext, tenantId);
       checkExistsFuture.setHandler(res -> {
         if(res.failed()) {
