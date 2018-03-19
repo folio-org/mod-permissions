@@ -60,7 +60,8 @@ public class TestUtil {
     //Add standard headers
     request.putHeader("X-Okapi-Tenant", "diku")
             .putHeader("content-type", "application/json")
-            .putHeader("accept", "application/json");
+            .putHeader("accept", "application/json")
+            .putHeader("X-Okapi-Token", "dummy");
     if(headers != null) {
       for(Map.Entry entry : headers.entries()) {
         request.putHeader((String)entry.getKey(), (String)entry.getValue());

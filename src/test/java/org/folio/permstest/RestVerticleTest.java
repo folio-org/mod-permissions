@@ -130,8 +130,8 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testPermissionExists(context, "dummy.all");
     }).compose(w -> {
-    //  return sendBadPermissionSet(context);
-    //}).compose(w -> {
+      return sendBadPermissionSet(context);
+    }).compose(w -> {
       return sendOtherPermissionSet(context);
     });
 

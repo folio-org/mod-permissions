@@ -33,6 +33,14 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   private static final String TABLE_NAME_PERMS = "permissions";
 
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
+  private boolean noisy = true;
+  
+  private void report(String noise) {
+    if(!noisy) {
+      return;
+    }
+    System.out.println(noise);
+  }
 
   //The RAML won't do right if we don't provide a GET endpoint...
   @Override
@@ -73,7 +81,8 @@ public class TenantPermsAPI implements TenantpermissionsResource {
       return Future.succeededFuture();
     }
     Perm perm = permList.get(0);
-    permList.remove(0); //pop
+    List<Perm> permListCopy = new ArrayList<>(permList);
+    permListCopy.remove(0); //pop
     Future<Boolean> checkSubsExistFuture;
     if(perm.getSubPermissions().isEmpty()) {
       checkSubsExistFuture = Future.succeededFuture(true);
@@ -85,10 +94,10 @@ public class TenantPermsAPI implements TenantpermissionsResource {
         future.fail(subsExist.cause());
       } else {
         if(!subsExist.result()) {
-          if(permList.isEmpty()) {
+          if(permListCopy.isEmpty()) {
             future.fail("Unable to satisfy dependencies for permission " + perm.getPermissionName());
           } else {
-            permList.add(perm); //Move it to the back
+            permListCopy.add(perm); //Move it to the back
             future.complete();
           }
         } else {
@@ -103,7 +112,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
       }
     });
 
-    return future.compose( next -> { return savePermList(permList, vertxContext, tenantId); });
+    return future.compose( next -> { return savePermList(permListCopy, vertxContext, tenantId); });
   }
   
   private Future<Boolean> checkSubsExist(List<String> subPerms, Context vertxContext, String tenantId) {
@@ -137,6 +146,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
     nameCrit.setValue(permName);
+    report("Initiating PG Client get() (no transaction)(checkPermExists)");
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
             Permission.class, new Criterion(nameCrit), true, false, getReply -> {
       if(getReply.failed()) {
@@ -180,11 +190,14 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     try {
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
               tenantId);
+      report("Opening transaction(savePerm)");
       pgClient.startTx(connection -> {
+        report("Initating PG Client get() (in transaction)(savePerm)");
         pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
                 new Criterion(nameCrit), true, false, getReply -> {
           if(getReply.failed()) {
             //rollback the transaction
+            report("Rolling transaction back(savePerm)");
             pgClient.rollbackTx(connection, rollback -> {
               logger.debug(String.format("Error querying permission: %s",
                       getReply.cause().getLocalizedMessage()));
@@ -195,6 +208,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
                     .getResults();
             if(returnList.size() > 0) {
               //close the connection, complete future
+              report("Closing transaction(savePerm)");
               pgClient.endTx(connection, done -> {
                 future.complete();
               });
@@ -207,9 +221,11 @@ public class TenantPermsAPI implements TenantpermissionsResource {
                 permission.setVisible(perm.getVisible());
               }
               try {
+                report("Initiating PG Client save() (in transaction)(savePerm)");
                 pgClient.save(connection, TABLE_NAME_PERMS, permission,
                         postReply -> {
                   if(postReply.failed()) {
+                    report("Rolling transaction back(savePerm)");
                     pgClient.rollbackTx(connection, rollback -> {
                       logger.debug(String.format("Error saving permission: %s",
                               postReply.cause().getLocalizedMessage()));
@@ -220,12 +236,14 @@ public class TenantPermsAPI implements TenantpermissionsResource {
                             new JsonArray(), new JsonArray(permission.getSubPermissions()),
                             vertxContext, tenantId, logger).setHandler(updateSubsRes -> {
                       if(updateSubsRes.failed()) {
+                        report("Rolling transaction back(savePerm)");
                         pgClient.rollbackTx(connection, rollback -> {
                           logger.debug(String.format("Error updating permission metadata: %s",
                                   updateSubsRes.cause().getLocalizedMessage()));
                           future.fail(updateSubsRes.cause());
                         });
                       } else {
+                        report("Closing transaction(savePerm)");
                         pgClient.endTx(connection, done -> {
                           future.complete();
                         });
@@ -234,6 +252,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
                   }
                 });
               } catch(Exception e) {
+                report("Rolling transaction back(savePerm)");
                 pgClient.rollbackTx(connection, rollback -> {
                   logger.debug(String.format("Error: %s", e.getLocalizedMessage()));
                   future.fail(e);
