@@ -382,6 +382,20 @@ public class RestVerticleTest {
        context.assertEquals(addPermToUserResponse.code, 200);
      }
      
+     /*Get the permission, check for grantedTo    */
+     
+     {
+       CompletableFuture<Response> getPermCF = new CompletableFuture();
+       send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+               SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,
+               new HTTPResponseHandler(getPermCF));
+       Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(getPermResponse.code, 200);
+       context.assertNotNull(getPermResponse.body.getJsonArray("grantedTo"));
+       context.assertTrue(getPermResponse.body.getJsonArray("grantedTo")
+               .contains(newUserId));
+     }
+     
      /* Get a list of permissions that the user has */
      {
        CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
@@ -455,6 +469,29 @@ public class RestVerticleTest {
          context.fail(e);
        }
      }
+      
+     /* Delete the child permission */
+     {
+      CompletableFuture<Response> deletePermCF = new CompletableFuture();
+      send(permUrl + "/" + newPermId2, context, HttpMethod.DELETE, null,
+              SUPPORTED_CONTENT_TYPE_JSON_DEF, 204,
+              new HTTPResponseHandler(deletePermCF));
+      Response deletePermResponse = deletePermCF.get(5, TimeUnit.SECONDS);
+      context.assertEquals(deletePermResponse.code, 204);
+     }
+     
+     /* Get the original permission, check that child is not in subpermissions */
+     {
+       CompletableFuture<Response> getPermCF = new CompletableFuture();
+       send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+               SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,
+               new HTTPResponseHandler(getPermCF));
+       Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(getPermResponse.code, 200);
+       context.assertFalse(getPermResponse.body.getJsonArray("subPermissions")
+               .contains("foo.whizz"));
+     }
+       
      /* Delete the permission from the user */
      {
        CompletableFuture<Response> deleteUserPermsCF = new CompletableFuture();
@@ -463,6 +500,18 @@ public class RestVerticleTest {
                new HTTPResponseHandler(deleteUserPermsCF));
        Response deleteUserPermsResponse = deleteUserPermsCF.get(5, TimeUnit.SECONDS);
        context.assertEquals(deleteUserPermsResponse.code, 204);
+     }
+     
+     /* Get the original permission, check that our user is no longer in grantedTo */
+     {
+       CompletableFuture<Response> getPermCF = new CompletableFuture();
+       send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+               SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,
+               new HTTPResponseHandler(getPermCF));
+       Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(getPermResponse.code, 200);
+       context.assertFalse(getPermResponse.body.getJsonArray("grantedTo")
+               .contains(newUserId));
      }
      
      /* Get the user's permissions, make sure the permission is not present */
@@ -516,6 +565,7 @@ public class RestVerticleTest {
        Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
        context.assertEquals(getPermResponse.code, 404);
      }
+     
      
      /*Delete a permission that's not there */
      {
@@ -583,7 +633,7 @@ public class RestVerticleTest {
         try {
           r.body = bh.toJsonObject();
         } catch(Exception e) {
-          System.out.println("Error: '" + bh.toString() + "' cannot be parsed as JSON");
+          System.out.println("Warning: '" + bh.toString() + "' cannot be parsed as JSON");
           r.body = new JsonObject(); //Or should it be null?
         }
         System.out.println("Got code '" + hcr.statusCode() + "' and body '" +

@@ -1643,6 +1643,9 @@ public class PermsAPI implements PermsResource {
     Future<Void> future = Future.future();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
+    logger.info("Updating grantedTo fields pertaining to permissions user '" + permUserId +
+              "' for old listing " + originalList.encode() +
+              " and for new listing " + newList.encode());
     for(Object ob : newList) { 
       if(!originalList.contains(ob)) { missingFromOriginalList.add(ob); }
     }
@@ -1673,6 +1676,7 @@ public class PermsAPI implements PermsResource {
                   (String)permissionNameOb,
                   PermissionField.GRANTED_TO,
                   Operation.DELETE);
+          fuvList.add(fuv);
         }
         if(fuvList.isEmpty()) {
           future.complete(); //Nuthin' to do
@@ -1997,6 +2001,7 @@ public class PermsAPI implements PermsResource {
           Permission permission = null;
           try {
             permission = ((List<Permission>)getReply.result().getResults()).get(0);
+            permission.getSubPermissions().remove(subpermissionName);
           } catch(Exception e) {
             future.fail(String.format("Unable to get permission with name %s: %s",
                     permissionName, e.getLocalizedMessage()));

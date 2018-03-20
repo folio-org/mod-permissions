@@ -1,3 +1,6 @@
+## 2017-09-14 v5.0.0
+ * Change permissions/permission users to be indexed by UUID instead of permissionName/username
+
 ## 2017-07-25 v4.0.4
  * Unescape input from URL before using it for search criteria
 
