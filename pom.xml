@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-permissions</artifactId>
-  <version>5.0.1-SNAPSHOT</version>
+  <version>5.1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -32,8 +32,17 @@
     <dependency>
       <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-      <version>13.0.1</version>
+	  <version>18.0.1</version>
     </dependency>
+    
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-unit</artifactId>
+      <version>3.3.3</version>
+      <scope>test</scope>
+      <type>jar</type>
+    </dependency>
+    
   </dependencies>
 
   <build>
@@ -47,7 +56,25 @@
           <encoding>UTF-8</encoding>
         </configuration>
       </plugin>
-
+ 	  <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>add_generated_sources_folder</id>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <phase>initialize</phase>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/raml-jaxrs</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -335,6 +362,6 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <ramlfiles_path>${basedir}/raml-util/ramls/mod-permissions</ramlfiles_path>
-    <ramlfiles_util_path>${basedir}/raml-util</ramlfiles_util_path>
+	<ramlfiles_util_path>${basedir}/raml-util</ramlfiles_util_path>
   </properties>
 </project>
