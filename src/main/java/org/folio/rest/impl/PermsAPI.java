@@ -258,8 +258,7 @@ public class PermsAPI implements PermsResource {
                               } else {
                                 postgresClient.endTx(beginTx, endTx -> {
                                   asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withJsonCreated(entity)));                                                   
-                                });
-                                //asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withJsonCreated(entity)));
+                                });              
                               }
                             });
                           } catch(Exception e) {
@@ -384,7 +383,7 @@ public class PermsAPI implements PermsResource {
                                       getErrorResponse(errStr))));
                     } else {
                       List<PermissionUser> userList = (List<PermissionUser>) getReply.result().getResults();
-                      if (userList.size() < 1) {
+                      if (userList.isEmpty()) {
                         asyncResultHandler.handle(Future.succeededFuture(
                                 PutPermsUsersByIdResponse.withPlainNotFound(
                                         "No permissions user found with id " + userid)));
@@ -1058,8 +1057,10 @@ public class PermsAPI implements PermsResource {
                                getErrorResponse(errStr))));
             } else {
               List<Permission> permList = (List<Permission>)getReply.result().getResults();
-              if(permList.size() < 1) {
-                asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.withPlainNotFound("Not found")));
+              if(permList.isEmpty()) {
+                asyncResultHandler.handle(Future.succeededFuture(
+                        DeletePermsPermissionsByIdResponse
+                        .withPlainNotFound("Not found")));
               } else {
                 Permission perm = permList.get(0);
                 if(!perm.getChildOf().isEmpty() || !perm.getGrantedTo().isEmpty()) {
@@ -1285,7 +1286,7 @@ public class PermsAPI implements PermsResource {
     if(permissionList.isEmpty()) {
       return Future.succeededFuture(true);
     }
-    List<Object> permissionListCopy = new ArrayList<Object>(permissionList);
+    List<Object> permissionListCopy = new ArrayList<>(permissionList);
     Future<Boolean> checkPermissionExistsFuture;
     String permissionName = (String)permissionListCopy.get(0);
     permissionListCopy.remove(0); //pop
@@ -1873,13 +1874,6 @@ public class PermsAPI implements PermsResource {
     });
   }
   
-  private Future<Void> cascadeDeletion(Object connection, String permissionName,
-          List<String> parentPermissionNameList, List<String> userIdList,
-          Context vertxContext, String tenantId) {
-    Future future = Future.future();
-    return future;
-  }
-  
   private Future<Void> removePermissionFromUserList(Object connection,
           String permissionName, List<String> userIdList, Context vertxContext,
           String tenantId) {
@@ -1924,15 +1918,11 @@ public class PermsAPI implements PermsResource {
         } else {
           List<PermissionUser> permUserList = 
                   (List<PermissionUser>)getReply.result().getResults();
-          if(permUserList.size() == 0) {
-            //future.fail(String.format("No permission user found with id '%s'", userId));
+          if(permUserList.isEmpty()) {
             future.complete(); //No need to update non-existent user
           } else {
             PermissionUser user = permUserList.get(0);
             if(!user.getPermissions().contains(permissionName)) {
-              //Should we fail, or just complete?
-              //future.fail(String.format("permission user %s does not have permission %s",
-              //        userId, permissionName));
               future.complete(); //User already lacks the permissions
             } else {
               user.getPermissions().remove(permissionName);
@@ -2046,7 +2036,6 @@ public class PermsAPI implements PermsResource {
     perm.setPermissionName(entity.getPermissionName());
     perm.setDisplayName(entity.getDisplayName());
     perm.setDescription(entity.getDescription());
-    //perm.setSubPermissions(entity.getSubPermissions());
     List<Object> subPerms = new ArrayList<>();
     for(String s : entity.getSubPermissions()) {
       subPerms.add(s);

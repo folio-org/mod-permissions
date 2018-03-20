@@ -39,7 +39,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     if(!noisy) {
       return;
     }
-    System.out.println(noise);
+    logger.info(noise);
   }
 
   //The RAML won't do right if we don't provide a GET endpoint...
@@ -53,7 +53,6 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     try {
       vertxContext.runOnContext(v -> {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
-        List<Future> futureList = new ArrayList<>();
         if(entity.getPerms() == null) {
           asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
         } else {
@@ -206,8 +205,8 @@ public class TenantPermsAPI implements TenantpermissionsResource {
           } else {
             List<Permission> returnList = (List<Permission>)getReply.result()
                     .getResults();
-            if(returnList.size() > 0) {
-              //close the connection, complete future
+            if(!returnList.isEmpty()) {
+              //permission already exists, close the connection, complete future
               report("Closing transaction(savePerm)");
               pgClient.endTx(connection, done -> {
                 future.complete();
