@@ -119,9 +119,13 @@ public class PermsAPI implements PermsResource {
     return response;
   }
     
-  private static void report(String noise) {
+  private void report(String noise) {
 
-    System.out.println(noise);
+    logger.info(noise);
+  }
+  
+  private static void report(String noise, Logger logger) {
+    logger.info(noise);
   }
 
   @Override
@@ -230,69 +234,63 @@ public class PermsAPI implements PermsResource {
                 }
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                 postgresClient.startTx(beginTx -> {
-                  logger.debug("Starting transaction to save new permissions user");
-                  try {
-                    postgresClient.save(beginTx, TABLE_NAME_PERMSUSERS, entity, postReply -> {
-                      try {
-                        if(postReply.succeeded()) {
-                          final PermissionUser permUser = entity;
-                          try {
-                            updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
-                              new JsonArray(permUser.getPermissions()), vertxContext,
-                              tenantId, logger).setHandler(updatePermsRes -> {
-                              if(updatePermsRes.failed()) {
-                                postgresClient.rollbackTx(beginTx, rollbackTx -> {
-                                  logger.error("Error updating derived fields: " + updatePermsRes.cause());
-                                  if(updatePermsRes.cause() instanceof InvalidPermissionsException) {
-                                     asyncResultHandler.handle(Future.succeededFuture(
-                                      PostPermsUsersResponse.withJsonUnprocessableEntity(
-                                        ValidationHelper.createValidationErrorMessage(
-                                          ID_FIELD, permUser.getId(), getErrorResponse(
-                                            "Unable to update derived fields: " + updatePermsRes.cause().getLocalizedMessage())))));
-                                  } else {
-                                     asyncResultHandler.handle(Future.succeededFuture(
-                                          PostPermsUsersResponse.withPlainInternalServerError(
-                                                  getErrorResponse(updatePermsRes.cause().getLocalizedMessage()))));
-                                  }    
-                                });
-                              } else {
-                                postgresClient.endTx(beginTx, endTx -> {
-                                  asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withJsonCreated(entity)));                                                   
-                                });              
-                              }
-                            });
-                          } catch(Exception e) {
-                            postgresClient.rollbackTx(beginTx, rollbackTx -> {
-                              logger.error(e.getLocalizedMessage());
-                              if(e instanceof InvalidPermissionsException) {
-                                asyncResultHandler.handle(Future.succeededFuture(
-                                  PostPermsUsersResponse.withJsonUnprocessableEntity(
-                                    ValidationHelper.createValidationErrorMessage(
-                                      ID_FIELD, permUser.getId(), getErrorResponse(
-                                        "Unable to update derived fields: " + e.getLocalizedMessage())))));         
-                              } else {
-                                asyncResultHandler.handle(Future.succeededFuture(
-                                          PostPermsUsersResponse.withPlainInternalServerError(                                                  
-                                                  getErrorResponse("Error updating permission derived fields: " + e.getLocalizedMessage()))));
-                              }
-                            });
-                          }                            
-                        } else {
-                          String errStr = "Unable to save: " + postReply.cause().getLocalizedMessage();
-                          logger.error(errStr, postReply.cause());
-                          asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-                        }
-                      } catch(Exception e) {
-                        String errStr = "Error saving entity " + entity.toString() + ": " + e.getLocalizedMessage();
-                        logger.error(errStr, e);
+                  logger.debug("Starting transaction to save new permissions user");     
+                  postgresClient.save(beginTx, TABLE_NAME_PERMSUSERS, entity, postReply -> {
+                    try {
+                      if(postReply.succeeded()) {
+                        final PermissionUser permUser = entity;
+                        try {
+                          updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
+                            new JsonArray(permUser.getPermissions()), vertxContext,
+                            tenantId, logger).setHandler(updatePermsRes -> {
+                            if(updatePermsRes.failed()) {
+                              postgresClient.rollbackTx(beginTx, rollbackTx -> {
+                                logger.error("Error updating derived fields: " + updatePermsRes.cause());
+                                if(updatePermsRes.cause() instanceof InvalidPermissionsException) {
+                                   asyncResultHandler.handle(Future.succeededFuture(
+                                    PostPermsUsersResponse.withJsonUnprocessableEntity(
+                                      ValidationHelper.createValidationErrorMessage(
+                                        ID_FIELD, permUser.getId(), getErrorResponse(
+                                          "Unable to update derived fields: " + updatePermsRes.cause().getLocalizedMessage())))));
+                                } else {
+                                   asyncResultHandler.handle(Future.succeededFuture(
+                                        PostPermsUsersResponse.withPlainInternalServerError(
+                                                getErrorResponse(updatePermsRes.cause().getLocalizedMessage()))));
+                                }    
+                              });
+                            } else {
+                              postgresClient.endTx(beginTx, endTx -> {
+                                asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withJsonCreated(entity)));                                                   
+                              });              
+                            }
+                          });
+                        } catch(Exception e) {
+                          postgresClient.rollbackTx(beginTx, rollbackTx -> {
+                            logger.error(e.getLocalizedMessage());
+                            if(e instanceof InvalidPermissionsException) {
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                PostPermsUsersResponse.withJsonUnprocessableEntity(
+                                  ValidationHelper.createValidationErrorMessage(
+                                    ID_FIELD, permUser.getId(), getErrorResponse(
+                                      "Unable to update derived fields: " + e.getLocalizedMessage())))));         
+                            } else {
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                        PostPermsUsersResponse.withPlainInternalServerError(                                                  
+                                                getErrorResponse("Error updating permission derived fields: " + e.getLocalizedMessage()))));
+                            }
+                          });
+                        }                            
+                      } else {
+                        String errStr = "Unable to save: " + postReply.cause().getLocalizedMessage();
+                        logger.error(errStr, postReply.cause());
                         asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
                       }
-                     });
-                  } catch(Exception e) {
-                    String errStr = "Error in transaction for entity " + entity.toString() + ": " + e.getLocalizedMessage();
-                    logger.error(errStr, e);
-                    asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
-                  }
+                    } catch(Exception e) {
+                      String errStr = "Error saving entity " + entity.toString() + ": " + e.getLocalizedMessage();
+                      logger.error(errStr, e);
+                      asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.withPlainInternalServerError(getErrorResponse(errStr))));
+                    }
+                   });
                 });
               }
             }
@@ -1251,7 +1249,7 @@ public class PermsAPI implements PermsResource {
         nameCrit.setOperation("=");
         nameCrit.setValue(permissionName);
         try {
-          report("Initiating PG Client get() request (in transaction)(cPE)");
+          report("Initiating PG Client get() request (in transaction)(cPE)", logger);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(connection,
                   TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
                   true, false, getReply -> {
@@ -1578,16 +1576,6 @@ public class PermsAPI implements PermsResource {
     return username;
   }
 
-  private boolean allowAccessByNameorPermission(String permissions, String permissionName,
-          String token, String username) {
-    String tokenUsername = getUsername(token);
-    if(tokenUsername != null && tokenUsername.equals(username)) {
-      logger.debug("Permission allowed for own username (" + username + ")");
-      return true;
-    }
-    return allowAccessByPermission(permissions, permissionName);
-  }
-
   private boolean allowAccessByPermission(String permissions, String permissionName) {
     if(permissions == null || permissions.isEmpty()) {
       return false;
@@ -1779,7 +1767,7 @@ public class PermsAPI implements PermsResource {
       CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
       vertxContext.runOnContext(v -> {
         try {
-          report("Initiating PG Client get() request (in transaction)(mPAF)");
+          report("Initiating PG Client get() request (in transaction)(mPAF)", logger);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   connection, TABLE_NAME_PERMS,
                   Permission.class, new Criterion(nameCrit), true, false,
@@ -1817,7 +1805,7 @@ public class PermsAPI implements PermsResource {
                 }
                 if(modified) {
                   try {
-                    report("Initiating PG Client update() request (in transaction)(mPFAF)");
+                    report("Initiating PG Client update() request (in transaction)(mPFAF)", logger);
                     PostgresClient.getInstance(vertxContext.owner(), tenantId).update(
                             connection, TABLE_NAME_PERMS, permission, cqlFilter,
                             true, updateReply -> {
