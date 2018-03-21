@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.ws.rs.core.Response;
+import org.folio.rest.impl.PermsAPI.InvalidPermissionsException;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Perm;
 import org.folio.rest.jaxrs.model.Permission;
@@ -23,6 +24,7 @@ import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.TenantTool;
+import org.folio.rest.tools.utils.ValidationHelper;
 /**
  *
  * @author kurt
@@ -61,7 +63,16 @@ public class TenantPermsAPI implements TenantpermissionsResource {
             if(savePermsRes.failed()) {
               String err = savePermsRes.cause().getLocalizedMessage();
               logger.error(err, savePermsRes.cause());
-              asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error: " + err)));
+              if(savePermsRes.cause() instanceof InvalidPermissionsException) {
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PostTenantpermissionsResponse.withJsonUnprocessableEntity(
+                        ValidationHelper.createValidationErrorMessage(
+                        "permissions for module", entity.getModuleId(),err))));
+              } else {
+                asyncResultHandler.handle(Future.succeededFuture(
+                        PostTenantpermissionsResponse.withPlainInternalServerError(
+                        "Internal Server Error: " + err)));
+              }
             } else {
               asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withJsonCreated(entity)));
             }
@@ -94,7 +105,9 @@ public class TenantPermsAPI implements TenantpermissionsResource {
       } else {
         if(!subsExist.result()) {
           if(permListCopy.isEmpty()) {
-            future.fail("Unable to satisfy dependencies for permission " + perm.getPermissionName());
+            future.fail(new InvalidPermissionsException(String.format(
+                    "Unable to satisfy dependencies for permission '%s'",
+                    perm.getPermissionName())));
           } else {
             permListCopy.add(perm); //Move it to the back
             future.complete();

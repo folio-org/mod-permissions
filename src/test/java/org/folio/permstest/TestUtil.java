@@ -72,9 +72,9 @@ public class TestUtil {
     request.handler( req -> {
       req.bodyHandler(buf -> {
         if(expectedCode != null && expectedCode != req.statusCode()) {
-          future.fail(method.toString() + " to " + url + " failed. Expected status code "
-                  + expectedCode + ", got status code " + req.statusCode() + ": "
-                  + buf.toString());
+          future.fail(String.format("%s request to %s failed. Expected status code"
+                  + " '%s' but got status code '%s': %s", method, url,
+                  expectedCode, req.statusCode(), buf));
         } else {
           System.out.println("Got status code " + req.statusCode() + " with payload of " + buf.toString());
           WrappedResponse wr = new WrappedResponse(req.statusCode(), buf.toString(), req);

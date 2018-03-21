@@ -793,9 +793,9 @@ public class RestVerticleTest {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("accept", "application/json,text/plain");
    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-           HttpMethod.POST, headers, permissionSet.encode(), 500).setHandler(res -> {
+           HttpMethod.POST, headers, permissionSet.encode(), 422).setHandler(res -> {
      if(res.failed()) {
-       future.fail(res.cause());
+       future.fail(new Exception(res.cause()));
      } else {
        future.complete(res.result());
      }
