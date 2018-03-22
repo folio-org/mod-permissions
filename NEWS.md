@@ -1,7 +1,10 @@
+## 2018-03-21 v5.1.2
+ * Fix recursion bug while checking dependencies
+
 ## 2018-03-21 v5.1.1
  * Return 422 instead of 500 when a permissionSet with unsatisfiable dependencies is added via tenantPermissions
 
-## 2018-03-21 v5.1.0
+## 2018-03-20 v5.1.0
  * MODPERMS-29 Add 'grantedTo' and 'childOf' fields to permission object, keep accounting of users owning a given permission and parent permissions listing a permission as a sub
 
 ## 2017-09-14 v5.0.0

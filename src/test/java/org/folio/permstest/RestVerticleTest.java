@@ -131,6 +131,8 @@ public class RestVerticleTest {
       return testPermissionExists(context, "dummy.all");
     }).compose(w -> {
       return sendBadPermissionSet(context);
+    }).compose(w-> {
+      return sendOtherBadPermissionSet(context);
     }).compose(w -> {
       return sendOtherPermissionSet(context);
     });
@@ -786,6 +788,56 @@ public class RestVerticleTest {
           .add("bad.read")
           .add("bad.write")
           .add("bad.delete")
+        )
+      )
+    );
+   
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("accept", "application/json,text/plain");
+   TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
+           HttpMethod.POST, headers, permissionSet.encode(), 422).setHandler(res -> {
+     if(res.failed()) {
+       future.fail(new Exception(res.cause()));
+     } else {
+       future.complete(res.result());
+     }
+   });
+   
+    return future;
+  }
+  
+   private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
+   Future<WrappedResponse> future = Future.future();
+   JsonObject permissionSet = new JsonObject()
+    .put("moduleId","otherbad")
+    .put("perms", new JsonArray()
+      .add(new JsonObject()
+        .put("permissionName", "otherbad.read")
+        .put("displayName", "Bad Read")
+        .put("description", "Read Bad Entries")
+        .put("visible", true)
+      )
+      .add(new JsonObject()
+        .put("permissionName", "otherbad.write")
+        .put("displayName", "Bad Write")
+        .put("description", "Write Bad Entries")
+      )
+      .add(new JsonObject()
+        .put("permissionName", "otherbad.some")
+        .put("displayName", "Bad Some")
+        .put("description", "Some bad perms")      
+        .put("subPermissions", new JsonArray()
+          .add("alien.woo")
+        )
+      )
+      .add(new JsonObject()
+        .put("permissionName", "otherbad.all")
+        .put("displayName", "Bad All")
+        .put("description", "All Bad Permissions")
+        .put("subPermissions", new JsonArray()
+          .add("otherbad.read")
+          .add("otherbad.write")
+          .add("otherbad.delete")
         )
       )
     );

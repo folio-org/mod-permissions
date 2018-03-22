@@ -104,14 +104,21 @@ public class TenantPermsAPI implements TenantpermissionsResource {
         future.fail(subsExist.cause());
       } else {
         if(!subsExist.result()) {
-          if(permListCopy.isEmpty()) {
-            future.fail(new InvalidPermissionsException(String.format(
+          checkAnySubsExistList(permListCopy, vertxContext, tenantId).setHandler(
+                  caseRes -> {
+            if(caseRes.failed()) {
+              future.fail(caseRes.cause());
+            } else {
+              if(caseRes.result()) {
+                permListCopy.add(perm); //push the perm to the back for later processing
+                future.complete();
+              } else {
+                future.fail(new InvalidPermissionsException(String.format(
                     "Unable to satisfy dependencies for permission '%s'",
                     perm.getPermissionName())));
-          } else {
-            permListCopy.add(perm); //Move it to the back
-            future.complete();
-          }
+              }
+            }
+          });
         } else {
           savePerm(perm, tenantId, vertxContext).setHandler(savePermRes -> {
             if(savePermRes.failed()) {
@@ -125,6 +132,32 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     });
 
     return future.compose( next -> { return savePermList(permListCopy, vertxContext, tenantId); });
+  }
+  
+  private Future<Boolean> checkAnySubsExistList(List<Perm> permList, Context vertxContext,
+          String tenantId) {
+    Future<Boolean> future = Future.future();
+    if(permList.isEmpty()) {
+      return Future.succeededFuture(false); //If we made it this far, we must not have found any
+    }
+    List<Perm> permListCopy = new ArrayList<>(permList);
+    Perm perm = permListCopy.get(0);
+    permListCopy.remove(0); 
+    checkSubsExist(perm.getSubPermissions(), vertxContext, tenantId).setHandler(
+            cseRes -> {
+      if(cseRes.failed()) {
+        future.fail(cseRes.cause());
+      } else {
+        future.complete(cseRes.result());
+      }
+    });
+    return future.compose(next -> {
+      if(next) {
+        return Future.succeededFuture(next);
+      } else {
+        return checkAnySubsExistList(permListCopy, vertxContext, tenantId); 
+      }
+    });
   }
   
   private Future<Boolean> checkSubsExist(List<String> subPerms, Context vertxContext, String tenantId) {
