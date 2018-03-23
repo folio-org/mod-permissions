@@ -9,6 +9,8 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -93,17 +95,17 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     Perm perm = permList.get(0);
     List<Perm> permListCopy = new ArrayList<>(permList);
     permListCopy.remove(0); //pop
-    Future<Boolean> checkSubsExistFuture;
+    Future<List <String>> findMissingSubsFuture;
     if(perm.getSubPermissions().isEmpty()) {
-      checkSubsExistFuture = Future.succeededFuture(true);
+      findMissingSubsFuture = Future.succeededFuture(new ArrayList<String>());
     } else {
-      checkSubsExistFuture = checkSubsExist(perm.getSubPermissions(), vertxContext, tenantId);
+      findMissingSubsFuture = findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId);
     }
-    checkSubsExistFuture.setHandler(subsExist -> {
-      if(subsExist.failed()) {
-        future.fail(subsExist.cause());
+    findMissingSubsFuture.setHandler(missingSubs -> {
+      if(missingSubs.failed()) {
+        future.fail(missingSubs.cause());
       } else {
-        if(!subsExist.result()) {
+        if(!missingSubs.result()) {
           checkAnySubsExistList(permListCopy, vertxContext, tenantId).setHandler(
                   caseRes -> {
             if(caseRes.failed()) {
@@ -143,12 +145,16 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     List<Perm> permListCopy = new ArrayList<>(permList);
     Perm perm = permListCopy.get(0);
     permListCopy.remove(0); 
-    checkSubsExist(perm.getSubPermissions(), vertxContext, tenantId).setHandler(
-            cseRes -> {
-      if(cseRes.failed()) {
-        future.fail(cseRes.cause());
+    findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId).setHandler(
+            fmsRes -> {
+      if(fmsRes.failed()) {
+        future.fail(fmsRes.cause());
       } else {
-        future.complete(cseRes.result());
+        if(fmsRes.result().isEmpty()) {
+          future.complete(true);
+        } else {
+          future.complete(false);
+        }
       }
     });
     return future.compose(next -> {
@@ -160,26 +166,32 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     });
   }
   
-  private Future<Boolean> checkSubsExist(List<String> subPerms, Context vertxContext, String tenantId) {
-    Future<Boolean> future = Future.future();
-    List<Future> futureList = new ArrayList<>();
+  /* 
+    Given a list of permission names, return a list of any that do not currently
+    exist
+  */
+  private Future<List<String>> findMissingSubs(List<String> subPerms, Context vertxContext, String tenantId) {
+    Future<List<String>> future = Future.future();
+    Map<String, Future<Boolean>> futureMap = new HashMap<>();
+    List<String> notFoundList = new ArrayList<>();
     for(String permName : subPerms) {
       Future<Boolean> permCheckFuture = checkPermExists(permName, vertxContext, tenantId);
-      futureList.add(permCheckFuture);
+      futureMap.put(permName, permCheckFuture);
     }
-    CompositeFuture compositeFuture = CompositeFuture.all(futureList);
+    CompositeFuture compositeFuture = CompositeFuture.all(new ArrayList<>(futureMap.values()));
     compositeFuture.setHandler(compositeRes -> {
       if(compositeRes.failed()) {
         future.fail(compositeRes.cause());
       } else {
-        boolean allExist = true;
-        for(Future<Boolean> existsCheckFuture : futureList) {
+        Iterator it = futureMap.entrySet().iterator();
+        while (it.hasNext()) {
+          Map.Entry pair = (Map.Entry)it.next();
+          Future<Boolean> existsCheckFuture = (Future<Boolean>) pair.getValue();
           if(existsCheckFuture.result() == false) {
-            allExist = false;
-            break;
+            notFoundList.add((String) pair.getKey());
           }
         }
-        future.complete(allExist);
+        future.complete(notFoundList);
       }
     });
     return future;

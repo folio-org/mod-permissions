@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-permissions</artifactId>
-  <version>5.1.2-SNAPSHOT</version>
+  <version>5.1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -207,7 +207,7 @@
               <goal>copy-resources</goal>
             </goals>
             <configuration>
-              <outputDirectory>${basedir}/target/classes/apidocs/raml-util</outputDirectory>
+              <outputDirectory>${basedir}/target/classes/apidocs/raml-util_temp</outputDirectory>
               <resources>
                 <resource>
                   <directory>${ramlfiles_util_path}</directory>
@@ -281,7 +281,7 @@
                 <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
                   <include name="**/*.raml" />
                 </replace>
-                <replace token="../.." value="../raml-util" dir="${basedir}/target/classes/apidocs/raml">
+                <replace token="../.." value="../raml-util_temp" dir="${basedir}/target/classes/apidocs/raml">
                   <include name="**/*.raml" />
                 </replace>
               </target>
@@ -361,7 +361,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
-    <ramlfiles_path>${basedir}/raml-util/ramls/mod-permissions</ramlfiles_path>
-	<ramlfiles_util_path>${basedir}/raml-util</ramlfiles_util_path>
+    <ramlfiles_path>${basedir}/raml-util_temp/ramls/mod-permissions</ramlfiles_path>
+	<ramlfiles_util_path>${basedir}/raml-util_temp</ramlfiles_util_path>
   </properties>
 </project>

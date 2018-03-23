@@ -980,7 +980,7 @@ public class RestVerticleTest {
           if (dummyReadFound && dummyWriteFound) {
             future.complete(res.result());
           } else {
-            future.fail("Unable to locate all added permissions");
+            future.fail(new Exception("Resultset does not contain 'dummy.read' and 'dummy.write'"));
           }
         } catch(Exception e) {
           future.fail(e);
