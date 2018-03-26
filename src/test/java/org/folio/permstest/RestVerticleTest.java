@@ -131,8 +131,14 @@ public class RestVerticleTest {
       return testPermissionExists(context, "dummy.all");
     }).compose(w -> {
       return sendBadPermissionSet(context);
+    }).compose(w -> {
+      return testBadPermissionSet(context);
     }).compose(w-> {
       return sendOtherBadPermissionSet(context);
+    }).compose(w -> {
+      return sendAlienPermissionSet(context);
+    }).compose(w -> {
+      return testAlienPermissionSet(context);
     }).compose(w -> {
       return sendOtherPermissionSet(context);
     });
@@ -344,6 +350,19 @@ public class RestVerticleTest {
        context.assertNotNull(getSecondPermResponse.body.getJsonArray("childOf"));
        context.assertFalse(getSecondPermResponse.body.getJsonArray("childOf").isEmpty());
        context.assertTrue(getSecondPermResponse.body.getJsonArray("childOf").contains("foo.all"));
+     }
+     
+     /*Retrieve all the permissions */
+     {
+       CompletableFuture<Response> getPermsCF = new CompletableFuture();
+       send(permUrl, context, HttpMethod.GET, null,
+               SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,
+               new HTTPResponseHandler(getPermsCF));
+       Response getPermsResponse = getPermsCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(getPermsResponse.code, 200);
+       context.assertNotNull(getPermsResponse.body.getJsonArray("permissions"));
+       context.assertFalse(getPermsResponse.body.getJsonArray("permissions").isEmpty());
+       context.assertTrue(getPermsResponse.body.getInteger("totalRecords") > 1);
      }
      
      /* Add a new user */
@@ -795,7 +814,7 @@ public class RestVerticleTest {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("accept", "application/json,text/plain");
    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-           HttpMethod.POST, headers, permissionSet.encode(), 422).setHandler(res -> {
+           HttpMethod.POST, headers, permissionSet.encode(), 201).setHandler(res -> {
      if(res.failed()) {
        future.fail(new Exception(res.cause()));
      } else {
@@ -806,7 +825,29 @@ public class RestVerticleTest {
     return future;
   }
   
-   private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
+  //need test to find bad.delete and verify that it is a dummy perm
+  
+  private Future<WrappedResponse> testBadPermissionSet(TestContext context) {
+    Future<WrappedResponse> future = Future.future(); 
+    testPermissionExists(context, "bad.delete", true).setHandler( testRes -> {
+      if(testRes.failed()) {
+        future.fail(testRes.cause());
+      } else {
+        WrappedResponse wr = testRes.result();
+        JsonObject json = new JsonObject(wr.getBody());
+        boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
+                .getBoolean("dummy");
+        if(!dummy) {
+          future.fail("bad.delete is not flagged as a dummy perm");
+        } else {
+          future.complete(wr);
+        }
+      }
+    });
+    return future;
+  }
+  
+  private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
    Future<WrappedResponse> future = Future.future();
    JsonObject permissionSet = new JsonObject()
     .put("moduleId","otherbad")
@@ -845,7 +886,7 @@ public class RestVerticleTest {
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("accept", "application/json,text/plain");
    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-           HttpMethod.POST, headers, permissionSet.encode(), 422).setHandler(res -> {
+           HttpMethod.POST, headers, permissionSet.encode(), 201).setHandler(res -> {
      if(res.failed()) {
        future.fail(new Exception(res.cause()));
      } else {
@@ -855,6 +896,64 @@ public class RestVerticleTest {
    
     return future;
   }
+  
+  private Future<WrappedResponse> sendAlienPermissionSet(TestContext context) {
+   Future<WrappedResponse> future = Future.future();
+   JsonObject permissionSet = new JsonObject()
+    .put("moduleId","alien")
+    .put("perms", new JsonArray()
+      .add(new JsonObject()
+        .put("permissionName", "alien.woo")
+        .put("displayName", "Alien Woo")
+        .put("description", "Woo an Alien (wtf?)")
+        .put("visible", true)
+      )
+      .add(new JsonObject()
+        .put("permissionName", "alien.all")
+        .put("displayName", "Alien All")
+        .put("description", "All Alien Permissions")
+        .put("subPermissions", new JsonArray()
+          .add("alien.woo")
+        )
+      )
+    );
+   
+   CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+   headers.add("accept", "application/json,text/plain");
+   TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
+           HttpMethod.POST, headers, permissionSet.encode(), 201).setHandler(res -> {
+     if(res.failed()) {
+       future.fail(new Exception(res.cause()));
+     } else {
+       future.complete(res.result());
+     }
+   });
+   
+    return future;
+  }
+  
+    private Future<WrappedResponse> testAlienPermissionSet(TestContext context) {
+    Future<WrappedResponse> future = Future.future(); 
+    testPermissionExists(context, "alien.woo").setHandler( testRes -> {
+      if(testRes.failed()) {
+        future.fail(testRes.cause());
+      } else {
+        WrappedResponse wr = testRes.result();
+        JsonObject json = new JsonObject(wr.getBody());
+        boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
+                .getBoolean("dummy");
+        if(dummy) {
+          future.fail("alien.woo is flagged as a dummy perm");
+        } else {
+          future.complete(wr);
+        }
+      }
+    });
+    return future;
+  }
+   
+  //load a permission set that includes alien.woo
+  //test that alien.woo is a real permission
 
   private Future<WrappedResponse> postPermUser(TestContext context) {
     JsonObject newUser = new JsonObject()
@@ -1041,9 +1140,17 @@ public class RestVerticleTest {
     return future;
   }
   
-  private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName) {
+  private Future<WrappedResponse> testPermissionExists(TestContext context,
+          String permissionName, boolean includeDummies) {
     Future<WrappedResponse> future = Future.future();
-    String url = "http://localhost:" + port + "/perms/permissions?query=permissionName=="+permissionName;
+    String dummyFlag;
+    if(includeDummies) {
+      dummyFlag = "includeDummy=true&";
+    } else {
+      dummyFlag = "";
+    }
+    String url = "http://localhost:" + port + "/perms/permissions?" + dummyFlag + 
+            "query=permissionName=="+permissionName;
     TestUtil.doRequest(vertx, url, GET, null, null, 200).setHandler(res -> {
       if(res.failed()) {
         future.fail(res.cause());
@@ -1058,5 +1165,10 @@ public class RestVerticleTest {
       }
     });
     return future;
+  }
+  
+  private Future<WrappedResponse> testPermissionExists(TestContext context,
+          String permissionName) {
+    return testPermissionExists(context, permissionName, false);
   }
 }

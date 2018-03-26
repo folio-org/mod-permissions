@@ -96,7 +96,7 @@ public class PermsAPI implements PermsResource {
   private static final String DUMMY_FIELD = "'dummy'";
   private static final String PERMISSION_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-permissions/permission.json";
 
-  private static final String PERMISSION_NAME_FIELD = "'permissionName'";
+  protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static final String READ_PERMISSION_USERS_NAME = "perms.users.get";
   private static boolean suppressErrorResponse = false;
@@ -670,7 +670,8 @@ public class PermsAPI implements PermsResource {
                           PostPermsUsersByIdPermissionsResponse.withPlainBadRequest(
                                   String.format("Permission by name '%s' does not exist",
                                           permissionName))));                        
-                      } else if(rpbnRes.result().getDummy() == true) {
+                      } else if(rpbnRes.result().getDummy() != null &&
+                              rpbnRes.result().getDummy() == true) {
                         asyncResultHandler.handle(Future.succeededFuture(
                                 PostPermsUsersByIdPermissionsResponse.withPlainBadRequest(
                                 String.format("'%s' is flagged as a dummy permission" +
@@ -880,8 +881,10 @@ public class PermsAPI implements PermsResource {
                   if(entity.getPermissionName() == null) {
                     entity.setPermissionName(newId);
                   }
+                  Permission realPerm = getRealPermObject(entity);
+                  realPerm.setDummy(false);
                   try {
-                    postgresClient.save(beginTx, TABLE_NAME_PERMS, entity, postReply -> {
+                    postgresClient.save(beginTx, TABLE_NAME_PERMS, realPerm, postReply -> {
                       if(postReply.failed()) {
                         postgresClient.rollbackTx(beginTx, done -> {
                           logger.error("Unable to save new permission: " + postReply.cause().getLocalizedMessage());
@@ -1017,6 +1020,7 @@ public class PermsAPI implements PermsResource {
                        "dummy permissions cannot be modified")));
               } else {
                 try {
+                  updatePerm.setDummy(false);
                   PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                   pgClient.startTx(beginTx-> {
                     pgClient.update(beginTx, TABLE_NAME_PERMS, updatePerm,
@@ -1222,9 +1226,11 @@ public class PermsAPI implements PermsResource {
       if(!includeDummyPerms) {
         //filter out all dummy perms from query
         if(query == null || query.isEmpty()) {
-          queryArr[0] = "cql.allRecords NOT (dummy == true)";
+          //queryArr[0] = "cql.allRecords NOT (dummy==true)";
+          queryArr[0] = "(dummy == false)";
         } else {
-          queryArr[0] = String.format("(%s) NOT (dummy == true)", query);
+          //queryArr[0] = String.format("(%s) NOT (dummy==true)", query);
+          queryArr[0] = String.format("(%s) AND (dummy==false)", query);
         }
       } else {
         queryArr[0] = query;
@@ -1232,7 +1238,7 @@ public class PermsAPI implements PermsResource {
       vertxContext.runOnContext(v -> {
         CQLWrapper cql;
         try {
-          logger.info(String.format("Requesting rows from table '%s' with query '%s'",
+          logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
                   TABLE_NAME_PERMS, queryArr[0]));
           cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start-1);
         } catch(Exception e) {
@@ -1305,7 +1311,7 @@ public class PermsAPI implements PermsResource {
     }
   }
 
-  private static Future<Boolean> checkPermissionExists(Object connection, 
+  protected static Future<Boolean> checkPermissionExists(Object connection, 
           String permissionName, Context vertxContext, String tenantId) {
     Logger logger = LoggerFactory.getLogger(PermsAPI.class);
     Future<Boolean> future = Future.future();
@@ -1413,7 +1419,7 @@ public class PermsAPI implements PermsResource {
     List<String> expandedPermissions = new ArrayList<>();
     expandedPermissions.add(permissionName);
     try {
-      String query = String.format("(permissionName==%s) NOT (dummy == true)",
+      String query = String.format("(permissionName==%s) AND (dummy == false)",
               permissionName);
       CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS);
       vertxContext.runOnContext(v-> {
@@ -1426,6 +1432,9 @@ public class PermsAPI implements PermsResource {
         dummyCrit.setOperation("!=");
         dummyCrit.setValue(true);
         try {
+          report(String.format(
+                  "Initiating get() for cql query '%s' (no transaction) (getExpandedPermissions)",
+                  query));
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
                   Permission.class, cql,
                   true, false, getReply -> {
