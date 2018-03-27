@@ -1,3 +1,6 @@
+## 2018-03-27 v5.2.0
+ * In order to maintain proper linkage while allowing out-of-order loading for modules with permission dependencies, allow for "dummy" permissions to be created as placeholders. These permissions cannot be assigned to users and do not return in result sets. When an actual permission that exists as a dummy is created, the dummy is replaced.
+
 ## 2018-03-21 v5.1.2
  * Fix recursion bug while checking dependencies
 
