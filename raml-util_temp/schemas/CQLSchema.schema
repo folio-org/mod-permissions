@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "CQLSchema",
+  "description": "JSON schema for capturing CQL search schemas",
+  "type": "object",
+  "properties": {
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "prefix": {"type": "string"},
+    "uri": {"type": "string"},
+    "default": {
+      "type": "boolean",
+      "description": "If context set is default, the server will determine it automatically"
+    },
+    "indexes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "type": {
+            "type": "string",
+            "enum": ["string", "number"],
+            "default": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "capability": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["search", "sort", "filter"]
+            },
+            "default": ["search"],
+            "uniqueItems": true
+          },
+          "modifiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false,
+              "required": ["name"]
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false,
+        "required": ["name"]
+      },
+      "uniqueItems": true
+    },
+    "operators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {"type": "string", "enum": ["AND", "OR", "NOT", "PROX"]},
+          "supported": {"type": "boolean"}
+        },
+        "additionalProperties": false,
+        "required": ["type", "supported"]
+      },
+      "default": [
+        {"type": "AND", "supported": true},
+        {"type": "OR", "supported": true},
+        {"type": "NOT", "supported": true},
+        {"type": "PROX", "supported": false}
+      ],
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "required": ["name", "prefix", "uri", "default", "indexes"]
+}
