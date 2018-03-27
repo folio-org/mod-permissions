@@ -162,56 +162,6 @@ public class TenantPermsAPI implements TenantpermissionsResource {
     return future.compose(next -> { return savePermList(permListCopy, vertxContext, tenantId); });
   }
  
-  /*
-  private Future<Void> savePermList(List<Perm> permList, Context vertxContext, String tenantId) {
-    Future future = Future.future();
-    if(permList.isEmpty()) {
-      return Future.succeededFuture();
-    }
-    Perm perm = permList.get(0);
-    List<Perm> permListCopy = new ArrayList<>(permList);
-    permListCopy.remove(0); //pop
-    Future<List <String>> findMissingSubsFuture;
-    if(perm.getSubPermissions().isEmpty()) {
-      findMissingSubsFuture = Future.succeededFuture(new ArrayList<String>());
-    } else {
-      findMissingSubsFuture = findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId);
-    }
-    findMissingSubsFuture.setHandler(missingSubs -> {
-      if(missingSubs.failed()) {
-        future.fail(missingSubs.cause());
-      } else {
-        if(!missingSubs.result().isEmpty()) {
-          checkAnyPermsHaveAllSubs(permListCopy, vertxContext, tenantId).setHandler(
-                  checkRes -> {
-            if(checkRes.failed()) {
-              future.fail(checkRes.cause());
-            } else {
-              if(checkRes.result()) {
-                permListCopy.add(perm); //push the perm to the back for later processing
-                future.complete();
-              } else {
-                future.fail(new InvalidPermissionsException(String.format(
-                    "Unable to satisfy dependencies for permission '%s'",
-                    perm.getPermissionName())));
-              }
-            }
-          });
-        } else {
-          savePerm(perm, tenantId, vertxContext).setHandler(savePermRes -> {
-            if(savePermRes.failed()) {
-              future.fail(savePermRes.cause());
-            } else {
-              future.complete();
-            }
-          });
-        }
-      }
-    });
-
-    return future.compose( next -> { return savePermList(permListCopy, vertxContext, tenantId); });
-  }
-  */
   
   private Future<Boolean> checkAnyPermsHaveAllSubs(List<Perm> permList, Context vertxContext,
           String tenantId) {

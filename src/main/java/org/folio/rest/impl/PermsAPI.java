@@ -1226,10 +1226,8 @@ public class PermsAPI implements PermsResource {
       if(!includeDummyPerms) {
         //filter out all dummy perms from query
         if(query == null || query.isEmpty()) {
-          //queryArr[0] = "cql.allRecords NOT (dummy==true)";
           queryArr[0] = "(dummy == false)";
         } else {
-          //queryArr[0] = String.format("(%s) NOT (dummy==true)", query);
           queryArr[0] = String.format("(%s) AND (dummy==false)", query);
         }
       } else {
@@ -1414,7 +1412,8 @@ public class PermsAPI implements PermsResource {
 
   private Future<List<String>> getExpandedPermissions(String permissionName,
           Context vertxContext, String tenantId) {
-    logger.debug("Getting expanded permissions for permission '" + permissionName + "'");
+    logger.debug("Getting expanded permissions for permission '" 
+            + permissionName + "'");
     Future<List<String>> future = Future.future();
     List<String> expandedPermissions = new ArrayList<>();
     expandedPermissions.add(permissionName);
@@ -1435,14 +1434,17 @@ public class PermsAPI implements PermsResource {
           report(String.format(
                   "Initiating get() for cql query '%s' (no transaction) (getExpandedPermissions)",
                   query));
-          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+          PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+                  TABLE_NAME_PERMS,
                   Permission.class, cql,
                   true, false, getReply -> {
             if(getReply.failed()) {
-              logger.error("Error in get request: " + getReply.cause().getLocalizedMessage());
+              logger.error("Error in get request: " + getReply.cause()
+                      .getLocalizedMessage());
               future.fail(getReply.cause());
             } else {
-              List<Permission> permList = (List<Permission>)getReply.result().getResults();
+              List<Permission> permList = (List<Permission>)getReply.result()
+                      .getResults();
               if(permList.isEmpty()) {
                  future.complete(new ArrayList<String>());
               } else {
@@ -1453,11 +1455,13 @@ public class PermsAPI implements PermsResource {
                     String subPermissionName = null;
                     try {
                       subPermissionName = (String) subPermissionOb;
-                      Future<List<String>> subPermFuture = getExpandedPermissions((String) subPermissionName, vertxContext, tenantId);
+                      Future<List<String>> subPermFuture = getExpandedPermissions(
+                              (String) subPermissionName, vertxContext, tenantId);
                       futureList.add(subPermFuture);
                     } catch (Exception e) {
                       String message = "Error getting string value of subpermissions from permission '"
-                              + permission.getPermissionName() + "': " + e.getLocalizedMessage();
+                              + permission.getPermissionName() + "': " 
+                              + e.getLocalizedMessage();
                       logger.error(message);
                       future.fail(message);
                       return;
@@ -1466,11 +1470,14 @@ public class PermsAPI implements PermsResource {
                   CompositeFuture compositeFuture = CompositeFuture.all(futureList);
                   compositeFuture.setHandler(compRes -> {
                     if(compRes.failed()) {
-                      logger.error("Error getting expanded permissions for '" + permissionName + "' : " + compRes.cause().getLocalizedMessage());
+                      logger.error("Error getting expanded permissions for '" 
+                              + permissionName + "' : " + compRes.cause()
+                              .getLocalizedMessage());
                       future.fail(compRes.cause());
                     } else {
                       for(Future finishedFuture : futureList) {
-                        for(String subPermissionName : ((Future<List<String>>)finishedFuture).result()) {
+                        for(String subPermissionName :
+                                ((Future<List<String>>)finishedFuture).result()) {
                           if(!expandedPermissions.contains(subPermissionName)) {
                             expandedPermissions.add(subPermissionName);
                           }
@@ -1584,7 +1591,8 @@ public class PermsAPI implements PermsResource {
           if(getReply.failed()) {
             future.fail(getReply.cause());
           } else {
-            List<PermissionUser> userList = (List<PermissionUser>)getReply.result().getResults();
+            List<PermissionUser> userList = (List<PermissionUser>)getReply
+                    .result().getResults();
             if(userList.isEmpty()) {
               future.complete(null);
               return;
