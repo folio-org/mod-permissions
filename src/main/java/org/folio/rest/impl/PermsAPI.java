@@ -819,7 +819,7 @@ public class PermsAPI implements PermsResource {
                   asyncResultHandler.handle(Future.succeededFuture(DeletePermsUsersByIdPermissionsByPermissionnameResponse.withPlainBadRequest("User with id " + id + " does not contain " + permissionname)));
                 } else {
                   try {
-                    String query = String.format("id==%s", id);
+                    String query = String.format("id==%s", user.getId());
                     CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
                     JsonArray originalPermissions = new JsonArray(
                             new ArrayList<Object>(user.getPermissions()));
