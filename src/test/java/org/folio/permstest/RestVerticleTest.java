@@ -591,6 +591,29 @@ public class RestVerticleTest {
                .contains("moo.all"));
      }
      
+     /* Delete the new permission from the user, via userId */
+     {
+       CompletableFuture<Response> deleteUserPermsCF = new CompletableFuture();
+       send(userUrl + "/" + newUserUserId + "/permissions/moo.all?indexField=userId", context, HttpMethod.DELETE,
+               null, SUPPORTED_CONTENT_TYPE_JSON_DEF, 204, 
+               new HTTPResponseHandler(deleteUserPermsCF));
+       Response deleteUserPermsResponse = deleteUserPermsCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(deleteUserPermsResponse.code, 204);
+     }
+     
+     /* check for non-presence of permission */
+     {
+       CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
+       send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
+               null, SUPPORTED_CONTENT_TYPE_JSON_DEF, 200, 
+               new HTTPResponseHandler(getUserPermsCF));
+       Response getUserPermsResponse = getUserPermsCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(getUserPermsResponse.code, 200);
+       context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
+       context.assertFalse(getUserPermsResponse.body.getJsonArray("permissionNames")
+               .contains("moo.all"));
+     }
+     
      /* Delete the user */
     
      {
