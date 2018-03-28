@@ -56,7 +56,8 @@ public class RestVerticleTest {
     "{\"permissionName\": \"a\", \"displayName\": \"b\"  } ], \"id\" : \"" + userId2 + "\"}";
   */
   
-  private static String postPermUsersRequest = "{\"userId\": \"93cb7ed4-313e-4f06-bd4b-d44b1308c3f3\",\"permissions\": " +
+  private static final String userUserId = "93cb7ed4-313e-4f06-bd4b-d44b1308c3f3";
+  private static String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
     "[], \"id\" : \"" + userId2 + "\"}";
   
   private static String postBadPermUsersRequest = "{\"userId\": \"93cb7ed4-313e-4f06-bd4b-d44b1308c3f3\",\"permissions\": " +
@@ -367,8 +368,10 @@ public class RestVerticleTest {
      
      /* Add a new user */
      String newUserId;
+     String newUserUserId = "626a7a5c-4b66-4d2f-981f-1df9757e2aa9";
      JsonObject addNewUserObject = new JsonObject()
-               .put("userId", "5a94d5bd-f76b-4af6-bfe9-497e80094114")
+               //.put("userId", "5a94d5bd-f76b-4af6-bfe9-497e80094114")
+               .put("userId", newUserUserId)
                .put("permissions", new JsonArray());
      {
        CompletableFuture<Response> addNewUserCF = new CompletableFuture();
@@ -546,6 +549,48 @@ public class RestVerticleTest {
        context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
        context.assertFalse(getUserPermsResponse.body.getJsonArray("permissionNames").contains("foo.all"));
      }
+     
+     /* Add another new permission */
+     String anotherNewPermId = null;    
+     JsonObject addAnotherNewPermRequestObject = new JsonObject()
+             .put("permissionName", "moo.all")
+             .put("displayName", "moo all")
+             .put("description", "All moo permissions");
+     {
+       CompletableFuture<Response> addNewPermCF = new CompletableFuture();
+       send(permUrl, context, HttpMethod.POST, addAnotherNewPermRequestObject.encode(),
+               SUPPORTED_CONTENT_TYPE_JSON_DEF, 201,
+               new HTTPResponseHandler(addNewPermCF));
+       Response addNewPermResponse = addNewPermCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addNewPermResponse.code, 201);
+       anotherNewPermId = addNewPermResponse.body.getString("id");
+     }
+     
+     /* Add the new permission to the user via the user's userId */
+     JsonObject addAnotherPermToUserObject = new JsonObject()
+             .put("permissionName", "moo.all");
+     {
+       CompletableFuture<Response> addPermToUserCF = new CompletableFuture();
+       send(userUrl + "/" + newUserUserId + "/permissions?indexField=userId", context, HttpMethod.POST,
+               addAnotherPermToUserObject.encode(), SUPPORTED_CONTENT_TYPE_JSON_DEF, 200,
+               new HTTPResponseHandler(addPermToUserCF));
+       Response addPermToUserResponse = addPermToUserCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(addPermToUserResponse.code, 200);
+     }
+     
+     /* check for presence of permission */
+     {
+       CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
+       send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
+               null, SUPPORTED_CONTENT_TYPE_JSON_DEF, 200, 
+               new HTTPResponseHandler(getUserPermsCF));
+       Response getUserPermsResponse = getUserPermsCF.get(5, TimeUnit.SECONDS);
+       context.assertEquals(getUserPermsResponse.code, 200);
+       context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
+       context.assertTrue(getUserPermsResponse.body.getJsonArray("permissionNames")
+               .contains("moo.all"));
+     }
+     
      /* Delete the user */
     
      {
