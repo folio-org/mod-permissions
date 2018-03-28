@@ -1,3 +1,6 @@
+## 2018-03-28 v5.2.2
+ * Fix bug in deleting permissions from user when employing "indexField=userId"
+
 ## 2018-03-28 v5.2.1
  * Fix bug in adding permissions to user when employing "indexField=userId"
 
