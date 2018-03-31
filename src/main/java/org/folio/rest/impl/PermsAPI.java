@@ -1471,15 +1471,21 @@ public class PermsAPI implements PermsResource {
         nameCrit.setValue(permissionName);
         Criteria dummyCrit = new Criteria();
         dummyCrit.addField(DUMMY_FIELD);
-        dummyCrit.setOperation("!=");
-        dummyCrit.setValue(true);
+        dummyCrit.setOperation("=");
+        dummyCrit.setValue(false);
         try {
-          report(String.format(
-                  "Initiating get() for cql query '%s' (no transaction) (getExpandedPermissions)",
-                  query));
+          Criterion criterion = new Criterion();
+          criterion.addCriterion(nameCrit).addCriterion(dummyCrit);
+          //report(String.format(
+          //        "Initiating get() for cql query '%s' (no transaction) (getExpandedPermissions)",
+          //        query));
+          //PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+          //        TABLE_NAME_PERMS,
+          //        Permission.class, cql,
+          //        true, false, getReply -> {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMS,
-                  Permission.class, cql,
+                  Permission.class, criterion,
                   true, false, getReply -> {
             if(getReply.failed()) {
               logger.error("Error in get request: " + getReply.cause()
