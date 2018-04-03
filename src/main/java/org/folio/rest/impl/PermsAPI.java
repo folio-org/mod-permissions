@@ -913,7 +913,7 @@ public class PermsAPI implements PermsResource {
               } else {
                 //Do the actual POST of the new permission
                 PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-                postgresClient.startTx(beginTx-> {
+                postgresClient.startTx(connection-> {
                   logger.debug("Attempting to save new Permission");
                   String newId = UUID.randomUUID().toString();
                   //entity.setAdditionalProperty("id", newId);
@@ -927,18 +927,18 @@ public class PermsAPI implements PermsResource {
                   Permission realPerm = getRealPermObject(entity);
                   realPerm.setDummy(false);
                   try {
-                    postgresClient.save(beginTx, TABLE_NAME_PERMS, realPerm, postReply -> {
+                    postgresClient.save(connection, TABLE_NAME_PERMS, realPerm, postReply -> {
                       if(postReply.failed()) {
-                        postgresClient.rollbackTx(beginTx, done -> {
+                        postgresClient.rollbackTx(connection, done -> {
                           logger.error("Unable to save new permission: " + postReply.cause().getLocalizedMessage());
                           asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
                         });
                       } else {
-                        updateSubPermissions(beginTx, entity.getPermissionName(), new JsonArray(),
+                        updateSubPermissions(connection, entity.getPermissionName(), new JsonArray(),
                                 new JsonArray(entity.getSubPermissions()), vertxContext,
                                         tenantId, logger).setHandler(updateSubPermsRes -> {
                           if(updateSubPermsRes.failed()) {
-                            postgresClient.rollbackTx(beginTx, done -> {
+                            postgresClient.rollbackTx(connection, done -> {
                               asyncResultHandler.handle(Future.succeededFuture(
                                 PostPermsPermissionsResponse.withJsonUnprocessableEntity(
                                 ValidationHelper.createValidationErrorMessage(
@@ -946,7 +946,7 @@ public class PermsAPI implements PermsResource {
                                   updateSubPermsRes.cause().getLocalizedMessage()))));
                             });
                           } else {
-                            postgresClient.endTx(beginTx, done -> {
+                            postgresClient.endTx(connection, done -> {
                               asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.withJsonCreated(entity)));
                             });
                           }
@@ -954,8 +954,14 @@ public class PermsAPI implements PermsResource {
                       }
                     });
                   } catch(Exception e) {
-                    logger.error("Error with Postgres client while saving permission: " + e.getLocalizedMessage());
-                    asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.withPlainInternalServerError("Internal server error")));
+                    postgresClient.rollbackTx(connection, done -> {
+                      logger.error("Error with Postgres client while saving permission: "
+                              + e.getLocalizedMessage());
+                      asyncResultHandler.handle(Future.succeededFuture(
+                              PostPermsPermissionsResponse
+                              .withPlainInternalServerError("Internal server error")));
+                    });
+                    
                   }
                 });
               }

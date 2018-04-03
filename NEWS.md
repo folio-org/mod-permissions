@@ -1,3 +1,6 @@
+## 2018-04-03 v5.2.3
+ * Use criteria instead of CQL to get permissions for expanded queries
+
 ## 2018-03-28 v5.2.2
  * Fix bug in deleting permissions from user when employing "indexField=userId"
 
