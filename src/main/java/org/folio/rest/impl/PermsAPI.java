@@ -1467,9 +1467,6 @@ public class PermsAPI implements PermsResource {
     List<String> expandedPermissions = new ArrayList<>();
     expandedPermissions.add(permissionName);
     try {
-      String query = String.format("(permissionName==%s) AND (dummy == false)",
-              permissionName);
-      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS);
       vertxContext.runOnContext(v-> {
         Criteria nameCrit = new Criteria();
         nameCrit.addField(PERMISSION_NAME_FIELD);
@@ -1482,13 +1479,6 @@ public class PermsAPI implements PermsResource {
         try {
           Criterion criterion = new Criterion();
           criterion.addCriterion(nameCrit).addCriterion(dummyCrit);
-          //report(String.format(
-          //        "Initiating get() for cql query '%s' (no transaction) (getExpandedPermissions)",
-          //        query));
-          //PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          //        TABLE_NAME_PERMS,
-          //        Permission.class, cql,
-          //        true, false, getReply -> {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMS,
                   Permission.class, criterion,
