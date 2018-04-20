@@ -30,6 +30,7 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
+import static io.vertx.core.http.HttpMethod.PUT;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.unit.Async;
@@ -50,6 +51,7 @@ public class RestVerticleTest {
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
   private static final String userId1 = "35d05a6a-d61e-4e81-9708-fc44daadbec5";
   private static final String userId2 = "176bc0cc-b785-4cf9-9e8a-5fafe8178332";
+  private static final String userId3 = "f36400e5-ec5e-4e6c-abac-25fc42e1ec47";
 
   /* 
   private static String postPermUsersRequest = "{\"userId\": \"93cb7ed4-313e-4f06-bd4b-d44b1308c3f3\",\"permissions\": ["+
@@ -119,9 +121,13 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context).compose(w -> {
-      return postPermUser(context);
+      return postPermUser(context, userId1);
     }).compose(w -> {
       return testUserPerms(context, w.getJson().getString("id"));
+    }).compose(w -> {
+      return postPermUser(context, userId3);
+    }).compose(w -> {
+      return putPermUserBad(context, w.getJson().getString("id"));
     }).compose(w -> {
       return testUserPermsQuery(context);
     }).compose(w -> {
@@ -1000,7 +1006,9 @@ public class RestVerticleTest {
     return future;
   }
   
-    private Future<WrappedResponse> testAlienPermissionSet(TestContext context) {
+  //load a permission set that includes alien.woo
+  //test that alien.woo is a real permission  
+  private Future<WrappedResponse> testAlienPermissionSet(TestContext context) {
     Future<WrappedResponse> future = Future.future(); 
     testPermissionExists(context, "alien.woo").setHandler( testRes -> {
       if(testRes.failed()) {
@@ -1020,12 +1028,10 @@ public class RestVerticleTest {
     return future;
   }
    
-  //load a permission set that includes alien.woo
-  //test that alien.woo is a real permission
-
-  private Future<WrappedResponse> postPermUser(TestContext context) {
+  
+  private Future<WrappedResponse> postPermUser(TestContext context, String userId) {
     JsonObject newUser = new JsonObject()
-      .put("userId", userId1)
+      .put("userId", userId)
       .put("permissions", new JsonArray().add("dummy.all"));
     Future<WrappedResponse> future = Future.future();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users",
@@ -1035,6 +1041,24 @@ public class RestVerticleTest {
       }
     });
 
+    return future;
+  }
+  
+  private Future<WrappedResponse> putPermUserBad(TestContext context,
+          String permsUserId) {
+    JsonObject modifiedUser = new JsonObject()
+            .put("id", permsUserId)
+            .put("userId", userId1)
+            .put("permissions", new JsonArray().add("spurious.all"));
+    Future<WrappedResponse> future = Future.future();
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/123",
+            PUT, null, modifiedUser.encode(), 404).setHandler(res -> {
+      if(res.failed()) {
+        future.fail(res.cause());
+      } else {
+        future.complete(res.result());
+      }
+    });
     return future;
   }
 
