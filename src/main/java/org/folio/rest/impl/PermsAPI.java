@@ -1443,6 +1443,9 @@ public class PermsAPI implements PermsResource {
   private Future<List<String>> getAllExpandedPermissionsSequential(
           List<List<String>> listOfPermissionLists, Context vertxContext,
           String tenantId, List<String> returnedPermissions) {
+    report(String.format(
+            "Calling getAllExpandedPermissionsSequential with listOfPermissionLists: %s",
+            makeListofListStringRep(listOfPermissionLists)));
     if(returnedPermissions == null) {
       returnedPermissions = new ArrayList<>();
     }
@@ -1457,13 +1460,13 @@ public class PermsAPI implements PermsResource {
     List<List<String>> listOfListsCopy = new ArrayList<>(listOfPermissionLists);
     List<String> permissionList = listOfListsCopy.get(0);
     listOfListsCopy.remove(0); //pop
-    getAllExpandedPermissions(permissionList, vertxContext, tenantId,
-            permissionList.size()).setHandler(gaepRes -> {
-      if(gaepRes.failed()) {
-        future.fail(gaepRes.cause());
+    getExpandedPermissionsSequential(permissionList, vertxContext, tenantId)
+            .setHandler(gepsRes -> {
+      if(gepsRes.failed()) {
+        future.fail(gepsRes.cause());
       } else {
         List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
-        combinedResult.addAll(gaepRes.result());
+        combinedResult.addAll(gepsRes.result());
         future.complete(combinedResult);
       }
     });
@@ -1474,6 +1477,66 @@ public class PermsAPI implements PermsResource {
     });
   }
   
+  private Future<List<String>> getExpandedPermissionsSequential(List<String> permissionList,
+          Context vertxContext, String tenantId) {
+    report(String.format(
+            "Calling getExpandedPermissionsSequential with permissionList: %s",
+            String.join(", ", permissionList)));
+    Future<List<String>> future = Future.future();
+    if(permissionList.isEmpty()) {
+      future.complete(new ArrayList<>());
+      return future;
+    }
+    try {
+      Criterion criterion = buildPermissionNameListQuery(permissionList);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
+              tenantId);
+      pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, true, false,
+              getReply -> {
+        if(getReply.failed()) {
+          future.fail(getReply.cause());
+        } else {
+          List<String> allSubPermList = new ArrayList<>();
+          List<String> foundPermNameList = new ArrayList<>();
+          List<Permission> foundPermList = (List<Permission>)getReply.result().getResults();
+          for(Permission perm : foundPermList) {
+            foundPermNameList.add(perm.getPermissionName());
+            List<String> subPermList = perm.getSubPermissions().stream()
+                    .map(object -> Objects.toString(object, null))
+                    .collect(Collectors.toList());
+            for(String subPerm : subPermList) {
+              if(!allSubPermList.contains(subPerm)) {
+                allSubPermList.add(subPerm);
+              }
+            }
+          }
+          int splitSize = 15;
+          if(splitSize < permissionList.size()) {
+            splitSize = permissionList.size();
+          }
+          List<List<String>> listOfSubPermLists = this.splitStringList(
+                  allSubPermList, splitSize);
+          Future<List<String>> listFuture;
+          if(listOfSubPermLists.isEmpty()) {
+            listFuture = Future.succeededFuture(foundPermNameList);
+          } else {
+            listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
+                  tenantId, foundPermNameList);
+          }
+          listFuture.setHandler(gaepsRes -> {
+            if(gaepsRes.failed()){
+              future.fail(gaepsRes.cause());
+            } else {
+              future.complete(gaepsRes.result());
+            }                  
+          });
+        }
+      });
+    } catch(Exception e) {
+      future.fail(e);
+    }
+    return future;
+  }
   private Future<List<String>> getAllExpandedPermissions(List<String> permissionList,
           Context vertxContext, String tenantId) {
     return getAllExpandedPermissions(permissionList, vertxContext, tenantId, 25);
@@ -1527,18 +1590,7 @@ public class PermsAPI implements PermsResource {
     }
     List<String> clauseList = new ArrayList<>();
     try {
-      Criterion criterion = null;
-      for(String permission : permissionList) {
-        Criteria nameCrit = new Criteria()
-                .addField(PERMISSION_NAME_FIELD)
-                .setOperation("=")
-                .setValue(permission);
-        if(criterion == null) {
-          criterion = new Criterion(nameCrit);
-        } else {
-          criterion.addCriterion(nameCrit, "OR");
-        }
-      }
+      Criterion criterion = buildPermissionNameListQuery(permissionList);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
               tenantId);
       //report("Getting permissions with query " + query);
@@ -2286,12 +2338,37 @@ public class PermsAPI implements PermsResource {
       if(count == chunkSize) {
         listOfLists.add(currentChunk);
         currentChunk = new ArrayList<>();
+        count = 0;
       }
     }
     if(currentChunk.size() > 0) {
       listOfLists.add(currentChunk);
     }
     return listOfLists;
+  }
+  
+  private Criterion buildPermissionNameListQuery(List<String> permissionNameList) {
+    Criterion criterion = null;
+    for(String permissionName : permissionNameList ) {
+      Criteria nameCrit = new Criteria()
+              .addField(PERMISSION_NAME_FIELD)
+              .setOperation("=")
+              .setValue(permissionName);
+      if(criterion == null) {
+        criterion = new Criterion(nameCrit);
+      } else {
+        criterion.addCriterion(nameCrit, "OR");
+      }
+    }
+    return criterion;
+  }
+  
+  private String makeListofListStringRep(List<List<String>> listOfLists) {
+    List<String> concatList = new ArrayList<>();
+    for(List<String> stringList : listOfLists) {
+      concatList.add("( " + String.join(", ", stringList) + " )");
+    }
+    return String.join(", ", concatList);
   }
 
 }
