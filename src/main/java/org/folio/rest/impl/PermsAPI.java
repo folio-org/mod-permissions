@@ -1440,9 +1440,47 @@ public class PermsAPI implements PermsResource {
     });
   }
 
+  private Future<List<String>> getAllExpandedPermissionsSequential(
+          List<List<String>> listOfPermissionLists, Context vertxContext,
+          String tenantId, List<String> returnedPermissions) {
+    if(returnedPermissions == null) {
+      returnedPermissions = new ArrayList<>();
+    }
+    final List<String> finalReturnedPermissions = returnedPermissions;
+    
+    if(listOfPermissionLists.isEmpty()) {
+      return Future.succeededFuture(new ArrayList<>(finalReturnedPermissions));
+    }
+    
+    Future<List<String>> future = Future.future();
+    
+    List<List<String>> listOfListsCopy = new ArrayList<>(listOfPermissionLists);
+    List<String> permissionList = listOfListsCopy.get(0);
+    listOfListsCopy.remove(0); //pop
+    getAllExpandedPermissions(permissionList, vertxContext, tenantId,
+            permissionList.size()).setHandler(gaepRes -> {
+      if(gaepRes.failed()) {
+        future.fail(gaepRes.cause());
+      } else {
+        List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
+        combinedResult.addAll(gaepRes.result());
+        future.complete(combinedResult);
+      }
+    });
+    
+    return future.compose( res -> {
+      return getAllExpandedPermissionsSequential(listOfListsCopy, vertxContext,
+              tenantId, res);
+    });
+  }
+  
   private Future<List<String>> getAllExpandedPermissions(List<String> permissionList,
           Context vertxContext, String tenantId) {
-    final int maxSize = 25;
+    return getAllExpandedPermissions(permissionList, vertxContext, tenantId, 25);
+  }
+  
+  private Future<List<String>> getAllExpandedPermissions(List<String> permissionList,
+          Context vertxContext, String tenantId, int maxSize) {
     report("Getting expanded perms for permissions: " + String.join(", ", permissionList));
     Future<List<String>> future = Future.future();
     if(permissionList.isEmpty()) {
@@ -1463,6 +1501,10 @@ public class PermsAPI implements PermsResource {
           count = 0;
           permissionListPart = new ArrayList<>();
         }
+      }
+      if(permissionListPart.size() > 0) {
+        futureList.add(getAllExpandedPermissions(permissionListPart,
+                vertxContext, tenantId));
       }
       CompositeFuture compositefuture = CompositeFuture.all(futureList);
       compositefuture.setHandler(res -> {
@@ -1648,8 +1690,12 @@ public class PermsAPI implements PermsResource {
             if(!expanded) {
               interimFuture = Future.succeededFuture(permissionNameList);
             } else {
-              interimFuture = getAllExpandedPermissions(permissionNameList,
-                      vertxContext, tenantId);
+              //interimFuture = getAllExpandedPermissions(permissionNameList,
+              //        vertxContext, tenantId);
+              List<List<String>> listOfPermNamesList = 
+                      this.splitStringList(permissionNameList, 10);
+              interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
+                      vertxContext, tenantId, null);
             }
             interimFuture.setHandler(res -> {
               if(res.failed()) {
@@ -2228,6 +2274,24 @@ public class PermsAPI implements PermsResource {
     perm.setVisible(entity.getVisible());
     perm.setTags(entity.getTags());
     return perm;
+  }
+  
+  private List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
+    List<List<String>> listOfLists = new ArrayList<>();
+    int count = 0;
+    List<String> currentChunk = new ArrayList<>();
+    for(String string : stringList) {
+      count++;
+      currentChunk.add(string);
+      if(count == chunkSize) {
+        listOfLists.add(currentChunk);
+        currentChunk = new ArrayList<>();
+      }
+    }
+    if(currentChunk.size() > 0) {
+      listOfLists.add(currentChunk);
+    }
+    return listOfLists;
   }
 
 }
