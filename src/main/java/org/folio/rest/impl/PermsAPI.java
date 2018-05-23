@@ -90,16 +90,13 @@ public class PermsAPI implements PermsResource {
   private static final String TABLE_NAME_PERMS = "permissions";
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   private static final String OKAPI_TENANT_HEADER = "x-okapi-tenant";
-  private static final String OKAPI_PERMISSIONS_HEADER = "x-okapi-permissions";
-  private static final String OKAPI_TOKEN_HEADER = "x-okapi-token";
   private static final String USER_NAME_FIELD = "'username'";
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ID_FIELD = "'id'";
-  private static final String PERMISSIONUSER_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-permissions/permissionUser.json";
-
+  private static final String PERMISSIONUSER_SCHEMA_PATH = 
+          "apidocs/raml-util/schemas/mod-permissions/permissionUser.json";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
-  private static final String READ_PERMISSION_USERS_NAME = "perms.users.get";
   private static boolean suppressErrorResponse = false;
   
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException{
@@ -122,8 +119,12 @@ public class PermsAPI implements PermsResource {
   }
     
   private void report(String noise) {
-
-    logger.info(noise);
+    try {
+      logger.info(noise);
+    } catch(Exception e) {
+      logger.info(String.format("Error trying to log output: %s",
+              e.getLocalizedMessage()));
+    }
   }
   
   private static void report(String noise, Logger logger) {
@@ -1584,12 +1585,10 @@ public class PermsAPI implements PermsResource {
       });
       return future;      
     }
-    List<String> clauseList = new ArrayList<>();
     try {
       Criterion criterion = buildPermissionNameListQuery(permissionList);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
               tenantId);
-      //report("Getting permissions with query " + query);
       report("Getting permissions with criterion " + criterion.toString());
       pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, true, false,
               getReply -> {
@@ -1738,8 +1737,6 @@ public class PermsAPI implements PermsResource {
             if(!expanded) {
               interimFuture = Future.succeededFuture(permissionNameList);
             } else {
-              //interimFuture = getAllExpandedPermissions(permissionNameList,
-              //        vertxContext, tenantId);
               List<List<String>> listOfPermNamesList = 
                       this.splitStringList(permissionNameList, 10);
               interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
@@ -2246,7 +2243,6 @@ public class PermsAPI implements PermsResource {
         try {
           permission = ((List<Permission>)getReply.result().getResults()).get(0);
         } catch(Exception e) {
-          //future.complete(null);
           permission = null;
         }
         future.complete(permission);
