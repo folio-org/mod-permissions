@@ -1,3 +1,7 @@
+## 2018-05-22 v5.2.4
+ * Update RMB to 19.1.1 to keep stack size smaller
+ * Refactor recursive queries for expansion to put less load on Postgres
+
 ## 2018-04-03 v5.2.3
  * Use criteria instead of CQL to get permissions for expanded queries
 
