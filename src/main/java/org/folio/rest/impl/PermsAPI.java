@@ -119,12 +119,7 @@ public class PermsAPI implements PermsResource {
   }
     
   private void report(String noise) {
-    try {
-      logger.info(noise);
-    } catch(Exception e) {
-      logger.info(String.format("Error trying to log output: %s",
-              e.getLocalizedMessage()));
-    }
+      logger.info(noise);    
   }
   
   private static void report(String noise, Logger logger) {
@@ -1589,6 +1584,11 @@ public class PermsAPI implements PermsResource {
       Criterion criterion = buildPermissionNameListQuery(permissionList);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
               tenantId);
+      if(criterion == null) {
+        future.fail(String.format("No valid criterion generated for permissionList %s",
+                String.join(",", permissionList)));
+        return future;
+      }
       report("Getting permissions with criterion " + criterion.toString());
       pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, true, false,
               getReply -> {
