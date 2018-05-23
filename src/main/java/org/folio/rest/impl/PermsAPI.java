@@ -37,8 +37,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -97,8 +95,6 @@ public class PermsAPI implements PermsResource {
   private static final String USER_NAME_FIELD = "'username'";
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ID_FIELD = "'id'";
-  private static final String DUMMY_FIELD = "'dummy'";
-  private static final String PERMISSION_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-permissions/permission.json";
   private static final String PERMISSIONUSER_SCHEMA_PATH = "apidocs/raml-util/schemas/mod-permissions/permissionUser.json";
 
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
@@ -1565,7 +1561,7 @@ public class PermsAPI implements PermsResource {
           permissionListPart = new ArrayList<>();
         }
       }
-      if(permissionListPart.size() > 0) {
+      if(!permissionListPart.isEmpty()) {
         futureList.add(getAllExpandedPermissions(permissionListPart,
                 vertxContext, tenantId));
       }
@@ -2274,7 +2270,6 @@ public class PermsAPI implements PermsResource {
         future.fail(rpbnRes.cause());
       } else {
         if(rpbnRes.result() == null) {
-          //future.fail("No result returned for permission " + permissionName);
           future.complete(false);
         } else {
           Boolean dummy = rpbnRes.result().getDummy();
@@ -2341,7 +2336,7 @@ public class PermsAPI implements PermsResource {
         count = 0;
       }
     }
-    if(currentChunk.size() > 0) {
+    if(!currentChunk.isEmpty()) {
       listOfLists.add(currentChunk);
     }
     return listOfLists;
