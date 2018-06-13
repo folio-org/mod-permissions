@@ -1429,7 +1429,6 @@ public class PermsAPI implements PermsResource {
           finalMissingPermissions.add(permissionName);
         }
         future.complete(finalMissingPermissions);
-        //future.complete(res.result());
       }
     });
     return future.compose(mapper -> { 
