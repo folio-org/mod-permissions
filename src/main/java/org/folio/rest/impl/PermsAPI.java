@@ -1403,11 +1403,17 @@ public class PermsAPI implements PermsResource {
 }
 
   
-  private static Future<Boolean> checkPermissionListExists(Object connection,
-          List<Object> permissionList, Context vertxContext, String tenantId) {
-    Future<Boolean> future = Future.future();
+  private static Future<List<String>> findMissingPermissionsFromList(Object connection,
+          List<Object> permissionList, Context vertxContext, String tenantId,
+          List<String> missingPermissions) {
+    Future<List<String>> future = Future.future();
+    if(missingPermissions == null) {
+      missingPermissions = new ArrayList<>();
+    }
+    final List<String> finalMissingPermissions = missingPermissions;
+    
     if(permissionList.isEmpty()) {
-      return Future.succeededFuture(true);
+      return Future.succeededFuture(finalMissingPermissions);
     }
     List<Object> permissionListCopy = new ArrayList<>(permissionList);
     Future<Boolean> checkPermissionExistsFuture;
@@ -1419,16 +1425,16 @@ public class PermsAPI implements PermsResource {
       if(res.failed()) {
         future.fail(res.cause());
       } else {
-        future.complete(res.result());
+        if(!res.result()) {
+          finalMissingPermissions.add(permissionName);
+        }
+        future.complete(finalMissingPermissions);
+        //future.complete(res.result());
       }
     });
-    return future.compose( mapper -> { 
-      if(!mapper) {
-        return (Future<Boolean>)Future.succeededFuture(false);
-      } else {
-        return checkPermissionListExists(connection, permissionListCopy, 
-                vertxContext, tenantId);
-      }
+    return future.compose(mapper -> { 
+      return findMissingPermissionsFromList(connection, permissionListCopy,
+              vertxContext, tenantId, finalMissingPermissions);
     });
   }
 
@@ -1865,15 +1871,17 @@ public class PermsAPI implements PermsResource {
     for(Object ob : originalList) {
       if(!newList.contains(ob)) { missingFromNewList.add(ob); }
     }
-    Future<Boolean> checkExistsFuture = checkPermissionListExists(
-            connection, missingFromOriginalList.getList(), vertxContext, tenantId);
+    Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
+            connection, missingFromOriginalList.getList(), vertxContext,
+            tenantId, null);
     checkExistsFuture.setHandler(checkExistsRes -> {
       if(checkExistsFuture.failed()) {
         future.fail(checkExistsFuture.cause());
-      } else if(!checkExistsFuture.result()) {
+      } else if(!checkExistsFuture.result().isEmpty()) {
         future.fail(
-                new InvalidPermissionsException(
-                        "Attempting to add non-existent permissions to user"));
+                new InvalidPermissionsException(String.format(
+                "Attempting to add non-existent permissions %s to permission user with id %s",
+                String.join(",",checkExistsFuture.result()), permUserId)));
       } else {
         List<FieldUpdateValues> fuvList = new ArrayList<>();
         for(Object permissionNameOb : missingFromOriginalList) {
@@ -1930,14 +1938,16 @@ public class PermsAPI implements PermsResource {
       for(Object ob : originalList) {
         if(!newList.contains(ob)) { missingFromNewList.add(ob); }
       }
-      Future<Boolean> checkExistsFuture = checkPermissionListExists(connection,
-              missingFromOriginalList.getList(), vertxContext, tenantId);
+      Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
+              connection, missingFromOriginalList.getList(), vertxContext,
+              tenantId, null);
       checkExistsFuture.setHandler(res -> {
         if(res.failed()) {
           future.fail(res.cause());
-        } else if(!res.result()) {
-          future.fail(new InvalidPermissionsException(
-                  "Attempting to add non-existent permissions as sub-permisisons"));
+        } else if(!res.result().isEmpty()) {
+          future.fail(new InvalidPermissionsException(String.format(
+          "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
+          String.join(",", res.result()), permissionName)));
         } else {
           List<FieldUpdateValues> fuvList = new ArrayList<>();
           for(Object childPermissionNameOb : missingFromOriginalList) {

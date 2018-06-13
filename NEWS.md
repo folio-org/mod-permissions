@@ -1,3 +1,7 @@
+## 2018-06-13 v5.2.5
+ * Improve error messages when adding non-existent perms to users or other permissions
+ * Update RMB to 19.3.1
+
 ## 2018-05-22 v5.2.4
  * Update RMB to 19.1.1 to keep stack size smaller
  * Refactor recursive queries for expansion to put less load on Postgres
