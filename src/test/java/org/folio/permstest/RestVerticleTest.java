@@ -82,7 +82,8 @@ public class RestVerticleTest {
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
     vertx = Vertx.vertx();
-    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
+    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
+            .put("http.port", port)).setWorker(true);
     try {
       PostgresClient.setIsEmbedded(true);
       PostgresClient.getInstance(vertx).startEmbeddedPostgres();
