@@ -37,8 +37,11 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.permstest.TestUtil;
 
@@ -149,6 +152,8 @@ public class RestVerticleTest {
       return testAlienPermissionSet(context);
     }).compose(w -> {
       return sendOtherPermissionSet(context);
+    }).compose(w -> {
+      return testPermUserMetadata(context);
     });
 
     startFuture.setHandler(res -> {
@@ -1264,4 +1269,53 @@ public class RestVerticleTest {
           String permissionName) {
     return testPermissionExists(context, permissionName, false);
   }
+  
+  private Future<WrappedResponse> testPermUserMetadata(TestContext context) {
+    Future<WrappedResponse> future = Future.future();
+    String url = "http://localhost:" + port + "/perms/users";
+    JsonObject newUser = new JsonObject()
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray());
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", UUID.randomUUID().toString(), "diku"));
+    TestUtil.doRequest(vertx, url, POST, null, newUser.encode(), 201).setHandler(
+        res -> {
+      if(res.failed()) { future.fail(res.cause()); } else {
+        try {
+          String newUserId = res.result().getJson().getString("id");
+          String url2 = String.format("http://localhost:%s/perms/users/%s", port,
+              newUserId);
+          TestUtil.doRequest(vertx, url, GET, null, null, 200).setHandler(res2 -> {
+            try {
+              JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
+              future.complete(res2.result());
+            } catch(Exception e) {
+              future.fail(e);
+            }
+          });
+        } catch(Exception e) {
+          future.fail(e);
+        }              
+      }
+    });
+    return future;
+  }
+  
+  private static String makeFakeJWT(String username, String id, String tenant) {
+   JsonObject header = new JsonObject()
+           .put("alg", "HS512");
+   JsonObject payload = new JsonObject()
+           .put("sub", username)
+           .put("user_id", id)
+           .put("tenant", tenant);
+   return String.format("%s.%s.%s",
+           Base64.getEncoder().encodeToString(header.encode()
+                   .getBytes(StandardCharsets.UTF_8)),
+           Base64.getEncoder().encodeToString(payload.encode()
+                   .getBytes(StandardCharsets.UTF_8)),
+           Base64.getEncoder().encodeToString((header.encode() + payload.encode())
+                   .getBytes(StandardCharsets.UTF_8)));
+
+ }
 }
+
