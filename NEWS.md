@@ -1,3 +1,6 @@
+## 2018-07-13 v5.3.0
+ * Add 'metadata' field to permissionUsers
+
 ## 2018-06-13 v5.2.5
  * Improve error messages when adding non-existent perms to users or other permissions
  * Update RMB to 19.3.1
