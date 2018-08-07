@@ -1,3 +1,6 @@
+## 2018-08-06 v5.3.1
+ * Handle TenantPerms update as per MODPERMS-45
+
 ## 2018-07-13 v5.3.0
  * Add 'metadata' field to permissionUsers
 

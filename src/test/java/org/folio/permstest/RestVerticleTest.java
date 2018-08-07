@@ -124,7 +124,13 @@ public class RestVerticleTest {
   public void testPermsSeq(TestContext context) {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
-    startFuture = sendPermissionSet(context).compose(w -> {
+    startFuture = sendPermissionSet(context, false).compose(w -> {
+      return sendPermissionSet(context, true);
+    }).compose(w -> {
+      return testUpdateParentPermission(context);
+    }).compose(w -> {
+      return testUpdateChildPermission(context);
+    }).compose(w -> {
       return postPermUser(context, userId1);
     }).compose(w -> {
       return testUserPerms(context, w.getJson().getString("id"));
@@ -773,7 +779,7 @@ public class RestVerticleTest {
    return false;
  }
 
- private Future<WrappedResponse> sendPermissionSet(TestContext context) {
+ private Future<WrappedResponse> sendPermissionSet(TestContext context, boolean more) {
    Future<WrappedResponse> future = Future.future();
    JsonObject permissionSet = new JsonObject()
     .put("moduleId","dummy")
@@ -800,6 +806,15 @@ public class RestVerticleTest {
       )
     );
    
+   if (more) {
+     permissionSet.getJsonArray("perms")
+       .add(new JsonObject()
+         .put("permissionName", "dummy.delete")
+         .put("displayName", "Dummy Delete")
+         .put("description", "Delete Dummy Entries"))
+       .getJsonObject(2).getJsonArray("subPermissions").add("dummy.delete");
+   };
+   
    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
    headers.add("accept", "application/json,text/plain");
    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
@@ -813,6 +828,49 @@ public class RestVerticleTest {
    
     return future;
   }
+ 
+ // test update for parent permission
+ private Future<WrappedResponse> testUpdateParentPermission(TestContext context) {
+   Future<WrappedResponse> future = Future.future(); 
+   testPermissionExists(context, "dummy.all", true).setHandler( testRes -> {
+     if(testRes.failed()) {
+       future.fail(testRes.cause());
+     } else {
+       WrappedResponse wr = testRes.result();
+       JsonObject json = new JsonObject(wr.getBody());
+       JsonArray subPermissions = json.getJsonArray("permissions").getJsonObject(0)
+               .getJsonArray("subPermissions");
+       if (subPermissions.size() != 3 || !subPermissions.contains("dummy.delete")) {
+         future.fail("dummy.all should contain three " + subPermissions.toString() + 
+             " subPermissions including dummy.delete");
+       } else {
+         future.complete(wr);
+       }
+     }
+   });
+   return future;
+ }
+ 
+ // test update for child permission
+ private Future<WrappedResponse> testUpdateChildPermission(TestContext context) {
+   Future<WrappedResponse> future = Future.future(); 
+   testPermissionExists(context, "dummy.delete", true).setHandler( testRes -> {
+     if(testRes.failed()) {
+       future.fail(testRes.cause());
+     } else {
+       WrappedResponse wr = testRes.result();
+       JsonObject json = new JsonObject(wr.getBody());
+       JsonArray childOf = json.getJsonArray("permissions").getJsonObject(0)
+               .getJsonArray("childOf");
+       if (childOf.size() != 1 || !childOf.contains("dummy.all")) {
+         future.fail("dummy.delete should be child of dummy.all");
+       } else {
+         future.complete(wr);
+       }
+     }
+   });
+   return future;
+ }
  
  private Future<WrappedResponse> sendOtherPermissionSet(TestContext context) {
    Future<WrappedResponse> future = Future.future();

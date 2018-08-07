@@ -302,6 +302,13 @@ public class TenantPermsAPI implements TenantpermissionsResource {
             Future<Void> deleteExistingFuture = Future.future();
             if(!returnList.isEmpty()) {
               foundPerm = returnList.get(0);
+              // leverage dummy permission to handle permission update
+              if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions())) ||
+                  (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible())) ||
+                  (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName())) ||
+                  (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))) {
+                foundPerm.setDummy(true);
+              }
             }
             if(foundPerm != null && !foundPerm.getDummy()) {
               //If it isn't a dummy permission, we won't replace it
