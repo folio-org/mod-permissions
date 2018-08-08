@@ -160,6 +160,8 @@ public class RestVerticleTest {
       return sendOtherPermissionSet(context);
     }).compose(w -> {
       return testPermUserMetadata(context);
+    }).compose(w -> {
+      return testPermMetadata(context);
     });
 
     startFuture.setHandler(res -> {
@@ -1335,18 +1337,62 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray());
     CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
-    headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", UUID.randomUUID().toString(), "diku"));
-    TestUtil.doRequest(vertx, url, POST, null, newUser.encode(), 201).setHandler(
+    String fakeUserId = UUID.randomUUID().toString();
+    headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
+    headers.add("X-Okapi-User-Id", fakeUserId);
+    TestUtil.doRequest(vertx, url, POST, headers, newUser.encode(), 201).setHandler(
         res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
         try {
           String newUserId = res.result().getJson().getString("id");
           String url2 = String.format("http://localhost:%s/perms/users/%s", port,
               newUserId);
-          TestUtil.doRequest(vertx, url, GET, null, null, 200).setHandler(res2 -> {
+          TestUtil.doRequest(vertx, url2, GET, null, null, 200).setHandler(res2 -> {
             try {
               JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
-              future.complete(res2.result());
+              if(metadata == null) {
+                future.fail("No metadata found in result: " + res2.result().getJson().encode());
+              } else {
+                future.complete(res2.result());
+              }
+            } catch(Exception e) {
+              future.fail(e);
+            }
+          });
+        } catch(Exception e) {
+          future.fail(e);
+        }              
+      }
+    });
+    return future;
+  }
+  
+    private Future<WrappedResponse> testPermMetadata(TestContext context) {
+    Future<WrappedResponse> future = Future.future();
+    String url = "http://localhost:" + port + "/perms/permissions";
+    JsonObject newPerm = new JsonObject()
+        .put("permissionName", "testmeta.test")
+        .put("description", "a permission to test metadata create")
+        .put("displayName", "testmeta test");
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    String fakeUserId = UUID.randomUUID().toString();
+    headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
+    headers.add("X-Okapi-User-Id", fakeUserId);
+    TestUtil.doRequest(vertx, url, POST, headers, newPerm.encode(), 201).setHandler(
+        res -> {
+      if(res.failed()) { future.fail(res.cause()); } else {
+        try {
+          String newPermId = res.result().getJson().getString("id");
+          String url2 = String.format("http://localhost:%s/perms/permissions/%s", port,
+              newPermId);
+          TestUtil.doRequest(vertx, url2, GET, null, null, 200).setHandler(res2 -> {
+            try {
+              JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
+              if(metadata == null) {
+                future.fail("No metadata found in result: "  + res2.result().getJson().encode());
+              } else {
+                future.complete(res2.result());
+              }
             } catch(Exception e) {
               future.fail(e);
             }
@@ -1366,13 +1412,15 @@ public class RestVerticleTest {
            .put("sub", username)
            .put("user_id", id)
            .put("tenant", tenant);
-   return String.format("%s.%s.%s",
+   String ret = String.format("%s.%s.%s",
            Base64.getEncoder().encodeToString(header.encode()
                    .getBytes(StandardCharsets.UTF_8)),
            Base64.getEncoder().encodeToString(payload.encode()
                    .getBytes(StandardCharsets.UTF_8)),
            Base64.getEncoder().encodeToString((header.encode() + payload.encode())
                    .getBytes(StandardCharsets.UTF_8)));
+   System.out.println("Generated fake JWT: " + ret);
+   return ret;
 
  }
 }

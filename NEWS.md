@@ -1,3 +1,6 @@
+## UNRELEASED
+ * Fix metadata population for permissions
+
 ## 2018-08-06 v5.3.1
  * Handle TenantPerms update as per MODPERMS-45
 

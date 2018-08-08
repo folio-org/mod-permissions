@@ -2325,6 +2325,7 @@ public class PermsAPI implements PermsResource {
     perm.setMutable(entity.getMutable());
     perm.setVisible(entity.getVisible());
     perm.setTags(entity.getTags());
+    perm.setMetadata(entity.getMetadata());
     return perm;
   }
   
