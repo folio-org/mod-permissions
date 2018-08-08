@@ -1,4 +1,4 @@
-## UNRELEASED
+## 2018-08-08 v5.3.2
  * Fix metadata population for permissions
 
 ## 2018-08-06 v5.3.1
