@@ -12,6 +12,12 @@
           "fieldName" : "permissionName",
           "tOps" : "ADD"
         }
+      ],
+      "index" : [
+        {
+          "fieldName": "id",
+          "tOps" : "ADD"
+        }
       ]
     },
     {
@@ -19,7 +25,13 @@
       "generateId" : true,
       "fromModuleVersion" : "5.0",
       "withMetadata" : true,
-      "pkColumnName": "_id"
+      "pkColumnName": "_id",
+      "index" : [ 
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD"
+        }
+      ]
     }
   ],
   "views" : []
