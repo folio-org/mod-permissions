@@ -39,6 +39,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 
 /**
  *
@@ -98,6 +99,9 @@ public class PermsAPI implements PermsResource {
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static boolean suppressErrorResponse = false;
+  private static boolean doExtraReport = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
+      .getOrDefault("report.extra.logging", "false"));
+ 
   
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException{
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -119,11 +123,13 @@ public class PermsAPI implements PermsResource {
   }
     
   private void report(String noise) {
-      logger.info(noise);    
+      report(noise, logger);   
   }
   
   private static void report(String noise, Logger logger) {
-    logger.info(noise);
+    if(doExtraReport) {
+      logger.info(noise);
+    }
   }
 
   @Override
@@ -1440,9 +1446,11 @@ public class PermsAPI implements PermsResource {
   private Future<List<String>> getAllExpandedPermissionsSequential(
           List<List<String>> listOfPermissionLists, Context vertxContext,
           String tenantId, List<String> returnedPermissions) {
-    report(String.format(
-            "Calling getAllExpandedPermissionsSequential with listOfPermissionLists: %s",
-            makeListofListStringRep(listOfPermissionLists)));
+    if(doExtraReport) {
+      report(String.format(
+              "Calling getAllExpandedPermissionsSequential with listOfPermissionLists: %s",
+              makeListofListStringRep(listOfPermissionLists)));
+    }
     if(returnedPermissions == null) {
       returnedPermissions = new ArrayList<>();
     }
@@ -1476,9 +1484,11 @@ public class PermsAPI implements PermsResource {
   
   private Future<List<String>> getExpandedPermissionsSequential(List<String> permissionList,
           Context vertxContext, String tenantId) {
-    report(String.format(
-            "Calling getExpandedPermissionsSequential with permissionList: %s",
-            String.join(", ", permissionList)));
+    if(doExtraReport) {
+      report(String.format(
+              "Calling getExpandedPermissionsSequential with permissionList: %s",
+              String.join(", ", permissionList)));
+    }
     Future<List<String>> future = Future.future();
     if(permissionList.isEmpty()) {
       future.complete(new ArrayList<>());
@@ -1541,7 +1551,9 @@ public class PermsAPI implements PermsResource {
   
   private Future<List<String>> getAllExpandedPermissions(List<String> permissionList,
           Context vertxContext, String tenantId, int maxSize) {
-    report("Getting expanded perms for permissions: " + String.join(", ", permissionList));
+    if(doExtraReport) {
+      report("Getting expanded perms for permissions: " + String.join(", ", permissionList));
+    }
     Future<List<String>> future = Future.future();
     if(permissionList.isEmpty()) {
       future.complete(new ArrayList<String>());
@@ -1625,8 +1637,10 @@ public class PermsAPI implements PermsResource {
                   expandedPermissions.add(perm);
                 }
               }
-              report("Returning expanded permissions: " + String.join(",",
+              if(doExtraReport) {
+                report("Returning expanded permissions: " + String.join(",",
                       expandedPermissions));
+              }
               future.complete(expandedPermissions);
             }
           });
@@ -1861,9 +1875,11 @@ public class PermsAPI implements PermsResource {
     Future<Void> future = Future.future();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
-    logger.info("Updating grantedTo fields pertaining to permissions user '" + permUserId +
-              "' for old listing " + originalList.encode() +
-              " and for new listing " + newList.encode());
+    if(doExtraReport) {
+      report("Updating grantedTo fields pertaining to permissions user '" + permUserId +
+                "' for old listing " + originalList.encode() +
+                " and for new listing " + newList.encode(), logger);
+    }
     for(Object ob : newList) { 
       if(!originalList.contains(ob)) { missingFromOriginalList.add(ob); }
     }
@@ -1926,9 +1942,11 @@ public class PermsAPI implements PermsResource {
           Context vertxContext, String tenantId, Logger logger) {
     Future<Void> future = Future.future();
     try {
-      logger.info("Updating childOf fields pertaining to permission '" + permissionName +
+      if(doExtraReport) {
+      report("Updating childOf fields pertaining to permission '" + permissionName +
               "' for old listing " + originalList.encode() +
-              " and for new listing " + newList.encode());
+              " and for new listing " + newList.encode(), logger);
+      }
       JsonArray missingFromOriginalList = new JsonArray();
       JsonArray missingFromNewList = new JsonArray();
       for(Object ob : newList) { 
@@ -1945,8 +1963,8 @@ public class PermsAPI implements PermsResource {
           future.fail(res.cause());
         } else if(!res.result().isEmpty()) {
           future.fail(new InvalidPermissionsException(String.format(
-          "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
-          String.join(",", res.result()), permissionName)));
+              "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
+              String.join(",", res.result()), permissionName)));
         } else {
           List<FieldUpdateValues> fuvList = new ArrayList<>();
           for(Object childPermissionNameOb : missingFromOriginalList) {

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.ws.rs.core.Response;
+import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 import org.folio.rest.impl.PermsAPI.InvalidPermissionsException;
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
@@ -39,7 +40,8 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   private static final String TABLE_NAME_PERMS = "permissions";
 
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
-  private boolean noisy = true;
+  private boolean noisy = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
+      .getOrDefault("report.extra.logging", "false"));
   
   private void report(String noise) {
     if(!noisy) {
@@ -84,7 +86,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
         }
       });
     } catch(Exception e) {
-      logger.debug("Error adding permissions set: " + e.getLocalizedMessage());
+      logger.error("Error adding permissions set: " + e.getLocalizedMessage());
       asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.withPlainInternalServerError("Internal Server Error")));
     }
   }
@@ -103,7 +105,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
         Perm perm = permListCopy.get(0);
         permListCopy.remove(0);
         if(checkRes.result()) {
-          logger.info(String.format("Checking to see if we can save permission '%s'",
+          report(String.format("Checking to see if we can save permission '%s'",
                   perm.getPermissionName()));          
           findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId)
                   .setHandler(findMissingSubsRes -> {
@@ -120,7 +122,7 @@ public class TenantPermsAPI implements TenantpermissionsResource {
                   }
                 });
               } else {
-                logger.info(String.format("Can't save permission '%s' yet, pushing to back of queue",
+                report(String.format("Can't save permission '%s' yet, pushing to back of queue",
                         perm.getPermissionName()));
                 permListCopy.add(perm); //Add to back
                 future.complete();
@@ -130,15 +132,19 @@ public class TenantPermsAPI implements TenantpermissionsResource {
         } else {
           //No valid perms, we need to create some dummies
           permListCopy.add(perm); //Push our initial perm back on the list
-          report(String.format("Attempting to create dummies for perm list: %s",
-                  getPermListStringRep(permListCopy)));
+          if(noisy) {
+            report(String.format("Attempting to create dummies for perm list: %s",
+                    getPermListStringRep(permListCopy)));
+          }
           createDummies(permListCopy, vertxContext, tenantId).setHandler(
                   createDummiesRes -> {
             if(createDummiesRes.failed()) {
               future.fail(createDummiesRes.cause());
             } else {
-              logger.info(String.format("Created dummies: %s",
+              if(noisy) {
+                report(String.format("Created dummies: %s",
                       createDummiesRes.result()));
+              }
               //see if we're able to actually create any perms now
               checkAnyPermsHaveAllSubs(permListCopy, vertxContext, tenantId)
                       .setHandler(check2res -> {
@@ -165,8 +171,10 @@ public class TenantPermsAPI implements TenantpermissionsResource {
   
   private Future<Boolean> checkAnyPermsHaveAllSubs(List<Perm> permList, Context vertxContext,
           String tenantId) {
-    logger.info(String.format("Checking list %s to see if any are have all subpermission satisfied",
-            getPermListStringRep(permList)));
+    if(noisy) {
+      report(String.format("Checking list %s to see if any are have all subpermission satisfied",
+              getPermListStringRep(permList)));
+    }
     Future<Boolean> future = Future.future();
     if(permList.isEmpty()) {
       return Future.succeededFuture(false); //If we made it this far, we must not have found any
@@ -180,11 +188,11 @@ public class TenantPermsAPI implements TenantpermissionsResource {
         future.fail(fmsRes.cause());
       } else {
         if(fmsRes.result().isEmpty()) {
-          logger.info(String.format("Permission '%s' is able to be saved",
+          report(String.format("Permission '%s' is able to be saved",
                   perm.getPermissionName()));
           future.complete(true);
         } else {
-          logger.info(String.format("Permission '%s' is missing subs %s",
+          report(String.format("Permission '%s' is missing subs %s",
                   perm.getPermissionName(), fmsRes.result()));
           future.complete(false);
         }
