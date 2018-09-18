@@ -1,3 +1,6 @@
+## UNRELEASED v5.4.0
+ * Reduce unnecessary logging
+
 ## 2018-08-08 v5.3.2
  * Fix metadata population for permissions
 
