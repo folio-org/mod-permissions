@@ -50,11 +50,11 @@ public class PermsAPI implements Perms {
 
   public enum Operation {
     ADD, DELETE
-  };
+  }
 
   public enum PermissionField {
     CHILD_OF, GRANTED_TO
-  };
+  }
 
   public static class InvalidPermissionsException extends Exception {
 
@@ -715,7 +715,7 @@ public class PermsAPI implements Perms {
                                 String.format("Permission by name '%s' does not exist",
                                   permissionName))));
                           } else if (rpbnRes.result().getDummy() != null
-                            && rpbnRes.result().getDummy() == true) {
+                            && rpbnRes.result().getDummy()) {
                             asyncResultHandler.handle(Future.succeededFuture(
                               PostPermsUsersPermissionsByIdResponse.respond400WithTextPlain(
                                 String.format("'%s' is flagged as a dummy permission"

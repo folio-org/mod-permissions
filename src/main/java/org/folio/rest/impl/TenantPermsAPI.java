@@ -167,9 +167,9 @@ public class TenantPermsAPI implements Tenantpermissions {
           }
         }
       });
-    return future.compose(next -> {
-      return savePermList(permListCopy, vertxContext, tenantId);
-    });
+    return future.compose(next ->
+      savePermList(permListCopy, vertxContext, tenantId)
+    );
   }
 
   private Future<Boolean> checkAnyPermsHaveAllSubs(List<Perm> permList, Context vertxContext,
