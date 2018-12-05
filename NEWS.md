@@ -1,5 +1,6 @@
-## UNRELEASED v5.4.0
- * Reduce unnecessary logging
+## 2018-12-05 v5.4.0
+ * Update to RAML 1.0 (MODPERMS-47)
+ * Reduce unnecessary logging (MODPERMS-42)
 
 ## 2018-08-08 v5.3.2
  * Fix metadata population for permissions
