@@ -1,8 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
+  "description": "A list of permissions",
   "properties": {
     "permissions": {
+      "description": "A list of individual permissions",
       "type": "array",
       "id": "permissionsListObject",
       "items": {
@@ -11,6 +13,7 @@
       }
     },
     "totalRecords": {
+      "description": "The total number of permissions in the result set",
       "type": "integer"
     }
   },

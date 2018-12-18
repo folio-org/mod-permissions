@@ -1,8 +1,10 @@
 {
   "title": "Permissions Name Schema",
   "type": "object",
+  "description": "An object only representing the name of a permission",
   "properties": {
     "permissionName": {
+      "description": "The unique permission name",
       "type": "string"
     }
   }

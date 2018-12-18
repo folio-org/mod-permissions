@@ -2,11 +2,13 @@
   "$schema": "http://json-schema.org/draft-04/schema#",
   "title": "Okapi Permissions Set",
   "type": "object",
+  "description": "A set of permissions populated by Okapi",
   "properties": {
     "moduleId": {
       "type": "string"
     },
     "perms": {
+      "description": "A set of permissions",
       "type": "array",
       "items": {
         "type": "object",
