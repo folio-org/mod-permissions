@@ -52,7 +52,7 @@
       "type" : "boolean"
     },
     "metadata" : {
-      "description", "System modification metadata",
+      "description": "System modification metadata",
       "type" : "object",
       "$ref" : "raml-util/schemas/metadata.schema"
     }
