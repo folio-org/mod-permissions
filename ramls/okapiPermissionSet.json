@@ -5,6 +5,7 @@
   "description": "A set of permissions populated by Okapi",
   "properties": {
     "moduleId": {
+      "description": "The ID of the Okapi module that provides these permissions",
       "type": "string"
     },
     "perms": {
