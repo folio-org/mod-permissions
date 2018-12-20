@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Permissions Definition Schema",
+  "description": "Information for POSTing a new permission",
+  "type": "object",
+  "properties": {
+    "permissionName": {
+      "description": "The unique name of the permission",
+      "type": "string"
+    },
+    "displayName": {
+      "description": "The human-readable name of the permission",
+      "type": "string"
+    },
+    "id": {
+      "description": "A globally unique id for the permission",
+      "type": "string"
+    },
+    "description": {
+      "description": "A description of the permission",
+      "type": "string"
+    },
+    "tags": {
+      "description": "A list of tags for retrieval of the permission",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "subPermissions": {
+      "description": "A list of child permissions granted by this permission",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mutable": {
+      "description": "Whether or not this permission can change at runtime",
+      "type": "boolean"
+    },
+    "visible": {
+      "description": "Should this permission be hidden from users",
+      "type": "boolean"
+    },
+    "metadata" : {
+      "description": "System modification metadata",
+      "type" : "object",
+      "$ref" : "raml-util/schemas/metadata.schema"
+    }
+  },
+  "additionalProperties": false
+}

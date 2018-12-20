@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "A list of only permission names",
+  "properties": {
+    "permissionNames": {
+      "description": "A list of permission names",
+      "type": "array",
+      "id": "permissionNameListObject"
+    },
+    "totalRecords": {
+      "description": "The total number of results in the set",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "permissionNames",
+    "totalRecords"
+  ]
+}

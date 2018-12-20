@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "A user that owns zero or more permissions",
+  "properties": {
+    "id": {
+      "description": "The globally unique (UUIDO) id of the user",
+      "type": "string"
+    },
+    "userId": {
+      "description": "A foreign key (UUID) from the users module",
+      "type": "string"
+    },
+    "permissions": {
+      "description": "A list of permission names owned by this user",
+      "type": "array"
+    },
+    "metadata" : {
+      "description": "System level change metadata",
+      "type" : "object",
+      "$ref" : "raml-util/schemas/metadata.schema"
+    }
+  },
+  "additionalProperties": false
+}

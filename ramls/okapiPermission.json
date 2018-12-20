@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Okapi Permission Object",
+  "type": "object",
+  "description": "An individual permission from an Okapi permission set",
+  "properties": {
+    "permissionName": {
+      "description": "The unique permission name",
+      "type": "string"
+    },
+    "displayName": {
+      "description": "The human-readable name",
+      "type": "string"
+    },
+    "description": {
+      "description": "Description of the permission",
+      "type": "string"
+    },
+    "subPermissions": {
+      "description": "A list of child permissions granted by this permission",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "visible": {
+      "description": "Whether or not this permission is visible to users",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "description": "A collection of permission users",
+  "properties": {
+    "permissionUsers": {
+      "description": "A list of permission users",
+      "type": "array",
+      "id": "permissionUsersListObject",
+      "items": {
+        "type": "object",
+        "$ref": "permissionUser.json"
+      }
+    },
+    "totalRecords": {
+      "description": "The total number of users in the result set",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "permissionUsers",
+    "totalRecords"
+  ]
+}
