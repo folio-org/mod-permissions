@@ -101,8 +101,7 @@ public class PermsAPI implements Perms {
   private static final String USER_NAME_FIELD = "'username'";
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ID_FIELD = "'id'";
-  private static final String PERMISSIONUSER_SCHEMA_PATH
-    = "ramls/raml-util/schemas/mod-permissions/permissionUser.json";
+  private static final String PERMISSIONUSER_SCHEMA_PATH = "ramls/permissionUser.json";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static boolean suppressErrorResponse = false;
