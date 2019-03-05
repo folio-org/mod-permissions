@@ -244,7 +244,7 @@ public class PermsAPI implements Perms {
                   PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
                   postgresClient.startTx(beginTx -> {
                     logger.debug("Starting transaction to save new permissions user");
-                    postgresClient.save(beginTx, TABLE_NAME_PERMSUSERS, entity, postReply -> {
+                    postgresClient.save(beginTx, TABLE_NAME_PERMSUSERS, entity.getId(), entity, postReply -> {
                       try {
                         if (postReply.succeeded()) {
                           final PermissionUser permUser = entity;
@@ -943,7 +943,7 @@ public class PermsAPI implements Perms {
                     Permission realPerm = getRealPermObject(entity);
                     realPerm.setDummy(false);
                     try {
-                      postgresClient.save(connection, TABLE_NAME_PERMS, realPerm, postReply -> {
+                      postgresClient.save(connection, TABLE_NAME_PERMS, newId, realPerm, postReply -> {
                         if (postReply.failed()) {
                           postgresClient.rollbackTx(connection, done -> {
                             logger.error("Unable to save new permission: " + postReply.cause().getLocalizedMessage());
