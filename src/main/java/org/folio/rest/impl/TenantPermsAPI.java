@@ -351,7 +351,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                     }
                     try {
                       report("Initiating PG Client save() (in transaction)(savePerm)");
-                      pgClient.save(connection, TABLE_NAME_PERMS, permission,
+                      pgClient.save(connection, TABLE_NAME_PERMS, newId, permission,
                         postReply -> {
                           if (postReply.failed()) {
                             report("Rolling transaction back(savePerm)");
@@ -501,7 +501,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     report(String.format(
       "Calling PostgresClient save() (in transaction) (makeDummyPerm) (%s)",
       dummyPermission.getPermissionName()));
-    pgClient.save(connection, TABLE_NAME_PERMS, dummyPermission, saveReply -> {
+    pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission, saveReply -> {
       if (saveReply.failed()) {
         future.fail(saveReply.cause());
       } else {
