@@ -36,8 +36,12 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -75,7 +79,7 @@ public class RestVerticleTest {
   public static void setup(TestContext context) {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("localhost", port, "diku", "diku");
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
             .put("http.port", port)).setWorker(true);
@@ -89,10 +93,15 @@ public class RestVerticleTest {
     }
     vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
       try {
-        tenantClient.postTenant(null, res2 -> {
-           async.complete();
+        TenantAttributes ta = new TenantAttributes();
+        ta.setModuleTo("mod-permissions-1.0.0");
+        List<Parameter> parameters = new LinkedList<>();
+        parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+        ta.setParameters(parameters);
+        tenantClient.postTenant(ta, res2 -> {
+          async.complete();
         });
-      } catch(Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
       }
 
