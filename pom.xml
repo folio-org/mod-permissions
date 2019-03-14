@@ -32,7 +32,7 @@
     <dependency>
       <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-	  <version>23.9.0</version>
+	  <version>23.11.0</version>
     </dependency>
     
     <dependency>
@@ -177,6 +177,22 @@
               <resources>
                 <resource>
                   <directory>${ramlfiles_path}</directory>
+                  <filtering>true</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-sample-data</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${basedir}/target/classes/sample-data/users</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/mod-users/src/main/resources/sample-data/users</directory>
                   <filtering>true</filtering>
                 </resource>
               </resources>
