@@ -1,4 +1,9 @@
-## UNRELEASED v5.4.1
+## 2019-03-15 v5.5.0
+ * MODPERMS-50 use loadSample to load sample data
+ * MODPERMS-48 Use description fields in RAML JSON schemas
+ * MODPERMS-49 Move RAMLs and Schemas from shared raml-util
+ * MODPERMS-51 Update to Vert.X 3.5.4
+ * MODPERMS-52 Fix raml files in multiple places
 
 ## 2018-12-05 v5.4.0
  * Update to RAML 1.0 (MODPERMS-47)
