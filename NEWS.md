@@ -1,3 +1,7 @@
+## 2019-05-10 v5.6.0
+ * MODPERMS-53 Change limit from 1000 to 2147483647 (permission.raml)
+ * MODPERMS-55 Update to RMB 24 / CQLPG 4.0.0
+
 ## 2019-03-15 v5.5.0
  * MODPERMS-50 use loadSample to load sample data
  * MODPERMS-48 Use description fields in RAML JSON schemas
