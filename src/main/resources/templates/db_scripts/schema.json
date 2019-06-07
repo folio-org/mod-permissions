@@ -10,7 +10,9 @@
       "uniqueIndex" : [
         {
           "fieldName" : "permissionName",
-          "tOps" : "ADD"
+          "tOps" : "ADD",
+          "caseSensitive": true,
+          "removeAccents": false
         }
       ]
     },
@@ -19,7 +21,29 @@
       "generateId" : true,
       "fromModuleVersion" : "5.0",
       "withMetadata" : true,
-      "pkColumnName": "_id"
+      "pkColumnName": "_id",
+      "index" : [
+        {
+          "fieldName" : "id",
+          "tOps" : "ADD",
+          "caseSensitive": true,
+          "removeAccents": false
+        },
+        {
+          "fieldName" : "userId",
+          "tOps" : "ADD",
+          "caseSensitive": true,
+          "removeAccents": false
+        }
+      ],
+      "ginIndex": [
+        {
+          "fieldName": "userId",
+          "tOps": "ADD",
+          "caseSensitive": false,
+          "removeAccents": true
+        }
+      ]
     }
   ],
   "views" : []
