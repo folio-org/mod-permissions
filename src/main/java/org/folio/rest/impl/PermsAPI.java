@@ -25,8 +25,6 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.messages.Messages;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
-import org.z3950.zing.cql.cql2pgjson.CQL2PgJSON;
-import org.z3950.zing.cql.cql2pgjson.FieldException;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
@@ -40,6 +38,8 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.sql.SQLConnection;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 
 /**
@@ -207,16 +207,20 @@ public class PermsAPI implements Perms {
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
       vertxContext.runOnContext(v -> {
         //Check for existing user
+        Criterion criterion = new Criterion();
         Criteria userIdCrit = new Criteria();
         userIdCrit.addField(USER_ID_FIELD);
         userIdCrit.setOperation("=");
-        userIdCrit.setValue(entity.getUserId());
-        Criteria idCrit = new Criteria();
-        idCrit.addField(ID_FIELD);
-        idCrit.setOperation("=");
-        idCrit.setValue(entity.getId());
-        Criterion criterion = new Criterion();
-        criterion.addCriterion(idCrit, "OR", userIdCrit);
+        userIdCrit.setVal(entity.getUserId());
+        if (entity.getId() != null) {
+          Criteria idCrit = new Criteria();
+          idCrit.addField(ID_FIELD);
+          idCrit.setOperation("=");
+          idCrit.setVal(entity.getId());
+          criterion.addCriterion(idCrit, "OR", userIdCrit);
+        } else {
+          criterion.addCriterion(userIdCrit);
+        }
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
             TABLE_NAME_PERMSUSERS, PermissionUser.class,
@@ -389,7 +393,7 @@ public class PermsAPI implements Perms {
                 Criteria idCrit = new Criteria();
                 idCrit.addField(ID_FIELD);
                 idCrit.setOperation("=");
-                idCrit.setValue(userid);
+                idCrit.setVal(userid);
                 String query = "id==" + userid;
                 CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
 
@@ -499,7 +503,7 @@ public class PermsAPI implements Perms {
         Criteria idCrit = new Criteria();
         idCrit.addField(ID_FIELD);
         idCrit.setOperation("=");
-        idCrit.setValue(userid);
+        idCrit.setVal(userid);
         try {
           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
             tenantId);
@@ -909,7 +913,7 @@ public class PermsAPI implements Perms {
         Criteria nameCrit = new Criteria();
         nameCrit.addField(PERMISSION_NAME_FIELD);
         nameCrit.setOperation("=");
-        nameCrit.setValue(entity.getPermissionName());
+        nameCrit.setVal(entity.getPermissionName());
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
             TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true, false, getReply -> {
@@ -1004,7 +1008,7 @@ public class PermsAPI implements Perms {
         Criteria idCrit = new Criteria();
         idCrit.addField(ID_FIELD);
         idCrit.setOperation("=");
-        idCrit.setValue(id);
+        idCrit.setVal(id);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
             if (getReply.failed()) {
@@ -1047,7 +1051,7 @@ public class PermsAPI implements Perms {
         Criteria idCrit = new Criteria();
         idCrit.addField(ID_FIELD);
         idCrit.setOperation("=");
-        idCrit.setValue(entity.getId());
+        idCrit.setVal(entity.getId());
         if (entity.getId() == null || !entity.getId().equals(id)) {
           asyncResultHandler.handle(Future.succeededFuture(
             PutPermsPermissionsByIdResponse.respond400WithTextPlain("Invalid id value")));
@@ -1161,7 +1165,7 @@ public class PermsAPI implements Perms {
           Criteria idCrit = new Criteria();
           idCrit.addField(ID_FIELD);
           idCrit.setOperation("=");
-          idCrit.setValue(id);
+          idCrit.setVal(id);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
             Permission.class, new Criterion(idCrit), true, false, getReply -> {
               if (getReply.failed()) {
@@ -1383,7 +1387,7 @@ public class PermsAPI implements Perms {
         Criteria nameCrit = new Criteria();
         nameCrit.addField(PERMISSION_NAME_FIELD);
         nameCrit.setOperation("=");
-        nameCrit.setValue(permissionName);
+        nameCrit.setVal(permissionName);
         try {
           report("Initiating PG Client get() request (in transaction)(cPE)", logger);
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(connection,
@@ -1694,7 +1698,7 @@ public class PermsAPI implements Perms {
         Criteria nameCrit = new Criteria();
         nameCrit.addField(PERMISSION_NAME_FIELD);
         nameCrit.setOperation("=");
-        nameCrit.setValue(permissionName);
+        nameCrit.setVal(permissionName);
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
             Permission.class, new Criterion(nameCrit), true, false, getReply -> {
@@ -1736,7 +1740,7 @@ public class PermsAPI implements Perms {
     try {
       Criteria idCrit = getIdCriteria(indexField, "=", userId);
       idCrit.setOperation("=");
-      idCrit.setValue(userId);
+      idCrit.setVal(userId);
       try {
         PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           TABLE_NAME_PERMSUSERS, PermissionUser.class, new Criterion(idCrit),
@@ -2024,7 +2028,7 @@ public class PermsAPI implements Perms {
       Criteria nameCrit = new Criteria()
         .addField(PERMISSION_NAME_FIELD)
         .setOperation("=")
-        .setValue(permissionName);
+        .setVal(permissionName);
       String query = "permissionName==" + permissionName;
       CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
       vertxContext.runOnContext(v -> {
@@ -2153,7 +2157,7 @@ public class PermsAPI implements Perms {
     Criteria idCrit = new Criteria()
       .addField(ID_FIELD)
       .setOperation("=")
-      .setValue(userId);
+      .setVal(userId);
     try {
       CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
@@ -2224,7 +2228,7 @@ public class PermsAPI implements Perms {
       Criteria nameCrit = new Criteria()
         .addField(PERMISSION_NAME_FIELD)
         .setOperation("=")
-        .setValue(permissionName);
+        .setVal(permissionName);
       String query = String.format("permissionName==%s", permissionName);
       CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
@@ -2267,7 +2271,7 @@ public class PermsAPI implements Perms {
     Criteria nameCrit = new Criteria()
       .addField(PERMISSION_NAME_FIELD)
       .setOperation("=")
-      .setValue(permissionName);
+      .setVal(permissionName);
     PostgresClient.getInstance(vertxContext.owner(), tenantId)
       .get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
         true, false, getReply -> {
@@ -2333,7 +2337,7 @@ public class PermsAPI implements Perms {
       throw new IllegalArgumentException("Invalid value '" + indexField + "' for indexField");
     }
     crit.setOperation(operation);
-    crit.setValue(value);
+    crit.setVal(value);
     return crit;
   }
 
@@ -2380,7 +2384,7 @@ public class PermsAPI implements Perms {
       Criteria nameCrit = new Criteria()
         .addField(PERMISSION_NAME_FIELD)
         .setOperation("=")
-        .setValue(permissionName);
+        .setVal(permissionName);
       if (criterion == null) {
         criterion = new Criterion(nameCrit);
       } else {
