@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermsCache;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
@@ -82,7 +83,7 @@ public class RestVerticleTest {
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
-            .put("http.port", port)).setWorker(true);
+            .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(true);
     try {
       PostgresClient.setIsEmbedded(true);
       PostgresClient.getInstance(vertx).startEmbeddedPostgres();
