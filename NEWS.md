@@ -1,3 +1,6 @@
+## 2019-06-12 v5.7.0
+ * MODPERMS-57 Improve mod-permission performance
+
 ## 2019-05-10 v5.6.0
  * MODPERMS-53 Change limit from 1000 to 2147483647 (permission.raml)
  * MODPERMS-55 Update to RMB 24 / CQLPG 4.0.0
