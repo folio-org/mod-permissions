@@ -2,7 +2,6 @@ package org.folio.permstest;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
@@ -13,7 +12,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.folio.rest.impl.PermsCache.PermCache;
-import org.folio.rest.impl.PermsCache.PgStat;
 import org.junit.Test;
 
 public class PermsCacheTest {
@@ -28,16 +26,13 @@ public class PermsCacheTest {
 
   @Test
   public void testPermsCache() {
-    PgStat pgStat = new PgStat(1, 2, 3);
     Map<String, Set<String>> subPermMap = new HashMap<>();
     subPermMap.put(P1, new HashSet<>(Arrays.asList(S1, S2)));
     subPermMap.put(S2, new HashSet<>(Arrays.asList(S21, S22)));
     subPermMap.put(S22, new HashSet<>(Arrays.asList(S221, S222)));
-    PermCache pc = new PermCache(pgStat, subPermMap);
+    PermCache pc = new PermCache(subPermMap);
 
     assertFalse(pc.isStale());
-    assertEquals(new PgStat(1, 2, 3), pgStat);
-    assertNotEquals(new PgStat(2, 2, 3), pgStat);
 
     List<String> rs = pc.expandPerms(Arrays.asList(P1));
     assertEquals(7, rs.size());
