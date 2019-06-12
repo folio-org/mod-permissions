@@ -29,13 +29,16 @@ public class PermsCache {
 
   public static final String CACHE_HEADER = "use.perms.cache";
 
-  private static final long CACHE_PERIOD = 30 * 1000;
+  private static final long CACHE_PERIOD = 30 * 1000L;
 
   private static final String QUERY_PERMS = "select jsonb->>'permissionName' as p_name, jsonb->>'subPermissions' as p_sub from %s_mod_permissions.permissions";
   private static final String PERMS_PNAME = "p_name";
   private static final String PERMS_PSUB = "p_sub";
 
   private static final ConcurrentMap<String, PermCache> CACHE = new ConcurrentHashMap<>();
+
+  private PermsCache() {
+  }
 
   /**
    * Expand permission list to include all sub permissions recursively.
@@ -113,10 +116,6 @@ public class PermsCache {
 
     public boolean isStale() {
       return System.currentTimeMillis() > (timestamp + CACHE_PERIOD);
-    }
-
-    public void resetTimeStamp() {
-      this.timestamp = System.currentTimeMillis();
     }
 
     public List<String> expandPerms(List<String> perms) {
