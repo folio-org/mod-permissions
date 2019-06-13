@@ -1502,6 +1502,13 @@ public class PermsAPI implements Perms {
       future.complete(new ArrayList<>());
       return future;
     }
+
+    // use cache by default unless set to false explicitly
+    Boolean usePermsCache = vertxContext.config().getBoolean(PermsCache.CACHE_HEADER);
+    if (usePermsCache == null || usePermsCache) {
+      return PermsCache.expandPerms(permissionList, vertxContext, tenantId);
+    }
+
     try {
       Criterion criterion = buildPermissionNameListQuery(permissionList);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
@@ -1606,6 +1613,7 @@ public class PermsAPI implements Perms {
       });
       return future;
     }
+
     try {
       Criterion criterion = buildPermissionNameListQuery(permissionList);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
