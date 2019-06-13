@@ -1,3 +1,6 @@
+## 2019-06-12 v5.8.0
+ * MODPERMS-59 Using cache to further improve mod-permission performance
+
 ## 2019-06-12 v5.7.0
  * MODPERMS-57 Improve mod-permission performance
 
