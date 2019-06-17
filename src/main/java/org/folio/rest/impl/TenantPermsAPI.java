@@ -246,7 +246,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
-    nameCrit.setValue(permName);
+    nameCrit.setVal(permName);
     report("Initiating PG Client get() (no transaction)(checkPermExists)");
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
       Permission.class, new Criterion(nameCrit), true, false, getReply -> {
@@ -288,7 +288,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
-    nameCrit.setValue(perm.getPermissionName());
+    nameCrit.setVal(perm.getPermissionName());
     //If already exists, we don't have to do anything
     try {
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
@@ -519,7 +519,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
-    nameCrit.setValue(permName);
+    nameCrit.setVal(permName);
     PostgresClient pgClient = PostgresClient.getInstance(
       vertxContext.owner(), tenantId);
     report(String.format("Calling postgres delete() (%s) (in transaction) deletePerm",

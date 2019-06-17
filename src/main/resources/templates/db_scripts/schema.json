@@ -3,10 +3,8 @@
   "tables" : [
     {
       "tableName" : "permissions",
-      "generateId" : true,
       "fromModuleVersion" : "5.0",
       "withMetadata" : true,
-      "pkColumnName": "_id",
       "uniqueIndex" : [
         {
           "fieldName" : "permissionName",
@@ -18,10 +16,8 @@
     },
     {
       "tableName" : "permissions_users",
-      "generateId" : true,
       "fromModuleVersion" : "5.0",
       "withMetadata" : true,
-      "pkColumnName": "_id",
       "index" : [
         {
           "fieldName" : "id",
