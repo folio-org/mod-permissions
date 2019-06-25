@@ -912,8 +912,12 @@ public class PermsAPI implements Perms {
         String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
         Criteria nameCrit = new Criteria();
         nameCrit.addField(PERMISSION_NAME_FIELD);
-        nameCrit.setOperation("=");
-        nameCrit.setVal(entity.getPermissionName());
+        if (entity.getPermissionName() == null) {
+          nameCrit.setOperation("IS NULL");
+        } else {
+          nameCrit.setOperation("=");
+          nameCrit.setVal(entity.getPermissionName());
+        }
         try {
           PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
             TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true, false, getReply -> {
