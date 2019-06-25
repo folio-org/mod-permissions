@@ -147,6 +147,8 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testPostBadPermission(context);
     }).compose(w -> {
+      return testPostNullPermissionName(context);
+    }).compose(w -> {
       return testPermissionExists(context, "dummy.all");
     }).compose(w -> {
       return sendBadPermissionSet(context);
@@ -1265,6 +1267,20 @@ public class RestVerticleTest {
       );
     TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", POST,
             null, badPermission.encode(), 400).setHandler(res -> {
+      if(res.failed()) { future.fail(res.cause()); } else {
+        future.complete(res.result());
+      }
+    });
+
+    return future;
+  }
+
+  private Future<WrappedResponse> testPostNullPermissionName(TestContext context) {
+    Future<WrappedResponse> future = Future.future();
+    JsonObject nullPermission = new JsonObject()
+      .put("displayName", "nullPermName");
+    TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", POST,
+            null, nullPermission.encode(), 201).setHandler(res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
         future.complete(res.result());
       }
