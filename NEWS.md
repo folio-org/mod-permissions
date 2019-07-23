@@ -1,3 +1,8 @@
+## 2019-07-23 v5.8.1
+
+* MODPERMS-58 Upgrade to RMB 26.2.2
+* MODPERMS-60 POST to perms/permissions fails with 500 error
+
 ## 2019-06-12 v5.8.0
  * MODPERMS-59 Using cache to further improve mod-permission performance
 
