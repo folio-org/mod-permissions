@@ -121,21 +121,22 @@ public class PermsCache {
     public List<String> expandPerms(List<String> perms) {
       Set<String> allPerms = new HashSet<>();
       for (String perm : perms) {
-        allPerms.addAll(recurseSub(perm));
+        recurseSub(perm, allPerms);
       }
       return new ArrayList<>(allPerms);
     }
 
-    private Set<String> recurseSub(String perm) {
-      Set<String> perms = new HashSet<>();
-      perms.add(perm);
+    private void recurseSub(String perm, Set<String> allPerms) {
+      if (allPerms.contains(perm)) {
+        return;
+      }
+      allPerms.add(perm);
       Set<String> subs = subPermMap.get(perm);
       if (subs != null) {
         for (String sub : subs) {
-          perms.addAll(recurseSub(sub));
+          recurseSub(sub, allPerms);
         }
       }
-      return perms;
     }
   }
 }
