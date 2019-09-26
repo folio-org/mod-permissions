@@ -1,7 +1,12 @@
+## 2019-09-25 v5.8.2
+  
+ * MODPERMS-64 Expanded permissions causing stack overflow preventing login
+ * MODPERMS-66 Add index to permissionName to improve performance
+
 ## 2019-07-23 v5.8.1
 
-* MODPERMS-58 Upgrade to RMB 26.2.2
-* MODPERMS-60 POST to perms/permissions fails with 500 error
+ * MODPERMS-58 Upgrade to RMB 26.2.2
+ * MODPERMS-60 POST to perms/permissions fails with 500 error
 
 ## 2019-06-12 v5.8.0
  * MODPERMS-59 Using cache to further improve mod-permission performance
