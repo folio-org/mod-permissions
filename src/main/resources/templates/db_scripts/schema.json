@@ -12,6 +12,14 @@
           "caseSensitive": true,
           "removeAccents": false
         }
+      ],
+      "ginIndex": [
+        {
+          "fieldName": "permissionName",
+          "tOps": "ADD",
+          "caseSensitive": false,
+          "removeAccents": true
+        }
       ]
     },
     {
