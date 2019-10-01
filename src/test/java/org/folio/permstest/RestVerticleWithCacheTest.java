@@ -2,6 +2,7 @@ package org.folio.permstest;
 
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermsCache;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
@@ -46,7 +47,7 @@ public class RestVerticleWithCacheTest {
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
-    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
+    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port).put(PermsCache.CACHE_HEADER, false))
         .setWorker(true);
     try {
       PostgresClient.setIsEmbedded(true);

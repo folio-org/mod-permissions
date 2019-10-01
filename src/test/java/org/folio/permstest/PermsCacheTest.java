@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.folio.rest.impl.PermsCache.PermCache;
+import org.folio.rest.jaxrs.model.Permission;
 import org.junit.Test;
 
 public class PermsCacheTest {
@@ -33,7 +34,7 @@ public class PermsCacheTest {
     subPermMap.put(P1, new HashSet<>(Arrays.asList(S1, S2)));
     subPermMap.put(S2, new HashSet<>(Arrays.asList(S21, S22)));
     subPermMap.put(S22, new HashSet<>(Arrays.asList(S221, S222)));
-    PermCache pc = new PermCache(subPermMap);
+    PermCache pc = new PermCache(subPermMap, null);
 
     assertFalse(pc.isStale());
 
@@ -62,7 +63,7 @@ public class PermsCacheTest {
     subPermMap.put(C1, new HashSet<>(Arrays.asList(C2, P1)));
     subPermMap.put(C2, new HashSet<>(Arrays.asList(C1, P1)));
     subPermMap.put(P1, new HashSet<>(Arrays.asList(S1, S2)));
-    PermCache pc = new PermCache(subPermMap);
+    PermCache pc = new PermCache(subPermMap, null);
 
     List<String> rs = pc.expandPerms(Arrays.asList(C1));
     assertEquals(5, rs.size());
@@ -71,6 +72,21 @@ public class PermsCacheTest {
     assertTrue(rs.contains(P1));
     assertTrue(rs.contains(S1));
     assertTrue(rs.contains(S2));
+  }
+
+  @Test
+  public void testFulPerms() {
+    Map<String, Permission> fullPermMap = new HashMap<>();
+    Permission p1 = new Permission();
+    p1.setPermissionName(P1);
+    p1.setDisplayName(P1);
+    fullPermMap.put(P1, p1);
+    PermCache pc = new PermCache(null, fullPermMap);
+
+    Permission p = pc.getFullPerm(P1);
+    assertEquals(P1, p.getPermissionName());
+    assertEquals(P1, p.getDisplayName());
+    assertTrue(p.getSubPermissions().isEmpty());
   }
 
 }
