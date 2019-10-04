@@ -24,8 +24,13 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
@@ -34,6 +39,10 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 public class RestVerticleWithCacheTest {
 
   private static final String userId1 = "35d05a6a-d61e-4e81-9708-fc44daadbec5";
+  private static final String P_ALL = "dummy.all";
+  private static final String P_READ = "dummy.read";
+  private static final String P_WRITE = "dummy.write";
+  private static final String P_DELETE = "dummy.delete";
 
   private static Vertx vertx;
   static int port;
@@ -47,7 +56,7 @@ public class RestVerticleWithCacheTest {
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
     vertx = Vertx.vertx();
-    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port).put(PermsCache.CACHE_HEADER, false))
+    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
         .setWorker(true);
     try {
       PostgresClient.setIsEmbedded(true);
@@ -88,7 +97,11 @@ public class RestVerticleWithCacheTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context, false).compose(w -> {
+      return testPerms(context, Arrays.asList(P_READ, P_WRITE, P_ALL));
+    }).compose(w -> {
       return sendPermissionSet(context, true);
+    }).compose(w -> {
+      return testPerms(context, Arrays.asList(P_READ, P_WRITE, P_ALL, P_DELETE));
     }).compose(w -> {
       return postPermUser(context, userId1);
     }).compose(w -> {
@@ -147,6 +160,38 @@ public class RestVerticleWithCacheTest {
             future.fail(res.cause());
           } else {
             future.complete(res.result());
+          }
+        });
+
+    return future;
+  }
+
+  private Future<WrappedResponse> testPerms(TestContext context, List<String> perms) {
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
+    Future<WrappedResponse> future = Future.future();
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expandSubs=true",
+        GET, headers, null, 200).setHandler(res -> {
+          try {
+            if (res.failed()) {
+              future.fail(res.cause());
+            } else {
+              JsonArray permList = res.result().getJson().getJsonArray("permissions");
+              if (permList == null) {
+                future.fail("Could not find 'permissions' in " + res.result().getBody());
+              } else {
+                Set<String> set = new HashSet<>();
+                permList.forEach(jo -> set.add(((JsonObject)jo).getString("permissionName")));
+                if (set.containsAll(perms)) {
+                  future.complete(res.result());
+                } else {
+                  future.fail("PermList does not contain all " + perms + " ( "
+                      + res.result().getBody() + " )");
+                }
+              }
+            }
+          } catch (Exception e) {
+            future.fail(e);
           }
         });
 

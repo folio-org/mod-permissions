@@ -87,12 +87,12 @@ public class PermsCache {
   private static Future<PermCache> getPermCache(Context vertxContext, String tenantId) {
     PermCache permCache = CACHE.get(tenantId);
     if (permCache == null) {
-      LOGGER.info("Populate perms cache for tenant " + tenantId);
+      LOGGER.debug("Populate perms cache for tenant " + tenantId);
       return refreshCache(vertxContext, tenantId);
     }
     if (permCache.isStale() && !CACHE_WIP.containsKey(tenantId)) {
       CACHE_WIP.put(tenantId, vertxContext.owner().setTimer(1, v -> {
-        LOGGER.info("Refresh perms cache for tenant " + tenantId);
+        LOGGER.debug("Refresh perms cache for tenant " + tenantId);
         refreshCache(vertxContext, tenantId);
       }));
     }
@@ -104,10 +104,7 @@ public class PermsCache {
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TAB_PERMS, Permission.class, new Criterion(), false,
         false, reply -> {
           if (reply.failed()) {
-            CACHE_WIP.remove(tenantId);
-            String msg = "postgres client 'get' " + TAB_PERMS + " failed: " + reply.cause().getLocalizedMessage();
-            LOGGER.warn(msg);
-            future.fail(msg);
+            future.fail("postgres client 'get' " + TAB_PERMS + " failed: " + reply.cause().getLocalizedMessage());
           } else {
             List<Permission> perms = reply.result().getResults();
             Map<String, Set<String>> subPermMap = new HashMap<>();
@@ -122,10 +119,10 @@ public class PermsCache {
               subPermMap.put(perm.getPermissionName(), subs);
             }
             CACHE.put(tenantId, pc);
-            CACHE_WIP.remove(tenantId);
-            LOGGER.info("Finished perms cache for tenant " + tenantId);
+            LOGGER.debug("Finished perms cache for tenant " + tenantId);
             future.complete(pc);
           }
+          CACHE_WIP.remove(tenantId);
         });
     return future;
   }
