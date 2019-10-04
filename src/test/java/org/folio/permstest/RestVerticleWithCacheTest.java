@@ -2,7 +2,6 @@ package org.folio.permstest;
 
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
-import org.folio.rest.impl.PermsCache;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
@@ -97,15 +96,21 @@ public class RestVerticleWithCacheTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context, false).compose(w -> {
-      return testPerms(context, Arrays.asList(P_READ, P_WRITE, P_ALL));
+      return testSubPermExpansion(context, Arrays.asList(P_READ, P_WRITE));
     }).compose(w -> {
       return sendPermissionSet(context, true);
     }).compose(w -> {
-      return testPerms(context, Arrays.asList(P_READ, P_WRITE, P_ALL, P_DELETE));
+      return testSubPermExpansion(context, Arrays.asList(P_READ, P_WRITE));
     }).compose(w -> {
       return postPermUser(context, userId1);
     }).compose(w -> {
       return testUserPerms(context, w.getJson().getString("id"));
+    }).compose(w -> {
+      // refresh cache
+      return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE), 32);
+    }).compose(w -> {
+      // test again
+      return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE, P_DELETE), 2);
     });
 
     startFuture.setHandler(res -> {
@@ -166,28 +171,24 @@ public class RestVerticleWithCacheTest {
     return future;
   }
 
-  private Future<WrappedResponse> testPerms(TestContext context, List<String> perms) {
+  private Future<WrappedResponse> testSubPermExpansion(TestContext context, List<String> perms) {
     CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
     Future<WrappedResponse> future = Future.future();
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expandSubs=true",
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expandSubs=true&query=(permissionName==" + P_ALL + ")",
         GET, headers, null, 200).setHandler(res -> {
           try {
             if (res.failed()) {
               future.fail(res.cause());
             } else {
-              JsonArray permList = res.result().getJson().getJsonArray("permissions");
-              if (permList == null) {
-                future.fail("Could not find 'permissions' in " + res.result().getBody());
+              JsonArray subPermList = res.result().getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions");
+              Set<String> set = new HashSet<>();
+              subPermList.forEach(jo -> set.add(((JsonObject)jo).getString("permissionName")));
+              if (set.containsAll(perms) && set.size() == perms.size()) {
+                future.complete(res.result());
               } else {
-                Set<String> set = new HashSet<>();
-                permList.forEach(jo -> set.add(((JsonObject)jo).getString("permissionName")));
-                if (set.containsAll(perms)) {
-                  future.complete(res.result());
-                } else {
-                  future.fail("PermList does not contain all " + perms + " ( "
-                      + res.result().getBody() + " )");
-                }
+                future.fail("SubPermList does not match " + perms + " ( "
+                    + res.result().getBody() + " )");
               }
             }
           } catch (Exception e) {
@@ -195,6 +196,16 @@ public class RestVerticleWithCacheTest {
           }
         });
 
+    return future;
+  }
+
+  private Future<WrappedResponse> testSubPermExpansionAfterWait(TestContext context, List<String> perms, long waitSeconds) {
+    Future<WrappedResponse> future = Future.future();
+    vertx.setTimer(1000 * waitSeconds, t -> {
+      testSubPermExpansion(context, perms).setHandler(h -> {
+        future.complete(h.result());
+      });
+    });
     return future;
   }
 
