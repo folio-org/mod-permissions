@@ -1,5 +1,9 @@
+## 2019-10-07 v5.8.3
+
+ * MODPERMS-67 Verify and reduce the cost of expanding permissions
+
 ## 2019-09-25 v5.8.2
-  
+
  * MODPERMS-64 Expanded permissions causing stack overflow preventing login
  * MODPERMS-66 Add index to permissionName to improve performance
 
