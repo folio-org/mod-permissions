@@ -9,16 +9,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.Criteria.Criterion;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
 /**
- * A simple cache to avoid frequent database calls to get sub permissions.
+ * A simple cache to avoid frequent database calls to permissions table.
  *
  * @author hji
  *
@@ -29,13 +30,16 @@ public class PermsCache {
 
   public static final String CACHE_HEADER = "use.perms.cache";
 
+  // 30 seconds cache
   private static final long CACHE_PERIOD = 30 * 1000L;
 
-  private static final String QUERY_PERMS = "select jsonb->>'permissionName' as p_name, jsonb->>'subPermissions' as p_sub from %s_mod_permissions.permissions";
-  private static final String PERMS_PNAME = "p_name";
-  private static final String PERMS_PSUB = "p_sub";
+  private static final String TAB_PERMS = "permissions";
 
+  // store cached data
   private static final ConcurrentMap<String, PermCache> CACHE = new ConcurrentHashMap<>();
+
+  // cache update in progress
+  private static final ConcurrentMap<String, Long> CACHE_WIP = new ConcurrentHashMap<>();
 
   private PermsCache() {
   }
@@ -50,72 +54,104 @@ public class PermsCache {
    */
   public static Future<List<String>> expandPerms(List<String> perms, Context vertxContext, String tenantId) {
     Future<List<String>> future = Future.future();
-    PermCache permCache = CACHE.get(tenantId);
-    if (permCache == null || permCache.isStale()) {
-      LOGGER.info("Populate perms cache for tenant " + tenantId);
-      Future<Map<String, Set<String>>> f = queryAllPerms(vertxContext, tenantId);
-      f.setHandler(ar -> {
-        if (ar.succeeded()) {
-          PermCache pc = new PermCache(f.result());
-          LOGGER.debug("new perms cache: " + pc);
-          CACHE.put(tenantId, pc);
-          future.complete(pc.expandPerms(perms));
-        } else {
-          future.fail(ar.cause());
-        }
-      });
-    } else {
-      future.complete(permCache.expandPerms(perms));
-    }
-    return future;
-  }
-
-  private static Future<Map<String, Set<String>>> queryAllPerms(Context vertxContext, String tenantId) {
-    Future<Map<String, Set<String>>> future = Future.future();
-    String query = String.format(QUERY_PERMS, tenantId.toLowerCase());
-    PostgresClient pc = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    Map<String, Set<String>> perms = new HashMap<>();
-    pc.select(query, reply -> {
-      if (reply.succeeded()) {
-        reply.result().getRows().forEach(jo -> {
-          String pname = jo.getString(PERMS_PNAME);
-          String psub = jo.getString(PERMS_PSUB);
-          Set<String> subs = new HashSet<>();
-          if (psub != null && !psub.trim().isEmpty()) {
-            new JsonArray(psub).forEach(e -> subs.add(e.toString()));
-          }
-          perms.put(pname, subs);
-        });
-        future.complete(perms);
+    getPermCache(vertxContext, tenantId).setHandler(ar -> {
+      if (ar.succeeded()) {
+        future.complete(ar.result().expandPerms(perms));
       } else {
-        future.fail(reply.cause());
+        future.fail(ar.cause());
       }
     });
     return future;
   }
 
   /**
-   * Simple class about permissions cache object.
+   * Return full {@link Permission} object for given permission name.
    *
-   * @author hji
-   *
+   * @param permissionName
+   * @param vertxContext
+   * @param tenantId
+   * @return
+   */
+  public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
+    Future<Permission> future = Future.future();
+    getPermCache(vertxContext, tenantId).setHandler(ar -> {
+      if (ar.succeeded()) {
+        future.complete(ar.result().getFullPerm(permissionName));
+      } else {
+        future.fail(ar.cause());
+      }
+    });
+    return future;
+  }
+
+  private static Future<PermCache> getPermCache(Context vertxContext, String tenantId) {
+    PermCache permCache = CACHE.get(tenantId);
+    if (permCache == null) {
+      LOGGER.debug("Populate perms cache for tenant " + tenantId);
+      return refreshCache(vertxContext, tenantId);
+    }
+    if (permCache.isStale() && !CACHE_WIP.containsKey(tenantId)) {
+      CACHE_WIP.put(tenantId, vertxContext.owner().setTimer(1, v -> {
+        LOGGER.debug("Refresh perms cache for tenant " + tenantId);
+        refreshCache(vertxContext, tenantId);
+      }));
+    }
+    return Future.succeededFuture(permCache);
+  }
+
+  private static Future<PermCache> refreshCache(Context vertxContext, String tenantId) {
+    Future<PermCache> future = Future.future();
+    PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TAB_PERMS, Permission.class, new Criterion(), false,
+        false, reply -> {
+          if (reply.failed()) {
+            future.fail("postgres client 'get' " + TAB_PERMS + " failed: " + reply.cause().getLocalizedMessage());
+          } else {
+            List<Permission> perms = reply.result().getResults();
+            Map<String, Set<String>> subPermMap = new HashMap<>();
+            Map<String, Permission> fullPermMap = new HashMap<>();
+            PermCache pc = new PermCache(subPermMap, fullPermMap);
+            for (Permission perm : perms) {
+              fullPermMap.put(perm.getPermissionName(), perm);
+              Set<String> subs = new HashSet<>();
+              if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
+                perm.getSubPermissions().forEach(e -> subs.add(e.toString()));
+              }
+              subPermMap.put(perm.getPermissionName(), subs);
+            }
+            CACHE.put(tenantId, pc);
+            LOGGER.debug("Finished perms cache for tenant " + tenantId);
+            future.complete(pc);
+          }
+          CACHE_WIP.remove(tenantId);
+        });
+    return future;
+  }
+
+  /**
+   * Simple perm cache object.
    */
   public static class PermCache {
 
     private long timestamp = System.currentTimeMillis();
     private Map<String, Set<String>> subPermMap = new HashMap<>();
+    private Map<String, Permission> fullPermMap = new HashMap<>();
 
-    public PermCache(Map<String, Set<String>> subPermMap) {
+    public PermCache(Map<String, Set<String>> subPermMap, Map<String, Permission> fullPermMap) {
       this.subPermMap = subPermMap;
+      this.fullPermMap = fullPermMap;
     }
 
     @Override
     public String toString() {
-      return "PermCache [timestamp=" + timestamp + ", subPermMap=" + subPermMap + "]";
+      return "PermCache [timestamp=" + timestamp + ", subPermMap=" + subPermMap + ", fullPermMap=" + fullPermMap + "]";
     }
 
     public boolean isStale() {
       return System.currentTimeMillis() > (timestamp + CACHE_PERIOD);
+    }
+
+    public Permission getFullPerm(String permName) {
+      return fullPermMap.get(permName);
     }
 
     public List<String> expandPerms(List<String> perms) {

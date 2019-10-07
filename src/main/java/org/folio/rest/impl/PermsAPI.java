@@ -1705,6 +1705,13 @@ public class PermsAPI implements Perms {
     Context vertxContext, String tenantId) {
     Future<Permission> future = Future.future();
     logger.debug("Getting full permissions for " + permissionName);
+
+    // use cache by default unless set to false explicitly
+    Boolean usePermsCache = vertxContext.config().getBoolean(PermsCache.CACHE_HEADER);
+    if (usePermsCache == null || usePermsCache) {
+      return PermsCache.getFullPerms(permissionName, vertxContext, tenantId);
+    }
+
     try {
       vertxContext.runOnContext(v -> {
         Criteria nameCrit = new Criteria();
