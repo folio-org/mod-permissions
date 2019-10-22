@@ -14,7 +14,7 @@
         {
           "methods": [ "GET" ],
           "pathPattern": "/perms/users*",
-          "permissionsDesired": [ "perms.users.get" ]
+          "permissionsRequired": [ "perms.users.get" ]
         },
         {
           "methods": [ "PUT" ],
