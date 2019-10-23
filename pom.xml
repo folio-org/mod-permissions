@@ -32,13 +32,13 @@
     <dependency>
       <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-      <version>26.2.2</version>
+      <version>27.1.2</version>
     </dependency>
     
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-unit</artifactId>
-      <version>3.5.4</version>
+      <version>3.8.1</version>
       <scope>test</scope>
       <type>jar</type>
     </dependency>
