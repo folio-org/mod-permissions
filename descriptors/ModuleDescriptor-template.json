@@ -157,10 +157,6 @@
     }
 
   ],
-  "metadata": {
-    "containerMemory": "512",
-    "databaseConnection": "true"
-  },
   "launchDescriptor": {
     "dockerImage": "${artifactId}:${version}",
     "dockerPull": false,
