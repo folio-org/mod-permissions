@@ -1,7 +1,7 @@
 ## 2019-12-06 v5.9.0
 
  * MODPERMS-72 Use JVM features to manage container memory
- * MODPERMS_68 Fix user permissions can be accessed w/o being logged in
+ * MODPERMS-68 Fix user permissions can be accessed w/o being logged in
 
 ## 2019-10-07 v5.8.3
 
