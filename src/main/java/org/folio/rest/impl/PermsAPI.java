@@ -1869,6 +1869,10 @@ public class PermsAPI implements Perms {
       List<Object> newSubPerms = new ArrayList<>();
       List<Future> futureList = new ArrayList<>();
       for (Object o : subPerms) {
+        if (o instanceof Permission) {
+          futureList.add(Future.succeededFuture(o));
+          continue;
+        }
         Future<Permission> subPermFuture = getFullPermissions((String) o, vertxContext, tenantId);
         futureList.add(subPermFuture);
       }
@@ -1878,13 +1882,26 @@ public class PermsAPI implements Perms {
           logger.error("Failed to expand subpermissions for '" + permission.getPermissionName() + "' : " + compositeResult.cause().getLocalizedMessage());
           future.fail(compositeResult.cause().getLocalizedMessage());
         } else {
+          List<Future> futureList2 = new ArrayList<>();
           for (Future f : futureList) {
             if (f.result() != null) {
-              newSubPerms.add(f.result());
+              Future<Permission> subPermFuture2 = expandSubPermissions((Permission) f.result(), vertxContext, tenantId);
+              futureList2.add(subPermFuture2);
             }
           }
-          permission.setSubPermissions(newSubPerms);
-          future.complete(permission);
+          CompositeFuture compositeFuture2 = CompositeFuture.join(futureList2);
+          compositeFuture2.setHandler(compositeResult2 -> {
+            if (compositeResult2.failed()) {
+              logger.error("Failed to expand subpermissions recursively for '" + permission.getPermissionName() + "' : " + compositeResult2.cause().getLocalizedMessage());
+              future.fail(compositeResult2.cause().getLocalizedMessage());
+            } else {
+              for (Future f : futureList2) {
+                newSubPerms.add(f.result());
+              }
+              permission.setSubPermissions(newSubPerms);
+              future.complete(permission);
+            }
+          });
         }
       });
     }
