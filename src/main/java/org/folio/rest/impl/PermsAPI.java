@@ -47,6 +47,7 @@ import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
  *
  * @author kurt
  */
+@SuppressWarnings("java:S3740")
 public class PermsAPI implements Perms {
 
   public enum Operation {
@@ -1285,7 +1286,7 @@ public class PermsAPI implements Perms {
     }
   }
 
-  @SuppressWarnings({"java:S3776", "java:S3740"})
+  @SuppressWarnings("java:S3776")
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
     int length, int start, String sortBy, String query, String memberOf,
