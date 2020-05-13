@@ -31,6 +31,7 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -1285,7 +1286,7 @@ public class PermsAPI implements Perms {
   }
 
   @Override
-  public void getPermsPermissions(String expandSubs, String includeDummy,
+  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
     int length, int start, String sortBy, String query, String memberOf,
     String ownedBy, Map<String, String> okapiHeaders,
     Handler<AsyncResult<Response>> asyncResultHandler,
@@ -1333,6 +1334,22 @@ public class PermsAPI implements Perms {
                     Future<Permission> permFuture;
                     if (expandSubs != null && expandSubs.equals("true")) {
                       permFuture = expandSubPermissions(permission, vertxContext, tenantId);
+                    } else if ("true".equals(expanded)) {
+                      Promise<Permission> promise = Promise.promise();
+                      permFuture = promise.future();
+                      List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
+                      permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
+                      Future<List<String>> expandedSubPerms = PermsCache.expandPerms(subperms, vertxContext, tenantId);
+                      expandedSubPerms.setHandler(ar -> {
+                        if (ar.succeeded()) {
+                          List<Object> list = new ArrayList<>(ar.result().size());
+                          ar.result().forEach(list::add);
+                          permission.setSubPermissions(list);
+                          promise.complete(permission);
+                        } else {
+                          promise.fail(ar.cause());
+                        }
+                      });
                     } else {
                       permFuture = Future.succeededFuture(permission);
                     }
