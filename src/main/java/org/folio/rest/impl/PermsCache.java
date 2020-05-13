@@ -31,6 +31,8 @@ public class PermsCache {
 
   public static final String CACHE_HEADER = "use.perms.cache";
 
+  public static final String TEST_EXCEPTION_PERMISSION = "a.test.permission.to.trigger.exception";
+
   // 30 seconds cache
   private static final long CACHE_PERIOD = 30 * 1000L;
 
@@ -54,6 +56,9 @@ public class PermsCache {
    * @return
    */
   public static Future<List<String>> expandPerms(List<String> perms, Context vertxContext, String tenantId) {
+    if (perms.contains(TEST_EXCEPTION_PERMISSION)) {
+      return Future.failedFuture(new RuntimeException(TEST_EXCEPTION_PERMISSION));
+    }
     Future<List<String>> future = Future.future();
     getPermCache(vertxContext, tenantId, new HashSet<String>(perms)).setHandler(ar -> {
       if (ar.succeeded()) {

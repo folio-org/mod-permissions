@@ -1285,6 +1285,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @SuppressWarnings({"java:S3776", "java:S3740"})
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
     int length, int start, String sortBy, String query, String memberOf,
