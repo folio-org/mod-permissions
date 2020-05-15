@@ -1,6 +1,7 @@
 package org.folio.rest.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +31,8 @@ public class PermsCache {
 
   public static final String CACHE_HEADER = "use.perms.cache";
 
+  public static final String TEST_EXCEPTION_PERMISSION = "a.test.permission.to.trigger.exception";
+
   // 30 seconds cache
   private static final long CACHE_PERIOD = 30 * 1000L;
 
@@ -53,8 +56,11 @@ public class PermsCache {
    * @return
    */
   public static Future<List<String>> expandPerms(List<String> perms, Context vertxContext, String tenantId) {
+    if (perms.contains(TEST_EXCEPTION_PERMISSION)) {
+      return Future.failedFuture(new RuntimeException(TEST_EXCEPTION_PERMISSION));
+    }
     Future<List<String>> future = Future.future();
-    getPermCache(vertxContext, tenantId).setHandler(ar -> {
+    getPermCache(vertxContext, tenantId, new HashSet<String>(perms)).setHandler(ar -> {
       if (ar.succeeded()) {
         future.complete(ar.result().expandPerms(perms));
       } else {
@@ -74,7 +80,7 @@ public class PermsCache {
    */
   public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
     Future<Permission> future = Future.future();
-    getPermCache(vertxContext, tenantId).setHandler(ar -> {
+    getPermCache(vertxContext, tenantId, new HashSet<String>(Arrays.asList(permissionName))).setHandler(ar -> {
       if (ar.succeeded()) {
         future.complete(ar.result().getFullPerm(permissionName));
       } else {
@@ -84,9 +90,9 @@ public class PermsCache {
     return future;
   }
 
-  private static Future<PermCache> getPermCache(Context vertxContext, String tenantId) {
+  private static Future<PermCache> getPermCache(Context vertxContext, String tenantId, Set<String> perms) {
     PermCache permCache = CACHE.get(tenantId);
-    if (permCache == null) {
+    if (permCache == null || !permCache.hasAll(perms)) {
       LOGGER.debug("Populate perms cache for tenant " + tenantId);
       return refreshCache(vertxContext, tenantId);
     }
@@ -148,6 +154,10 @@ public class PermsCache {
 
     public boolean isStale() {
       return System.currentTimeMillis() > (timestamp + CACHE_PERIOD);
+    }
+
+    public boolean hasAll(Set<String> perms) {
+      return fullPermMap.keySet().containsAll(perms);
     }
 
     public Permission getFullPerm(String permName) {

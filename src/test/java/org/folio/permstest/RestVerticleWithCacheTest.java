@@ -100,7 +100,7 @@ public class RestVerticleWithCacheTest {
     }).compose(w -> {
       return sendPermissionSet(context, true);
     }).compose(w -> {
-      return testSubPermExpansion(context, Arrays.asList(P_READ, P_WRITE));
+      return testSubPermExpansion(context, Arrays.asList(P_READ, P_WRITE, P_DELETE));
     }).compose(w -> {
       return postPermUser(context, userId1);
     }).compose(w -> {

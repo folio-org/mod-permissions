@@ -20,6 +20,7 @@ import org.junit.runner.RunWith;
 import io.vertx.core.Future;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.CaseInsensitiveHeaders;
@@ -36,9 +37,12 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.Parameter;
@@ -166,6 +170,14 @@ public class RestVerticleTest {
       return testPermUserMetadata(context);
     }).compose(w -> {
       return testPermMetadata(context);
+    }).compose(w -> {
+      return sendNestedSubPerms(context);
+    }).compose(w -> {
+      return testNestedSubPermExpansion(context);
+    }).compose(w -> {
+      return sendNestedSubPermsWithException(context);
+    }).compose(w -> {
+      return testNestedSubPermExpansionWithExceptions(context);
     });
 
     startFuture.setHandler(res -> {
@@ -1422,7 +1434,113 @@ public class RestVerticleTest {
     });
     return future;
   }
-  
+
+  private Future<WrappedResponse> sendNestedSubPerms(TestContext context) {
+    Promise<WrappedResponse> promise = Promise.promise();
+    JsonObject permissionSet = new JsonObject()
+     .put("moduleId","dummy")
+     .put("perms", new JsonArray()
+       .add(new JsonObject()
+         .put("permissionName", "test.a")
+         .put("subPermissions", new JsonArray()
+             .add("test.b")
+           )
+       )
+       .add(new JsonObject()
+         .put("permissionName", "test.b")
+         .put("subPermissions", new JsonArray()
+           .add("test.c")
+         )
+       )
+       .add(new JsonObject()
+           .put("permissionName", "test.c")
+           .put("subPermissions", new JsonArray()
+             .add("test.d")
+           )
+         )
+     );
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    headers.add("accept", "application/json,text/plain");
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
+            HttpMethod.POST, headers, permissionSet.encode(), 201).setHandler(res -> {
+      if(res.failed()) {
+        promise.fail(res.cause());
+      } else {
+        promise.complete(res.result());
+      }
+    });
+    return promise.future();
+  }
+
+  private Future<WrappedResponse> testNestedSubPermExpansion(TestContext context) {
+    Set<String> perms = new HashSet<>(Arrays.asList("test.b", "test.c", "test.d"));
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
+    Promise<WrappedResponse> promise = Promise.promise();
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.a)",
+        GET, headers, null, 200).setHandler(res -> {
+          try {
+            if (res.failed()) {
+              promise.fail(res.cause());
+            } else {
+              JsonArray subPermList = res.result().getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions");
+              Set<String> set = new HashSet<>();
+              subPermList.forEach(subPerm -> set.add(subPerm.toString()));
+              if (set.containsAll(perms) && set.size() == perms.size()) {
+                promise.complete(res.result());
+              } else {
+                promise.fail("SubPermList does not match " + perms + " ( "
+                    + res.result().getBody() + " )");
+              }
+            }
+          } catch (Exception e) {
+            promise.fail(e);
+          }
+        });
+
+    return promise.future();
+  }
+
+  private Future<WrappedResponse> sendNestedSubPermsWithException(TestContext context) {
+    Promise<WrappedResponse> promise = Promise.promise();
+    JsonObject permissionSet = new JsonObject()
+     .put("moduleId","dummy")
+     .put("perms", new JsonArray()
+       .add(new JsonObject()
+         .put("permissionName", "test.aa")
+         .put("subPermissions", new JsonArray()
+             .add(PermsCache.TEST_EXCEPTION_PERMISSION)
+           )
+       )
+     );
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    headers.add("accept", "application/json,text/plain");
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
+            HttpMethod.POST, headers, permissionSet.encode(), 201).setHandler(res -> {
+      if(res.failed()) {
+        promise.fail(res.cause());
+      } else {
+        promise.complete(res.result());
+      }
+    });
+    return promise.future();
+  }
+
+  private Future<WrappedResponse> testNestedSubPermExpansionWithExceptions(TestContext context) {
+    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
+    Promise<WrappedResponse> promise = Promise.promise();
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.aa)",
+        GET, headers, null, 200).setHandler(res -> {
+          if (res.failed()) {
+            promise.complete();
+          } else {
+            promise.fail("Should throw exception due to use of special exception: " + PermsCache.TEST_EXCEPTION_PERMISSION);
+          }
+        });
+    return promise.future();
+  }
+
   private static String makeFakeJWT(String username, String id, String tenant) {
    JsonObject header = new JsonObject()
            .put("alg", "HS512");
