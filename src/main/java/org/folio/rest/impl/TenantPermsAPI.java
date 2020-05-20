@@ -9,7 +9,6 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.sql.SQLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -28,6 +27,7 @@ import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 
@@ -210,7 +210,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     });
   }
 
-  /* 
+  /*
     Given a list of permission names, return a list of any that do not currently
     exist
    */
@@ -514,7 +514,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<Void> deletePerm(AsyncResult<SQLConnection> connection, String permName,
-    Context vertxContext, String tenantId) {
+                                  Context vertxContext, String tenantId) {
     Future<Void> future = Future.future();
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
