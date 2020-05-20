@@ -21,6 +21,7 @@ import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.messages.Messages;
 import org.folio.rest.tools.utils.TenantTool;
@@ -36,7 +37,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.sql.SQLConnection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -559,7 +559,7 @@ public class PermsAPI implements Perms {
                                         getErrorResponse(errStr))));
                                   });
                                 } else {
-                                  if (deleteReply.result().getUpdated() == 0) {
+                                  if (deleteReply.result().rowCount() == 0) {
                                     pgClient.rollbackTx(connection, rollback -> {
                                       asyncResultHandler.handle(Future.succeededFuture(
                                         DeletePermsUsersByIdResponse.respond404WithTextPlain(
@@ -1256,7 +1256,7 @@ public class PermsAPI implements Perms {
                           logger.error("deleteReply failed: " + deleteReply.cause().getLocalizedMessage());
                           asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond500WithTextPlain("Internal server error")));
                         } else {
-                          if (deleteReply.result().getUpdated() == 0) {
+                          if (deleteReply.result().rowCount() == 0) {
                             asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond404WithTextPlain("Not found")));
                           } else {
                             asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond204WithTextPlain("")));
@@ -1911,13 +1911,13 @@ public class PermsAPI implements Perms {
     return future;
   }
 
-  /* If we are modifying a permissions user or creating a new one, we need to 
-  check for any changes to the permissions list. For any changes, we need to 
+  /* If we are modifying a permissions user or creating a new one, we need to
+  check for any changes to the permissions list. For any changes, we need to
   add or delete from the permission's "grantedTo" field
    */
   protected static Future<Void> updateUserPermissions(AsyncResult<SQLConnection> connection, String permUserId,
-    JsonArray originalList, JsonArray newList, Context vertxContext,
-    String tenantId, Logger logger) {
+                                                      JsonArray originalList, JsonArray newList, Context vertxContext,
+                                                      String tenantId, Logger logger) {
     Future<Void> future = Future.future();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
