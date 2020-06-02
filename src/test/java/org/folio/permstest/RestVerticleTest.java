@@ -1,10 +1,38 @@
 package org.folio.permstest;
 
+import io.vertx.core.Future;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.CaseInsensitiveHeaders;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonArray;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.net.HttpURLConnection;
 import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+import org.folio.permstest.TestUtil.WrappedResponse;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.PermsCache;
@@ -17,36 +45,10 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
-import io.vertx.core.Future;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Handler;
-import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.CaseInsensitiveHeaders;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
-import io.vertx.core.http.HttpMethod;
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
 import static io.vertx.core.http.HttpMethod.PUT;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.json.JsonArray;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import org.folio.permstest.TestUtil.WrappedResponse;
-import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.TenantAttributes;
+
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -189,8 +191,42 @@ public class RestVerticleTest {
     });  
    }
 
- @Test
- public void testGroup(TestContext context){
+  @Test
+  public void testPermsUsersPermissionsInvalidUUID(TestContext context)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/users/123/permissions";
+
+    CompletableFuture<Response> response = new CompletableFuture();
+    send(url, context, HttpMethod.POST, postPermUserPermRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, 400,  new HTTPResponseHandler(response));
+    Response addPermsResponse = response.get(5, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void testPermsUsersPutInvalidUUID(TestContext context)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/users/123";
+
+    CompletableFuture<Response> response = new CompletableFuture();
+    send(url, context, HttpMethod.PUT, postPermUsersRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, 400,  new HTTPResponseHandler(response));
+    Response addPermsResponse = response.get(5, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void testPermsUsersDeleteInvalidUUID(TestContext context)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/users/123";
+
+    CompletableFuture<Response> response = new CompletableFuture();
+    send(url, context, HttpMethod.DELETE, "",
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, 400,  new HTTPResponseHandler(response));
+    Response addPermsResponse = response.get(5, TimeUnit.SECONDS);
+  }
+
+
+  @Test
+  public void testGroup(TestContext context){
    String url = "http://localhost:"+port+"/perms/users";
    
    String permUrl = "http://localhost:"+port+"/perms/permissions";
