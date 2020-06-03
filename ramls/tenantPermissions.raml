@@ -16,16 +16,6 @@ traits:
   validate: !include raml-util/traits/validation.raml
 
 /_/tenantpermissions:
-  get:
-    description: Dummy get endpoint
-    body:
-      text/plain:
-        example: "Blah"
-    responses:
-      200:
-        body:
-          text/plain:
-            example: "Blah"
   post:
     description: "Load new permissionSets into the permission module when a module gets enabled for a tenant"
     is: [validate]
