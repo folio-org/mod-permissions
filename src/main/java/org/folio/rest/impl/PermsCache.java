@@ -60,7 +60,7 @@ public class PermsCache {
       return Future.failedFuture(new RuntimeException(TEST_EXCEPTION_PERMISSION));
     }
     Future<List<String>> future = Future.future();
-    getPermCache(vertxContext, tenantId, new HashSet<String>(perms)).setHandler(ar -> {
+    getPermCache(vertxContext, tenantId, new HashSet<String>(perms)).onComplete(ar -> {
       if (ar.succeeded()) {
         future.complete(ar.result().expandPerms(perms));
       } else {
@@ -80,7 +80,7 @@ public class PermsCache {
    */
   public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
     Future<Permission> future = Future.future();
-    getPermCache(vertxContext, tenantId, new HashSet<String>(Arrays.asList(permissionName))).setHandler(ar -> {
+    getPermCache(vertxContext, tenantId, new HashSet<String>(Arrays.asList(permissionName))).onComplete(ar -> {
       if (ar.succeeded()) {
         future.complete(ar.result().getFullPerm(permissionName));
       } else {

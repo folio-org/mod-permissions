@@ -256,7 +256,7 @@ public class PermsAPI implements Perms {
                           try {
                             updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
                               new JsonArray(permUser.getPermissions()), vertxContext,
-                              tenantId, logger).setHandler(updatePermsRes -> {
+                              tenantId, logger).onComplete(updatePermsRes -> {
                                 if (updatePermsRes.failed()) {
                                   postgresClient.rollbackTx(beginTx, rollbackTx -> {
                                     logger.error("Error updating derived fields: " + updatePermsRes.cause());
@@ -378,7 +378,7 @@ public class PermsAPI implements Perms {
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(
         OKAPI_TENANT_HEADER));
       checkPermlistForDummy(entity.getPermissions(), vertxContext, tenantId)
-        .setHandler(cpfdRes -> {
+        .onComplete(cpfdRes -> {
           if (cpfdRes.failed()) {
             String errStr = cpfdRes.cause().getLocalizedMessage();
             logger.error(errStr, cpfdRes.cause());
@@ -437,7 +437,7 @@ public class PermsAPI implements Perms {
                                   updateUserPermissions(connection, userid,
                                     new JsonArray(originalUser.getPermissions()),
                                     new JsonArray(entity.getPermissions()),
-                                    vertxContext, tenantId, logger).setHandler(updateUserPermsRes -> {
+                                    vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
                                       if (updateUserPermsRes.failed()) {
                                         pgClient.rollbackTx(connection, done -> {
                                           if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
@@ -536,7 +536,7 @@ public class PermsAPI implements Perms {
                     try {
                       updateUserPermissions(connection, userid,
                         new JsonArray(permUser.getPermissions()), new JsonArray(),
-                        vertxContext, tenantId, logger).setHandler(updateUserPermsRes -> {
+                        vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
                           if (updateUserPermsRes.failed()) {
                             pgClient.rollbackTx(connection, rollback -> {
                               String errStr = String.format("Error updating metadata: %s",
@@ -631,7 +631,7 @@ public class PermsAPI implements Perms {
         Future<PermissionNameListObject> pnloFuture = this.getPermissionsForUser(
           id, expandedBool, fullBool, indexField, tenantId, vertxContext);
 
-        pnloFuture.setHandler(res -> {
+        pnloFuture.onComplete(res -> {
           if (res.failed()) {
             String errStr = "Error from get reply: " + res.cause()
               .getLocalizedMessage();
@@ -704,7 +704,7 @@ public class PermsAPI implements Perms {
                               + permissionName))));
                     } else {
                       retrievePermissionByName(permissionName, vertxContext, tenantId)
-                        .setHandler(rpbnRes -> {
+                        .onComplete(rpbnRes -> {
                           if (rpbnRes.failed()) {
                             String errStr = String.format("Error attempting to update user: %s",
                               rpbnRes.cause().getLocalizedMessage());
@@ -750,7 +750,7 @@ public class PermsAPI implements Perms {
                                       //update metadata
                                       updateUserPermissions(connection, actualId, originalPermissions,
                                         new JsonArray(user.getPermissions()), vertxContext,
-                                        tenantId, logger).setHandler(updateUserPermsRes -> {
+                                        tenantId, logger).onComplete(updateUserPermsRes -> {
                                           if (updateUserPermsRes.failed()) {
                                             //rollback
                                             pgClient.rollbackTx(connection, rollback -> {
@@ -865,7 +865,7 @@ public class PermsAPI implements Perms {
                             } else {
                               updateUserPermissions(connection, user.getId(), originalPermissions,
                                 new JsonArray(user.getPermissions()), vertxContext,
-                                tenantId, logger).setHandler(updateUserPermsRes -> {
+                                tenantId, logger).onComplete(updateUserPermsRes -> {
                                   if (updateUserPermsRes.failed()) {
                                     pgClient.rollbackTx(connection, rollback -> {
                                       String errStr = String.format(
@@ -961,7 +961,7 @@ public class PermsAPI implements Perms {
                         } else {
                           updateSubPermissions(connection, entity.getPermissionName(), new JsonArray(),
                             new JsonArray(entity.getSubPermissions()), vertxContext,
-                            tenantId, logger).setHandler(updateSubPermsRes -> {
+                            tenantId, logger).onComplete(updateSubPermsRes -> {
                               if (updateSubPermsRes.failed()) {
                                 postgresClient.rollbackTx(connection, done -> {
                                   asyncResultHandler.handle(Future.succeededFuture(
@@ -1112,7 +1112,7 @@ public class PermsAPI implements Perms {
                               new JsonArray(perm.getSubPermissions()),
                               new JsonArray(entity.getSubPermissions()),
                               vertxContext, tenantId, logger)
-                              .setHandler(updateSubPermsRes -> {
+                              .onComplete(updateSubPermsRes -> {
                                 if (updateSubPermsRes.failed()) {
                                   pgClient.rollbackTx(connection, done -> {
                                     if (updateSubPermsRes.cause() instanceof InvalidPermissionsException) {
@@ -1201,7 +1201,7 @@ public class PermsAPI implements Perms {
                         userIdList.add((String) ob);
                       }
                       removePermissionFromUserList(connection, perm.getPermissionName(),
-                        userIdList, vertxContext, tenantId).setHandler(rpfulRes -> {
+                        userIdList, vertxContext, tenantId).onComplete(rpfulRes -> {
                           if (rpfulRes.failed()) {
                             //rollback
                             pgClient.rollbackTx(connection, rollback -> {
@@ -1214,7 +1214,7 @@ public class PermsAPI implements Perms {
                           } else {
                             removeSubpermissionFromPermissionList(connection,
                               perm.getPermissionName(), parentPermissionList,
-                              vertxContext, tenantId).setHandler(rsfplRes -> {
+                              vertxContext, tenantId).onComplete(rsfplRes -> {
                                 if (rsfplRes.failed()) {
                                   pgClient.rollbackTx(connection, rollback -> {
                                     String errStr = rsfplRes.cause().getLocalizedMessage();
@@ -1342,7 +1342,7 @@ public class PermsAPI implements Perms {
                       List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
                       permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
                       Future<List<String>> expandedSubPerms = PermsCache.expandPerms(subperms, vertxContext, tenantId);
-                      expandedSubPerms.setHandler(ar -> {
+                      expandedSubPerms.onComplete(ar -> {
                         if (ar.succeeded()) {
                           List<Object> list = new ArrayList<>(ar.result().size());
                           ar.result().forEach(list::add);
@@ -1358,7 +1358,7 @@ public class PermsAPI implements Perms {
                     futureList.add(permFuture);
                   }
                   CompositeFuture compositeFuture = CompositeFuture.join(futureList);
-                  compositeFuture.setHandler(compositeResult -> {
+                  compositeFuture.onComplete(compositeResult -> {
                     if (compositeFuture.failed()) {
                       logger.error("Error expanding permissions: " + compositeFuture.cause().getLocalizedMessage());
                       asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond500WithTextPlain("Error getting expanded permissions: " + compositeResult.cause().getLocalizedMessage())));
@@ -1458,7 +1458,7 @@ public class PermsAPI implements Perms {
     permissionListCopy.remove(0); //pop
     checkPermissionExistsFuture = checkPermissionExists(connection,
       permissionName, vertxContext, tenantId);
-    checkPermissionExistsFuture.setHandler(res -> {
+    checkPermissionExistsFuture.onComplete(res -> {
       if (res.failed()) {
         future.fail(res.cause());
       } else {
@@ -1497,7 +1497,7 @@ public class PermsAPI implements Perms {
     List<String> permissionList = listOfListsCopy.get(0);
     listOfListsCopy.remove(0); //pop
     getExpandedPermissionsSequential(permissionList, vertxContext, tenantId)
-      .setHandler(gepsRes -> {
+      .onComplete(gepsRes -> {
         if (gepsRes.failed()) {
           future.fail(gepsRes.cause());
         } else {
@@ -1568,7 +1568,7 @@ public class PermsAPI implements Perms {
               listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
                 tenantId, foundPermNameList);
             }
-            listFuture.setHandler(gaepsRes -> {
+            listFuture.onComplete(gaepsRes -> {
               if (gaepsRes.failed()) {
                 future.fail(gaepsRes.cause());
               } else {
@@ -1618,7 +1618,7 @@ public class PermsAPI implements Perms {
           vertxContext, tenantId));
       }
       CompositeFuture compositefuture = CompositeFuture.all(futureList);
-      compositefuture.setHandler(res -> {
+      compositefuture.onComplete(res -> {
         if (res.failed()) {
           future.fail(res.cause());
         } else {
@@ -1666,7 +1666,7 @@ public class PermsAPI implements Perms {
             }
             Future<List<String>> subFuture = getAllExpandedPermissions(allSubpermList,
               vertxContext, tenantId);
-            subFuture.setHandler(res -> {
+            subFuture.onComplete(res -> {
               if (res.failed()) {
                 future.fail(res.cause());
               } else {
@@ -1701,7 +1701,7 @@ public class PermsAPI implements Perms {
       futureList.add(permissionFuture);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(futureList);
-    compositeFuture.setHandler(res -> {
+    compositeFuture.onComplete(res -> {
       if (res.failed()) {
         future.fail(res.cause());
       } else {
@@ -1806,7 +1806,7 @@ public class PermsAPI implements Perms {
                 interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
                   vertxContext, tenantId, null);
               }
-              interimFuture.setHandler(res -> {
+              interimFuture.onComplete(res -> {
                 if (res.failed()) {
                   future.fail(res.cause());
                 } else {
@@ -1820,7 +1820,7 @@ public class PermsAPI implements Perms {
                     pnlo.setTotalRecords(res.result().size());
                     future.complete(pnlo);
                   } else {
-                    getAllFullPermissions(res.result(), vertxContext, tenantId).setHandler(res2 -> {
+                    getAllFullPermissions(res.result(), vertxContext, tenantId).onComplete(res2 -> {
                       if (res2.failed()) {
                         future.fail(res2.cause());
                       } else {
@@ -1892,7 +1892,7 @@ public class PermsAPI implements Perms {
         futureList.add(subPermFuture);
       }
       CompositeFuture compositeFuture = CompositeFuture.join(futureList);
-      compositeFuture.setHandler(compositeResult -> {
+      compositeFuture.onComplete(compositeResult -> {
         if (compositeResult.failed()) {
           logger.error("Failed to expand subpermissions for '" + permission.getPermissionName() + "' : " + compositeResult.cause().getLocalizedMessage());
           future.fail(compositeResult.cause().getLocalizedMessage());
@@ -1939,7 +1939,7 @@ public class PermsAPI implements Perms {
     Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
       connection, missingFromOriginalList.getList(), vertxContext,
       tenantId, null);
-    checkExistsFuture.setHandler(checkExistsRes -> {
+    checkExistsFuture.onComplete(checkExistsRes -> {
       if (checkExistsFuture.failed()) {
         future.fail(checkExistsFuture.cause());
       } else if (!checkExistsFuture.result().isEmpty()) {
@@ -1968,7 +1968,7 @@ public class PermsAPI implements Perms {
           future.complete(); //Nuthin' to do
         } else {
           modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-            tenantId, logger).setHandler(res -> {
+            tenantId, logger).onComplete(res -> {
               if (res.failed()) {
                 future.fail(res.cause());
               } else {
@@ -2011,7 +2011,7 @@ public class PermsAPI implements Perms {
       Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
         connection, missingFromOriginalList.getList(), vertxContext,
         tenantId, null);
-      checkExistsFuture.setHandler(res -> {
+      checkExistsFuture.onComplete(res -> {
         if (res.failed()) {
           future.fail(res.cause());
         } else if (!res.result().isEmpty()) {
@@ -2042,7 +2042,7 @@ public class PermsAPI implements Perms {
             future.complete();
           } else {
             modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-              tenantId, logger).setHandler(res2 -> {
+              tenantId, logger).onComplete(res2 -> {
                 if (res2.failed()) {
                   future.fail(res2.cause());
                 } else {
@@ -2151,7 +2151,7 @@ public class PermsAPI implements Perms {
     Future<Void> modifyPermArrayFieldFuture = modifyPermissionArrayField(connection,
       fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
       fuv.getOperation(), vertxContext, tenantId, logger);
-    modifyPermArrayFieldFuture.setHandler(res -> {
+    modifyPermArrayFieldFuture.onComplete(res -> {
       if (res.failed()) {
         future.fail(res.cause());
       } else {
@@ -2175,7 +2175,7 @@ public class PermsAPI implements Perms {
     String userId = userIdListCopy.get(0);
     userIdListCopy.remove(0);
     removePermissionFromUser(connection, permissionName, userId, vertxContext,
-      tenantId).setHandler(rpfuRes -> {
+      tenantId).onComplete(rpfuRes -> {
         if (rpfuRes.failed()) {
           future.fail(rpfuRes.cause());
         } else {
@@ -2245,7 +2245,7 @@ public class PermsAPI implements Perms {
     permissionNameListCopy.remove(0);
     Future future = Future.future();
     removeSubpermissionFromPermission(connection, subpermissionName, permissionName,
-      vertxContext, tenantId).setHandler(rsfpRes -> {
+      vertxContext, tenantId).onComplete(rsfpRes -> {
         if (rsfpRes.failed()) {
           future.fail(rsfpRes.cause());
         } else {
@@ -2337,7 +2337,7 @@ public class PermsAPI implements Perms {
     List<Object> permListCopy = new ArrayList<>(permList);
     String permissionName = (String) permListCopy.get(0);
     permListCopy.remove(0);
-    retrievePermissionByName(permissionName, vertxContext, tenantId).setHandler(
+    retrievePermissionByName(permissionName, vertxContext, tenantId).onComplete(
       rpbnRes -> {
         if (rpbnRes.failed()) {
           future.fail(rpbnRes.cause());

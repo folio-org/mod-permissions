@@ -61,7 +61,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.respond201WithApplicationJson(entity)));
         } else {
           //should we duplicate the list first?
-          savePermList(entity.getPerms(), vertxContext, tenantId).setHandler(savePermsRes -> {
+          savePermList(entity.getPerms(), vertxContext, tenantId).onComplete(savePermsRes -> {
             if (savePermsRes.failed()) {
               String err = savePermsRes.cause().getLocalizedMessage();
               logger.error(err, savePermsRes.cause());
@@ -94,7 +94,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     }
     List<Perm> permListCopy = new ArrayList<>(permList);
     checkAnyPermsHaveAllSubs(permListCopy, vertxContext, tenantId)
-      .setHandler(checkRes -> {
+      .onComplete(checkRes -> {
         if (checkRes.failed()) {
           future.fail(checkRes.cause());
         } else {
@@ -104,12 +104,12 @@ public class TenantPermsAPI implements Tenantpermissions {
             report(String.format("Checking to see if we can save permission '%s'",
               perm.getPermissionName()));
             findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId)
-              .setHandler(findMissingSubsRes -> {
+              .onComplete(findMissingSubsRes -> {
                 if (findMissingSubsRes.failed()) {
                   future.fail(findMissingSubsRes.cause());
                 } else {
                   if (findMissingSubsRes.result().isEmpty()) {
-                    savePerm(perm, tenantId, vertxContext).setHandler(savePermRes -> {
+                    savePerm(perm, tenantId, vertxContext).onComplete(savePermRes -> {
                       if (savePermRes.failed()) {
                         future.fail(savePermRes.cause());
                       } else {
@@ -132,7 +132,7 @@ public class TenantPermsAPI implements Tenantpermissions {
               report(String.format("Attempting to create dummies for perm list: %s",
                 getPermListStringRep(permListCopy)));
             }
-            createDummies(permListCopy, vertxContext, tenantId).setHandler(
+            createDummies(permListCopy, vertxContext, tenantId).onComplete(
               createDummiesRes -> {
                 if (createDummiesRes.failed()) {
                   future.fail(createDummiesRes.cause());
@@ -143,7 +143,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                   }
                   //see if we're able to actually create any perms now
                   checkAnyPermsHaveAllSubs(permListCopy, vertxContext, tenantId)
-                    .setHandler(check2res -> {
+                    .onComplete(check2res -> {
                       if (check2res.failed()) {
                         future.fail(check2res.cause());
                       } else {
@@ -179,7 +179,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<Perm> permListCopy = new ArrayList<>(permList);
     Perm perm = permListCopy.get(0);
     permListCopy.remove(0);
-    findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId).setHandler(
+    findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId).onComplete(
       fmsRes -> {
         if (fmsRes.failed()) {
           future.fail(fmsRes.cause());
@@ -217,7 +217,7 @@ public class TenantPermsAPI implements Tenantpermissions {
       futureMap.put(permName, permCheckFuture);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(new ArrayList<>(futureMap.values()));
-    compositeFuture.setHandler(compositeRes -> {
+    compositeFuture.onComplete(compositeRes -> {
       if (compositeRes.failed()) {
         future.fail(compositeRes.cause());
       } else {
@@ -327,7 +327,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                   deleteExistingFuture = deletePerm(connection, perm.getPermissionName(),
                     vertxContext, tenantId);
                 }
-                deleteExistingFuture.setHandler(deleteExistingRes -> {
+                deleteExistingFuture.onComplete(deleteExistingRes -> {
                   if (deleteExistingRes.failed()) {
                     report("Rolling transaction back(savePerm)");
                     pgClient.rollbackTx(connection, rollback -> {
@@ -357,7 +357,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                           } else {
                             PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
                               new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                              vertxContext, tenantId, logger).setHandler(updateSubsRes -> {
+                              vertxContext, tenantId, logger).onComplete(updateSubsRes -> {
                                 if (updateSubsRes.failed()) {
                                   report("Rolling transaction back(savePerm)");
                                   pgClient.rollbackTx(connection, rollback -> {
@@ -428,7 +428,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     report("Starting transaction (createDummies)");
     pgClient.startTx(connection -> {
       makeDummyPermList(connection, externalSubsNeeded, vertxContext, tenantId)
-        .setHandler(makeDummyRes -> {
+        .onComplete(makeDummyRes -> {
           if (makeDummyRes.failed()) {
             report("Rolling back transaction (createDummies)");
             pgClient.rollbackTx(connection, rollback -> {
@@ -454,7 +454,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<String> permListCopy = new ArrayList<>(permList);
     String perm = permListCopy.get(0);
     permListCopy.remove(0);
-    checkPermissionExists(connection, perm, vertxContext, tenantId).setHandler(
+    checkPermissionExists(connection, perm, vertxContext, tenantId).onComplete(
       existsRes -> {
         if (existsRes.failed()) {
           future.fail(existsRes.cause());
@@ -463,7 +463,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             //permission already exists
             future.complete();
           } else {
-            makeDummyPerm(connection, perm, vertxContext, tenantId).setHandler(
+            makeDummyPerm(connection, perm, vertxContext, tenantId).onComplete(
               makeDummyRes -> {
                 if (makeDummyRes.failed()) {
                   future.fail(makeDummyRes.cause());
