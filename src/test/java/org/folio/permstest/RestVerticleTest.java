@@ -3,10 +3,10 @@ package org.folio.permstest;
 import io.vertx.core.Future;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
@@ -840,7 +840,7 @@ public class RestVerticleTest {
           .getJsonObject(2).getJsonArray("subPermissions").add("dummy.delete");
     };
 
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -932,7 +932,7 @@ public class RestVerticleTest {
             )
         );
 
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -974,7 +974,7 @@ public class RestVerticleTest {
             )
         );
 
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -1046,7 +1046,7 @@ public class RestVerticleTest {
             )
         );
 
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -1081,7 +1081,7 @@ public class RestVerticleTest {
             )
         );
 
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -1152,7 +1152,7 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
     Future<WrappedResponse> future = Future.future();
     TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/users/" + permsUserId +
@@ -1182,7 +1182,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> testUserPermsQuery(TestContext context) {
     Future<WrappedResponse> future = Future.future();
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String url;
     try {
       headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
@@ -1224,7 +1224,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> testTenantPermissionVisible(TestContext context) {
     Future<WrappedResponse> future = Future.future();
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String url;
     try {
       headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
@@ -1312,7 +1312,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     String url = "http://localhost:" + port + "/perms/users";
     String url2;
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     JsonObject newUser = new JsonObject()
         .put("username", "sschönberger")
         .put("permissions", new JsonArray());
@@ -1373,7 +1373,7 @@ public class RestVerticleTest {
     JsonObject newUser = new JsonObject()
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray());
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
     headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
     headers.add("X-Okapi-User-Id", fakeUserId);
@@ -1411,7 +1411,7 @@ public class RestVerticleTest {
         .put("permissionName", "testmeta.test")
         .put("description", "a permission to test metadata create")
         .put("displayName", "testmeta test");
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
     headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
     headers.add("X-Okapi-User-Id", fakeUserId);
@@ -1466,7 +1466,7 @@ public class RestVerticleTest {
                 )
             )
         );
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -1481,7 +1481,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> testNestedSubPermExpansion(TestContext context) {
     Set<String> perms = new HashSet<>(Arrays.asList("test.b", "test.c", "test.d"));
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.a)",
@@ -1520,7 +1520,7 @@ public class RestVerticleTest {
                 )
             )
         );
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
@@ -1534,7 +1534,7 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> testNestedSubPermExpansionWithExceptions(TestContext context) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.aa)",

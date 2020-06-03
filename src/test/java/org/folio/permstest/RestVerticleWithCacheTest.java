@@ -1,9 +1,28 @@
 package org.folio.permstest;
 
+import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
+import io.vertx.core.Future;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonArray;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -11,28 +30,8 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
-import io.vertx.core.Future;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.CaseInsensitiveHeaders;
-import io.vertx.core.http.HttpMethod;
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.json.JsonArray;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-
-import org.folio.permstest.TestUtil.WrappedResponse;
-import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.TenantAttributes;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleWithCacheTest {
@@ -113,7 +112,7 @@ public class RestVerticleWithCacheTest {
       return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE, P_DELETE), 2);
     });
 
-    startFuture.setHandler(res -> {
+    startFuture.onComplete(res -> {
       if (res.failed()) {
         context.fail(res.cause());
       } else {
@@ -123,7 +122,7 @@ public class RestVerticleWithCacheTest {
   }
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, boolean more) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject permissionSet = new JsonObject().put("moduleId", "dummy").put("perms",
         new JsonArray()
             .add(new JsonObject().put("permissionName", "dummy.read").put("displayName", "Dummy Read")
@@ -142,100 +141,99 @@ public class RestVerticleWithCacheTest {
     }
     ;
 
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions", HttpMethod.POST, headers,
-        permissionSet.encode(), 201).setHandler(res -> {
+        permissionSet.encode(), 201).onComplete(res -> {
           if (res.failed()) {
-            future.fail(res.cause());
+            promise.fail(res.cause());
           } else {
-            future.complete(res.result());
+            promise.complete(res.result());
           }
         });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> postPermUser(TestContext context, String userId) {
     JsonObject newUser = new JsonObject().put("userId", userId).put("permissions", new JsonArray().add("dummy.all"));
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users", POST, null, newUser.encode(), 201)
-        .setHandler(res -> {
+        .onComplete(res -> {
           if (res.failed()) {
-            future.fail(res.cause());
+            promise.fail(res.cause());
           } else {
-            future.complete(res.result());
+            promise.complete(res.result());
           }
         });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testSubPermExpansion(TestContext context, List<String> perms) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expandSubs=true&query=(permissionName==" + P_ALL + ")",
-        GET, headers, null, 200).setHandler(res -> {
+        GET, headers, null, 200).onComplete(res -> {
           try {
             if (res.failed()) {
-              future.fail(res.cause());
+              promise.fail(res.cause());
             } else {
               JsonArray subPermList = res.result().getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions");
               Set<String> set = new HashSet<>();
               subPermList.forEach(jo -> set.add(((JsonObject)jo).getString("permissionName")));
               if (set.containsAll(perms) && set.size() == perms.size()) {
-                future.complete(res.result());
+                promise.complete(res.result());
               } else {
-                future.fail("SubPermList does not match " + perms + " ( "
+                promise.fail("SubPermList does not match " + perms + " ( "
                     + res.result().getBody() + " )");
               }
             }
           } catch (Exception e) {
-            future.fail(e);
+            promise.fail(e);
           }
         });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testSubPermExpansionAfterWait(TestContext context, List<String> perms, long waitSeconds) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     vertx.setTimer(1000 * waitSeconds, t -> {
-      testSubPermExpansion(context, perms).setHandler(h -> {
-        future.complete(h.result());
+      testSubPermExpansion(context, perms).onComplete(h -> {
+        promise.complete(h.result());
       });
     });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId) {
-    CaseInsensitiveHeaders headers = new CaseInsensitiveHeaders();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/" + permsUserId + "/permissions?expanded=true",
-        GET, headers, null, 200).setHandler(res -> {
+        GET, headers, null, 200).onComplete(res -> {
           try {
             if (res.failed()) {
-              future.fail(res.cause());
+              promise.fail(res.cause());
             } else {
               JsonArray nameList = res.result().getJson().getJsonArray("permissionNames");
               if (nameList == null) {
-                future.fail("Could not find 'permissionNames' in " + res.result().getBody());
+                promise.fail("Could not find 'permissionNames' in " + res.result().getBody());
               } else {
                 if (nameList.contains("dummy.read") && nameList.contains("dummy.write")) {
-                  future.complete(res.result());
+                  promise.complete(res.result());
                 } else {
-                  future.fail("Namelist does not contain 'dummy.read' and 'dummy.write' " + "( "
+                  promise.fail("Namelist does not contain 'dummy.read' and 'dummy.write' " + "( "
                       + res.result().getBody() + " )");
                 }
               }
             }
           } catch (Exception e) {
-            future.fail(e);
+            promise.fail(e);
           }
         });
-
-    return future;
+    return promise.future();
   }
 }

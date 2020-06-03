@@ -1,5 +1,10 @@
 package org.folio.rest.impl;
 
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.Promise;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -9,15 +14,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
-
-import io.vertx.core.Context;
-import io.vertx.core.Future;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 
 /**
  * A simple cache to avoid frequent database calls to permissions table.
@@ -59,15 +58,15 @@ public class PermsCache {
     if (perms.contains(TEST_EXCEPTION_PERMISSION)) {
       return Future.failedFuture(new RuntimeException(TEST_EXCEPTION_PERMISSION));
     }
-    Future<List<String>> future = Future.future();
+    Promise<List<String>> promise = Promise.promise();
     getPermCache(vertxContext, tenantId, new HashSet<String>(perms)).onComplete(ar -> {
       if (ar.succeeded()) {
-        future.complete(ar.result().expandPerms(perms));
+        promise.complete(ar.result().expandPerms(perms));
       } else {
-        future.fail(ar.cause());
+        promise.fail(ar.cause());
       }
     });
-    return future;
+    return promise.future();
   }
 
   /**
@@ -79,15 +78,15 @@ public class PermsCache {
    * @return
    */
   public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
-    Future<Permission> future = Future.future();
+    Promise<Permission> promise = Promise.promise();
     getPermCache(vertxContext, tenantId, new HashSet<String>(Arrays.asList(permissionName))).onComplete(ar -> {
       if (ar.succeeded()) {
-        future.complete(ar.result().getFullPerm(permissionName));
+        promise.complete(ar.result().getFullPerm(permissionName));
       } else {
-        future.fail(ar.cause());
+        promise.fail(ar.cause());
       }
     });
-    return future;
+    return promise.future();
   }
 
   private static Future<PermCache> getPermCache(Context vertxContext, String tenantId, Set<String> perms) {
@@ -106,11 +105,11 @@ public class PermsCache {
   }
 
   private static Future<PermCache> refreshCache(Context vertxContext, String tenantId) {
-    Future<PermCache> future = Future.future();
+    Promise<PermCache> promise = Promise.promise();
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TAB_PERMS, Permission.class, new Criterion(), false,
         false, reply -> {
           if (reply.failed()) {
-            future.fail("postgres client 'get' " + TAB_PERMS + " failed: " + reply.cause().getLocalizedMessage());
+            promise.fail("postgres client 'get' " + TAB_PERMS + " failed: " + reply.cause().getLocalizedMessage());
           } else {
             List<Permission> perms = reply.result().getResults();
             Map<String, Set<String>> subPermMap = new HashMap<>();
@@ -126,11 +125,11 @@ public class PermsCache {
             }
             CACHE.put(tenantId, pc);
             LOGGER.debug("Finished perms cache for tenant " + tenantId);
-            future.complete(pc);
+            promise.complete(pc);
           }
           CACHE_WIP.remove(tenantId);
         });
-    return future;
+    return promise.future();
   }
 
   /**
