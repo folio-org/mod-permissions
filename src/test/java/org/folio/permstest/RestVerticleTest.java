@@ -256,485 +256,422 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testGroup(TestContext context){
+  public void testGroup(TestContext context) throws InterruptedException, ExecutionException, TimeoutException {
     String url = "http://localhost:"+port+"/perms/users";
 
-    String permUrl = "http://localhost:"+port+"/perms/permissions";
-    String userUrl = "http://localhost:"+port+"/perms/users";
+    final String permUrl = "http://localhost:"+port+"/perms/permissions";
+    final String userUrl = "http://localhost:"+port+"/perms/users";
+    final String addPermURL2 = "http://localhost:"+port+"/perms/permissions";
+
+    CompletableFuture<Response> futureResponse;
+    Response response;
+
+    /**add a perm */
+    futureResponse = new CompletableFuture();
+    send(addPermURL2, context, HttpMethod.POST, postPermRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, HttpURLConnection.HTTP_CREATED);
+
+    futureResponse = new CompletableFuture();
+    send(addPermURL2, context, HttpMethod.GET, "",
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+
+    /**add a perm again 422 */
+    futureResponse = new CompletableFuture();
+    send(addPermURL2, context, HttpMethod.POST, postPermRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+
+    /* add a perm user with a non-existent perm */
+
+    futureResponse = new CompletableFuture();
+    send(url, context, HttpMethod.POST, postBadPermUsersRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    logger.debug("Status - " + response.code + " with body " +
+        response.body + " at " +
+        System.currentTimeMillis() + " for " + url);
+    context.assertEquals(response.code, 422);
+
+    /**add a perm user */
+    futureResponse = new CompletableFuture();
+    String addPUURL = url;
+    send(addPUURL, context, HttpMethod.POST, postPermUsersRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    logger.debug("Status - " + response.code + " with body " +
+        response.body + " at " +
+        System.currentTimeMillis() + " for " + addPUURL);
+    context.assertEquals(response.code, HttpURLConnection.HTTP_CREATED);
+
+    /**add a perm user again 422 */
+    futureResponse = new CompletableFuture();
+    String addPUURL2 = url;
+    send(addPUURL2, context, HttpMethod.POST, postPermUsersRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+    logger.debug(response.body +
+        "\nStatus - " + response.code + " at " + System.currentTimeMillis() + " for "
+        + addPUURL2);
+
+    String addPermURL = url + "/" + userId2 + "/permissions";
+    /**add a perm  for a user */
+    futureResponse = new CompletableFuture();
+    send(addPermURL, context, HttpMethod.POST, postPermUserPermRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, HttpURLConnection.HTTP_OK);
+    logger.debug(response.body +
+        "\nStatus - " + response.code + " at " + System.currentTimeMillis() + " for "
+        + addPermURL);
+
+    /**add a perm  for a user again 422 */
+    futureResponse = new CompletableFuture();
+    send(addPermURL, context, HttpMethod.POST, postPermRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+    logger.debug(response.body +
+        "\nStatus - " + response.code + " at " + System.currentTimeMillis() + " for "
+        + addPermURL);
+
+    /* Try to add a new permission with a non-existent sub */
+    JsonObject addNewBadPermRequestObject = new JsonObject()
+        .put("permissionName", "foo.all")
+        .put("displayName", "foo all")
+        .put("description", "All foo permissions")
+        .put("subPermissions", new JsonArray().add("foo.whizz"));
+    futureResponse = new CompletableFuture();
+    send(permUrl, context, HttpMethod.POST, addNewBadPermRequestObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+
+    /* Add a new permission */
+    String newPermId = null;
+    String newPermId2 = null;
+    JsonObject addNewPermRequestObject = new JsonObject()
+        .put("permissionName", "foo.all")
+        .put("displayName", "foo all")
+        .put("description", "All foo permissions");
+    futureResponse = new CompletableFuture();
+    send(permUrl, context, HttpMethod.POST, addNewPermRequestObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 201);
+    newPermId = response.body.getString("id");
+
+    /* Attempt to add the same permission */
+    futureResponse = new CompletableFuture();
+    send(permUrl, context, HttpMethod.POST, addNewPermRequestObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+
+    /* Attempt to modify the permission with a non-existent subpermission */
+    JsonObject modifyNewPermRequestObject = new JsonObject()
+        .put("permissionName", "foo.all")
+        .put("displayName", "foo all")
+        .put("description", "All foo permissions")
+        .put("id", newPermId)
+        .put("subPermissions", new JsonArray().add("foo.whizz"));
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.PUT, modifyNewPermRequestObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+
+    /* Add a second permission */
+    JsonObject addSecondPermRequestObject = new JsonObject()
+        .put("permissionName", "foo.whizz")
+        .put("displayName", "foo whizz")
+        .put("description", "Whizz a foo");
+    futureResponse = new CompletableFuture();
+    send(permUrl, context, HttpMethod.POST, addSecondPermRequestObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 201);
+    newPermId2 = response.body.getString("id");
+
+    /* Modify the first permission to make the second a subpermission */
+    JsonObject modifyNewPermRequestObject1 = new JsonObject()
+        .put("permissionName", "foo.all")
+        .put("displayName", "foo all")
+        .put("description", "All foo permissions")
+        .put("id", newPermId)
+        .put("subPermissions", new JsonArray().add("foo.whizz"));
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.PUT, modifyNewPermRequestObject1.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+
+    /* Get the first permission, check for subpermission */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("subPermissions"));
+    context.assertTrue(response.body.getJsonArray("subPermissions").contains("foo.whizz"));
+
+    /* Get the second permission, check for childOf */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId2, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertTrue(response.body.getString("permissionName").equals("foo.whizz"));
+    context.assertNotNull(response.body.getJsonArray("childOf"));
+    context.assertFalse(response.body.getJsonArray("childOf").isEmpty());
+    context.assertTrue(response.body.getJsonArray("childOf").contains("foo.all"));
+
+    /*Retrieve all the permissions */
+    futureResponse = new CompletableFuture();
+    send(permUrl, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissions"));
+    context.assertFalse(response.body.getJsonArray("permissions").isEmpty());
+    context.assertTrue(response.body.getInteger("totalRecords") > 1);
+
+    /* Add a new user */
+    String newUserId;
+    String newUserUserId = "626a7a5c-4b66-4d2f-981f-1df9757e2aa9";
+    JsonObject addNewUserObject = new JsonObject()
+        //.put("userId", "5a94d5bd-f76b-4af6-bfe9-497e80094114")
+        .put("userId", newUserUserId)
+        .put("permissions", new JsonArray());
+    futureResponse = new CompletableFuture();
+    send(userUrl, context, HttpMethod.POST, addNewUserObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 201);
+    newUserId = response.body.getString("id");
+    context.assertNotNull(newUserId);
+
+    /* Attempt to add the same user */
+    futureResponse = new CompletableFuture();
+    send(userUrl, context, HttpMethod.POST, addNewUserObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+    /* Add the permission to the user */
+
+    JsonObject addPermToUserObject = new JsonObject()
+        .put("permissionName", "foo.all");
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.POST,
+        addPermToUserObject.encode(), SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+
+    /*Get the permission, check for grantedTo    */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("grantedTo"));
+    context.assertTrue(response.body.getJsonArray("grantedTo")
+        .contains(newUserId));
+
+    /* Get a list of permissions that the user has */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.all"));
+
+    /* Get a list of permissions the user has with full subpermissions */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions?full=true", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
+    context.assertNotNull(response.body.getJsonArray("permissionNames").getJsonObject(0));
+    context.assertNotNull(response.body.getJsonArray("permissionNames")
+        .getJsonObject(0).getJsonArray("subPermissions").contains("foo.whizz"));
+
+    /* Get a list of permissions the user has with expanded subpermissions */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions?expanded=true", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.all"));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.whizz"));
+
+    /* Get a list of full and expanded permissions the user has */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions?expanded=true&full=true", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
     try {
-      /**add a perm */
-      String addPermURL2 = "http://localhost:"+port+"/perms/permissions";
-      CompletableFuture<Response> addPerms = new CompletableFuture();
-      send(addPermURL2, context, HttpMethod.POST, postPermRequest,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPerms));
-      Response addPermsResponse = addPerms.get(5, TimeUnit.SECONDS);
-      context.assertEquals(addPermsResponse.code, HttpURLConnection.HTTP_CREATED);
-
-      /**add a perm again 422 */
-      CompletableFuture<Response> addPerms2 = new CompletableFuture();
-      send(addPermURL2, context, HttpMethod.POST, postPermRequest,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPerms2));
-      Response addPermsResponse2 = addPerms2.get(5, TimeUnit.SECONDS);
-      context.assertEquals(addPermsResponse2.code, 422);
-
-      /* add a perm user with a non-existent perm */
-
-        CompletableFuture<Response> addBadPUCF = new CompletableFuture();
-        send(url, context, HttpMethod.POST, postBadPermUsersRequest,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addBadPUCF));
-        Response addBadPUResponse = addBadPUCF.get(5, TimeUnit.SECONDS);
-        logger.debug("Status - " + addBadPUResponse.code + " with body " +
-            addBadPUResponse.body + " at " +
-            System.currentTimeMillis() + " for " + url);
-        context.assertEquals(addBadPUResponse.code, 422);
-
-
-      /**add a perm user */
-      CompletableFuture<Response> addPUCF = new CompletableFuture();
-      String addPUURL = url;
-      send(addPUURL, context, HttpMethod.POST, postPermUsersRequest,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF));
-      Response addPUResponse = addPUCF.get(5, TimeUnit.SECONDS);
-      logger.debug("Status - " + addPUResponse.code + " with body " +
-          addPUResponse.body + " at " +
-          System.currentTimeMillis() + " for " + addPUURL);
-      context.assertEquals(addPUResponse.code, HttpURLConnection.HTTP_CREATED);
-
-      /**add a perm user again 422 */
-      CompletableFuture<Response> addPUCF2 = new CompletableFuture();
-      String addPUURL2 = url;
-      send(addPUURL2, context, HttpMethod.POST, postPermUsersRequest,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF2));
-      Response addPUResponse2 = addPUCF2.get(5, TimeUnit.SECONDS);
-      context.assertEquals(addPUResponse2.code, 422);
-      logger.debug(addPUResponse2.body +
-          "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
-          + addPUURL2);
-
-      String addPermURL = url + "/" + userId2 + "/permissions";
-      /**add a perm  for a user */
-      CompletableFuture<Response> addPUCF3 = new CompletableFuture();
-      send(addPermURL, context, HttpMethod.POST, postPermUserPermRequest,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF3));
-      Response addPUResponse3 = addPUCF3.get(5, TimeUnit.SECONDS);
-      context.assertEquals(addPUResponse3.code, HttpURLConnection.HTTP_OK);
-      logger.debug(addPUResponse3.body +
-          "\nStatus - " + addPUResponse3.code + " at " + System.currentTimeMillis() + " for "
-          + addPermURL);
-
-      /**add a perm  for a user again 422 */
-      CompletableFuture<Response> addPUCF4 = new CompletableFuture();
-      send(addPermURL, context, HttpMethod.POST, postPermRequest,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF4));
-      Response addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
-      context.assertEquals(addPUResponse4.code, 422);
-      logger.debug(addPUResponse4.body +
-          "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
-          + addPermURL);
-
-
-      /* Try to add a new permission with a non-existent sub */
-      JsonObject addNewBadPermRequestObject = new JsonObject()
-          .put("permissionName", "foo.all")
-          .put("displayName", "foo all")
-          .put("description", "All foo permissions")
-          .put("subPermissions", new JsonArray().add("foo.whizz"));
-      {
-        CompletableFuture<Response> addNewPermCF = new CompletableFuture();
-        send(permUrl, context, HttpMethod.POST, addNewBadPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addNewPermCF));
-        Response addNewPermResponse = addNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addNewPermResponse.code, 422);
-      }
-
-      /* Add a new permission */
-      String newPermId = null;
-      String newPermId2 = null;
-      JsonObject addNewPermRequestObject = new JsonObject()
-          .put("permissionName", "foo.all")
-          .put("displayName", "foo all")
-          .put("description", "All foo permissions");
-      {
-        CompletableFuture<Response> addNewPermCF = new CompletableFuture();
-        send(permUrl, context, HttpMethod.POST, addNewPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addNewPermCF));
-        Response addNewPermResponse = addNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addNewPermResponse.code, 201);
-        newPermId = addNewPermResponse.body.getString("id");
-      }
-
-      /* Attempt to add the same permission */
-      {
-        CompletableFuture<Response> reAddNewPermCF = new CompletableFuture();
-        send(permUrl, context, HttpMethod.POST, addNewPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(reAddNewPermCF));
-        Response reAddNewPermResponse = reAddNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(reAddNewPermResponse.code, 422);
-      }
-
-      /* Attempt to modify the permission with a non-existent subpermission */
-      {
-        JsonObject modifyNewPermRequestObject = new JsonObject()
-            .put("permissionName", "foo.all")
-            .put("displayName", "foo all")
-            .put("description", "All foo permissions")
-            .put("id", newPermId)
-            .put("subPermissions", new JsonArray().add("foo.whizz"));
-        CompletableFuture<Response> modifyNewPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.PUT, modifyNewPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(modifyNewPermCF));
-        Response modifyNewPermResponse = modifyNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(modifyNewPermResponse.code, 422);
-      }
-
-      /* Add a second permission */
-      {
-        JsonObject addSecondPermRequestObject = new JsonObject()
-            .put("permissionName", "foo.whizz")
-            .put("displayName", "foo whizz")
-            .put("description", "Whizz a foo");
-        CompletableFuture<Response> addSecondPermCF = new CompletableFuture();
-        send(permUrl, context, HttpMethod.POST, addSecondPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addSecondPermCF));
-        Response addSecondPermResponse = addSecondPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addSecondPermResponse.code, 201);
-        newPermId2 = addSecondPermResponse.body.getString("id");
-      }
-
-      /* Modify the first permission to make the second a subpermission */
-      {
-        JsonObject modifyNewPermRequestObject = new JsonObject()
-            .put("permissionName", "foo.all")
-            .put("displayName", "foo all")
-            .put("description", "All foo permissions")
-            .put("id", newPermId)
-            .put("subPermissions", new JsonArray().add("foo.whizz"));
-        CompletableFuture<Response> modifyNewPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.PUT, modifyNewPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(modifyNewPermCF));
-        Response modifyNewPermResponse = modifyNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(modifyNewPermResponse.code, 200);
-      }
-
-      /* Get the first permission, check for subpermission */
-      {
-        CompletableFuture<Response> getNewPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getNewPermCF));
-        Response getNewPermResponse = getNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getNewPermResponse.code, 200);
-        context.assertNotNull(getNewPermResponse.body.getJsonArray("subPermissions"));
-        context.assertTrue(getNewPermResponse.body.getJsonArray("subPermissions").contains("foo.whizz"));
-      }
-
-      /* Get the second permission, check for childOf */
-      {
-        CompletableFuture<Response> getSecondPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId2, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getSecondPermCF));
-        Response getSecondPermResponse = getSecondPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getSecondPermResponse.code, 200);
-        context.assertTrue(getSecondPermResponse.body.getString("permissionName").equals("foo.whizz"));
-        context.assertNotNull(getSecondPermResponse.body.getJsonArray("childOf"));
-        context.assertFalse(getSecondPermResponse.body.getJsonArray("childOf").isEmpty());
-        context.assertTrue(getSecondPermResponse.body.getJsonArray("childOf").contains("foo.all"));
-      }
-
-      /*Retrieve all the permissions */
-      {
-        CompletableFuture<Response> getPermsCF = new CompletableFuture();
-        send(permUrl, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getPermsCF));
-        Response getPermsResponse = getPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getPermsResponse.code, 200);
-        context.assertNotNull(getPermsResponse.body.getJsonArray("permissions"));
-        context.assertFalse(getPermsResponse.body.getJsonArray("permissions").isEmpty());
-        context.assertTrue(getPermsResponse.body.getInteger("totalRecords") > 1);
-      }
-
-      /* Add a new user */
-      String newUserId;
-      String newUserUserId = "626a7a5c-4b66-4d2f-981f-1df9757e2aa9";
-      JsonObject addNewUserObject = new JsonObject()
-          //.put("userId", "5a94d5bd-f76b-4af6-bfe9-497e80094114")
-          .put("userId", newUserUserId)
-          .put("permissions", new JsonArray());
-      {
-        CompletableFuture<Response> addNewUserCF = new CompletableFuture();
-        send(userUrl, context, HttpMethod.POST, addNewUserObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addNewUserCF));
-        Response addNewUserResponse = addNewUserCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addNewUserResponse.code, 201);
-        newUserId = addNewUserResponse.body.getString("id");
-        context.assertNotNull(newUserId);
-      }
-
-      /* Attempt to add the same user */
-      {
-        CompletableFuture<Response> addSameUserCF = new CompletableFuture();
-        send(userUrl, context, HttpMethod.POST, addNewUserObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addSameUserCF));
-        Response addSameUserResponse = addSameUserCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addSameUserResponse.code, 422);
-      }
-      /* Add the permission to the user */
-
-      JsonObject addPermToUserObject = new JsonObject()
-          .put("permissionName", "foo.all");
-      {
-        CompletableFuture<Response> addPermToUserCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.POST,
-            addPermToUserObject.encode(), SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPermToUserCF));
-        Response addPermToUserResponse = addPermToUserCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addPermToUserResponse.code, 200);
-      }
-
-      /*Get the permission, check for grantedTo    */
-
-      {
-        CompletableFuture<Response> getPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getPermCF));
-        Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getPermResponse.code, 200);
-        context.assertNotNull(getPermResponse.body.getJsonArray("grantedTo"));
-        context.assertTrue(getPermResponse.body.getJsonArray("grantedTo")
-            .contains(newUserId));
-      }
-
-      /* Get a list of permissions that the user has */
-      {
-        CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getUserPermsCF));
-        Response getUserPermsResponse = getUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getUserPermsResponse.code, 200);
-        context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
-        context.assertTrue(getUserPermsResponse.body.getJsonArray("permissionNames").contains("foo.all"));
-      }
-
-      /* Get a list of permissions the user has with full subpermissions */
-      {
-        CompletableFuture<Response> getFullUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions?full=true", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getFullUserPermsCF));
-        Response getFullUserPermsResponse = getFullUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getFullUserPermsResponse.code, 200);
-        context.assertNotNull(getFullUserPermsResponse.body.getJsonArray("permissionNames"));
-        context.assertNotNull(getFullUserPermsResponse.body.getJsonArray("permissionNames").getJsonObject(0));
-        context.assertNotNull(getFullUserPermsResponse.body.getJsonArray("permissionNames")
-            .getJsonObject(0).getJsonArray("subPermissions").contains("foo.whizz"));
-      }
-      /* Get a list of permissions the user has with expanded subpermissions */
-      {
-        CompletableFuture<Response> getExpandedUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions?expanded=true", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getExpandedUserPermsCF));
-        Response getExpandedUserPermsResponse = getExpandedUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getExpandedUserPermsResponse.code, 200);
-        context.assertNotNull(getExpandedUserPermsResponse.body.getJsonArray("permissionNames"));
-        context.assertTrue(getExpandedUserPermsResponse.body.getJsonArray("permissionNames").contains("foo.all"));
-        context.assertTrue(getExpandedUserPermsResponse.body.getJsonArray("permissionNames").contains("foo.whizz"));
-      }
-
-      /* Get a list of full and expanded permissions the user has */
-      {
-        CompletableFuture<Response> getFullExpandedUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions?expanded=true&full=true", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getFullExpandedUserPermsCF));
-        Response getFullExpandedUserPermsResponse = getFullExpandedUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getFullExpandedUserPermsResponse.code, 200);
-        context.assertNotNull(getFullExpandedUserPermsResponse.body.getJsonArray("permissionNames"));
-        try {
-          boolean allFound = false;
-          boolean whizzFound = false;
-          JsonArray perms = getFullExpandedUserPermsResponse.body.getJsonArray("permissionNames");
-          for(Object ob : perms) {
-            JsonObject perm = (JsonObject)ob;
-            if(perm.getString("permissionName").equals("foo.all")) {
-              JsonArray subs = perm.getJsonArray("subPermissions");
-              if(subs.contains("foo.whizz")) {
-                allFound = true;
-              }
-            } else if(perm.getString("permissionName").equals("foo.whizz")) {
-              whizzFound = true;
-            } else {
-              continue;
-            }
+      boolean allFound = false;
+      boolean whizzFound = false;
+      JsonArray perms = response.body.getJsonArray("permissionNames");
+      for(Object ob : perms) {
+        JsonObject perm = (JsonObject)ob;
+        if(perm.getString("permissionName").equals("foo.all")) {
+          JsonArray subs = perm.getJsonArray("subPermissions");
+          if(subs.contains("foo.whizz")) {
+            allFound = true;
           }
-          if(!allFound) {
-            context.fail("Did not locate permission for 'foo.all'");
-          } else if(!whizzFound) {
-            context.fail("Did not locate permission for 'foo.whizz'");
-          }
-        } catch(Exception e) {
-          context.fail(e);
+        } else if(perm.getString("permissionName").equals("foo.whizz")) {
+          whizzFound = true;
+        } else {
+          continue;
         }
       }
-
-      /* Delete the child permission */
-      {
-        CompletableFuture<Response> deletePermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId2, context, HttpMethod.DELETE, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(deletePermCF));
-        Response deletePermResponse = deletePermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(deletePermResponse.code, 204);
+      if(!allFound) {
+        context.fail("Did not locate permission for 'foo.all'");
+      } else if(!whizzFound) {
+        context.fail("Did not locate permission for 'foo.whizz'");
       }
-
-      /* Get the original permission, check that child is not in subpermissions */
-      {
-        CompletableFuture<Response> getPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getPermCF));
-        Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getPermResponse.code, 200);
-        context.assertFalse(getPermResponse.body.getJsonArray("subPermissions")
-            .contains("foo.whizz"));
-      }
-
-      /* Delete the permission from the user */
-      {
-        CompletableFuture<Response> deleteUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions/foo.all", context, HttpMethod.DELETE,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(deleteUserPermsCF));
-        Response deleteUserPermsResponse = deleteUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(deleteUserPermsResponse.code, 204);
-      }
-
-      /* Get the original permission, check that our user is no longer in grantedTo */
-      {
-        CompletableFuture<Response> getPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getPermCF));
-        Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getPermResponse.code, 200);
-        context.assertFalse(getPermResponse.body.getJsonArray("grantedTo")
-            .contains(newUserId));
-      }
-
-      /* Get the user's permissions, make sure the permission is not present */
-      {
-        CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getUserPermsCF));
-        Response getUserPermsResponse = getUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getUserPermsResponse.code, 200);
-        context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
-        context.assertFalse(getUserPermsResponse.body.getJsonArray("permissionNames").contains("foo.all"));
-      }
-
-      /* Add another new permission */
-      String anotherNewPermId = null;
-      JsonObject addAnotherNewPermRequestObject = new JsonObject()
-          .put("permissionName", "moo.all")
-          .put("displayName", "moo all")
-          .put("description", "All moo permissions");
-      {
-        CompletableFuture<Response> addNewPermCF = new CompletableFuture();
-        send(permUrl, context, HttpMethod.POST, addAnotherNewPermRequestObject.encode(),
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addNewPermCF));
-        Response addNewPermResponse = addNewPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addNewPermResponse.code, 201);
-        anotherNewPermId = addNewPermResponse.body.getString("id");
-      }
-
-      /* Add the new permission to the user via the user's userId */
-      JsonObject addAnotherPermToUserObject = new JsonObject()
-          .put("permissionName", "moo.all");
-      {
-        CompletableFuture<Response> addPermToUserCF = new CompletableFuture();
-        send(userUrl + "/" + newUserUserId + "/permissions?indexField=userId", context, HttpMethod.POST,
-            addAnotherPermToUserObject.encode(), SUPPORTED_CONTENT_TYPE_JSON_DEF,
-            new HTTPResponseHandler(addPermToUserCF));
-        Response addPermToUserResponse = addPermToUserCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(addPermToUserResponse.code, 200);
-      }
-
-      /* check for presence of permission */
-      {
-        CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getUserPermsCF));
-        Response getUserPermsResponse = getUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getUserPermsResponse.code, 200);
-        context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
-        context.assertTrue(getUserPermsResponse.body.getJsonArray("permissionNames")
-            .contains("moo.all"));
-      }
-
-      /* Delete the new permission from the user, via userId */
-      {
-        CompletableFuture<Response> deleteUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserUserId + "/permissions/moo.all?indexField=userId", context, HttpMethod.DELETE,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(deleteUserPermsCF));
-        Response deleteUserPermsResponse = deleteUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(deleteUserPermsResponse.code, 204);
-      }
-
-      /* check for non-presence of permission */
-      {
-        CompletableFuture<Response> getUserPermsCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getUserPermsCF));
-        Response getUserPermsResponse = getUserPermsCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getUserPermsResponse.code, 200);
-        context.assertNotNull(getUserPermsResponse.body.getJsonArray("permissionNames"));
-        context.assertFalse(getUserPermsResponse.body.getJsonArray("permissionNames")
-            .contains("moo.all"));
-      }
-
-      /* Delete the user */
-
-      {
-        CompletableFuture<Response> deleteUserCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId, context, HttpMethod.DELETE,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(deleteUserCF));
-        Response deleteUserResponse = deleteUserCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(deleteUserResponse.code, 204);
-      }
-
-      /* Attempt to retrieve the user */
-      {
-        CompletableFuture<Response> getUserCF = new CompletableFuture();
-        send(userUrl + "/" + newUserId, context, HttpMethod.GET,
-            null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getUserCF));
-        Response getUserResponse = getUserCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getUserResponse.code, 404);
-      }
-
-      /* Delete the permission */
-      {
-        CompletableFuture<Response> deletePermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.DELETE, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(deletePermCF));
-        Response deletePermResponse = deletePermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(deletePermResponse.code, 204);
-      }
-
-      /* Attempt to retrieve the permission */
-      {
-        CompletableFuture<Response> getPermCF = new CompletableFuture();
-        send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
-            SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(getPermCF));
-        Response getPermResponse = getPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(getPermResponse.code, 404);
-      }
-
-
-      /*Delete a permission that's not there */
-      {
-        CompletableFuture<Response> deleteBadPermCF = new CompletableFuture();
-        send(permUrl + "/ed145a0a-c4ff-46b3-8c44-62d89f32afea", context,
-            HttpMethod.DELETE, null,SUPPORTED_CONTENT_TYPE_JSON_DEF,
-            new HTTPResponseHandler(deleteBadPermCF) );
-        Response deleteBadPermResponse = deleteBadPermCF.get(5, TimeUnit.SECONDS);
-        context.assertEquals(deleteBadPermResponse.code, 404);
-      }
-
-    } catch (Exception e) {
-      e.printStackTrace();
-      context.fail(e.getMessage());
+    } catch(Exception e) {
+      context.fail(e);
     }
+
+    /* Delete the child permission */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId2, context, HttpMethod.DELETE, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 204);
+
+    /* Get the original permission, check that child is not in subpermissions */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertFalse(response.body.getJsonArray("subPermissions").contains("foo.whizz"));
+
+    /* Delete the permission from the user */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions/foo.all", context, HttpMethod.DELETE,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 204);
+
+    /* Get the original permission, check that our user is no longer in grantedTo */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertFalse(response.body.getJsonArray("grantedTo")
+        .contains(newUserId));
+
+    /* Get the user's permissions, make sure the permission is not present */
+
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
+    context.assertFalse(response.body.getJsonArray("permissionNames").contains("foo.all"));
+
+
+    /* Add another new permission */
+    String anotherNewPermId = null;
+    JsonObject addAnotherNewPermRequestObject = new JsonObject()
+        .put("permissionName", "moo.all")
+        .put("displayName", "moo all")
+        .put("description", "All moo permissions");
+    futureResponse = new CompletableFuture();
+    send(permUrl, context, HttpMethod.POST, addAnotherNewPermRequestObject.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 201);
+    anotherNewPermId = response.body.getString("id");
+
+    /* Add the new permission to the user via the user's userId */
+    JsonObject addAnotherPermToUserObject = new JsonObject()
+        .put("permissionName", "moo.all");
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserUserId + "/permissions?indexField=userId", context, HttpMethod.POST,
+        addAnotherPermToUserObject.encode(), SUPPORTED_CONTENT_TYPE_JSON_DEF,
+        new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+
+    /* check for presence of permission */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
+    context.assertTrue(response.body.getJsonArray("permissionNames")
+        .contains("moo.all"));
+
+    /* Delete the new permission from the user, via userId */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserUserId + "/permissions/moo.all?indexField=userId", context, HttpMethod.DELETE,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 204);
+
+    /* check for non-presence of permission */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId + "/permissions", context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+    context.assertNotNull(response.body.getJsonArray("permissionNames"));
+    context.assertFalse(response.body.getJsonArray("permissionNames")
+        .contains("moo.all"));
+
+    /* Delete the user */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId, context, HttpMethod.DELETE,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 204);
+
+    /* Attempt to retrieve the user */
+    futureResponse = new CompletableFuture();
+    send(userUrl + "/" + newUserId, context, HttpMethod.GET,
+        null, SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 404);
+
+    /* Delete the permission */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.DELETE, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 204);
+
+    /* Attempt to retrieve the permission */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/" + newPermId, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 404);
+
+    /*Delete a permission that's not there */
+    futureResponse = new CompletableFuture();
+    send(permUrl + "/ed145a0a-c4ff-46b3-8c44-62d89f32afea", context,
+        HttpMethod.DELETE, null,SUPPORTED_CONTENT_TYPE_JSON_DEF,
+        new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 404);
   }
 
   private void send(String url, TestContext context, HttpMethod method, String content,
