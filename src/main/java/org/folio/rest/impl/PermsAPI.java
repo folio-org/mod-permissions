@@ -1217,87 +1217,75 @@ public class PermsAPI implements Perms {
         queryArr[0] = query;
       }
       CQLWrapper cql;
-      try {
-        logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
-            TABLE_NAME_PERMS, queryArr[0]));
-        cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start - 1);
-      } catch (Exception e) {
-        logger.error("Error parsing CQL: " + e.getMessage());
-        asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond400WithTextPlain(
-            "CQL Parsing Error for '" + queryArr[0] + "': " + e.getMessage())));
-        return;
-      }
+      logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
+          TABLE_NAME_PERMS, queryArr[0]));
+      cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start - 1);
+      logger.fatal("START 2");
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
           Permission.class, fieldList, cql, true, false, getReply -> {
             try {
-              if (getReply.succeeded()) {
-                PermissionListObject permCollection = new PermissionListObject();
-                List<Permission> permissions = getReply.result().getResults();
-                List<Future> futureList = new ArrayList<>();
-                for (Permission permission : permissions) {
-                  List<Object> subPermList = permission.getSubPermissions();
-                  Future<Permission> permFuture;
-                  if (expandSubs != null && expandSubs.equals("true")) {
-                    permFuture = expandSubPermissions(permission, vertxContext, tenantId);
-                  } else if ("true".equals(expanded)) {
-                    Promise<Permission> promise = Promise.promise();
-                    permFuture = promise.future();
-                    List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
-                    permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
-                    Future<List<String>> expandedSubPerms = PermsCache.expandPerms(subperms, vertxContext, tenantId);
-                    expandedSubPerms.onComplete(ar -> {
-                      if (ar.succeeded()) {
-                        List<Object> list = new ArrayList<>(ar.result().size());
-                        ar.result().forEach(list::add);
-                        permission.setSubPermissions(list);
-                        promise.complete(permission);
-                      } else {
-                        promise.fail(ar.cause());
-                      }
-                    });
-                  } else {
-                    permFuture = Future.succeededFuture(permission);
-                  }
-                  futureList.add(permFuture);
-                }
-                CompositeFuture compositeFuture = CompositeFuture.join(futureList);
-                compositeFuture.onComplete(compositeResult -> {
-                  if (compositeFuture.failed()) {
-                    logger.error("Error expanding permissions: " + compositeFuture.cause().getMessage());
-                    asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond500WithTextPlain("Error getting expanded permissions: " + compositeResult.cause().getMessage())));
-                  } else {
-                    List<Permission> newPermList = new ArrayList<>();
-                    for (Future f : futureList) {
-                      newPermList.add((Permission) (f.result()));
-                    }
-                    permCollection.setPermissions(newPermList);
-                    permCollection.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
-                    asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond200WithApplicationJson(permCollection)));
-                  }
-
-                });
-              } else {
-                logger.error("Error with getReply: " + getReply.cause().getMessage());
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond500WithTextPlain(getReply.cause().getMessage())));
+              if (getReply.failed()) {
+                logger.error(getReply.cause().getMessage());
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond400WithTextPlain(getReply.cause().getMessage())));
+                return;
               }
+              PermissionListObject permCollection = new PermissionListObject();
+              List<Permission> permissions = getReply.result().getResults();
+              List<Future> futureList = new ArrayList<>();
+              for (Permission permission : permissions) {
+                List<Object> subPermList = permission.getSubPermissions();
+                Future<Permission> permFuture;
+                if (expandSubs != null && expandSubs.equals("true")) {
+                  permFuture = expandSubPermissions(permission, vertxContext, tenantId);
+                } else if ("true".equals(expanded)) {
+                  Promise<Permission> promise = Promise.promise();
+                  permFuture = promise.future();
+                  List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
+                  permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
+                  Future<List<String>> expandedSubPerms = PermsCache.expandPerms(subperms, vertxContext, tenantId);
+                  expandedSubPerms.onComplete(ar -> {
+                    if (ar.succeeded()) {
+                      List<Object> list = new ArrayList<>(ar.result().size());
+                      ar.result().forEach(list::add);
+                      permission.setSubPermissions(list);
+                      promise.complete(permission);
+                    } else {
+                      promise.fail(ar.cause());
+                    }
+                  });
+                } else {
+                  permFuture = Future.succeededFuture(permission);
+                }
+                futureList.add(permFuture);
+              }
+              CompositeFuture compositeFuture = CompositeFuture.join(futureList);
+              compositeFuture.onComplete(compositeResult -> {
+                if (compositeFuture.failed()) {
+                  logger.error("Error expanding permissions: " + compositeFuture.cause().getMessage());
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond500WithTextPlain("Error getting expanded permissions: " + compositeResult.cause().getMessage())));
+                } else {
+                  List<Permission> newPermList = new ArrayList<>();
+                  for (Future f : futureList) {
+                    newPermList.add((Permission) (f.result()));
+                  }
+                  permCollection.setPermissions(newPermList);
+                  permCollection.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
+                  asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond200WithApplicationJson(permCollection)));
+                }
+
+              });
             } catch (Exception e) {
-              logger.error("Error getting Postgres client: " + e.getMessage(), e);
+              logger.error(e.getMessage(), e);
               asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                  GetPermsPermissionsResponse.respond500WithTextPlain("Internal server error: " + e.getMessage())));
+                  GetPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
             }
           });
     } catch (Exception e) {
-      if (e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
-        logger.error("BAD CQL:" + e.getMessage());
-        asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond400WithTextPlain(
-            "CQL Parsing Error for '" + query + "': " + e.getMessage())));
-      } else {
-        logger.error("Error getting Postgres client: " + e.getMessage());
+        logger.error(e.getMessage(), e);
         asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-            GetPermsPermissionsResponse.respond500WithTextPlain("Internal server error: " + e.getMessage())));
-      }
+            GetPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
