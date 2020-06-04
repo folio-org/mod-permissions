@@ -4,7 +4,7 @@
  * [MODPERMS-75](https://issues.folio.org/browse/MODPERMS-75) Remove `gen_random_uuid()`, remove unused template_*.sql
  * Provide _tenantPermissions interface 1.1.
  * subpermissions are expanded recursively.
- * Provide tenant interface 5.3, because of new query parameter `expanded`.
+ * Provide permissions interface 5.3, because of new query parameter `expanded`.
 
 ## 2019-12-06 v5.9.0
 
