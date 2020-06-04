@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
+
 import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
 
 /**
@@ -143,56 +144,34 @@ public class PermsAPI implements Perms {
                             String hasPermissions, Map<String, String> okapiHeaders,
                             Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      CQLWrapper cql;
-      try {
-        cql = getCQL(query, TABLE_NAME_PERMSUSERS, length, start - 1);
-      } catch (Exception e) {
-        logger.error(e.getMessage(), e);
-        asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.respond400WithTextPlain(
-            "CQL Parsing Error for '" + query + "': " + e.getMessage())));
-        return;
-      }
+      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMSUSERS, length, start - 1);
       String tenantId = TenantTool.calculateTenantId(okapiHeaders.get(OKAPI_TENANT_HEADER));
       String[] fieldList = {"*"};
-      try {
-        PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-            TABLE_NAME_PERMSUSERS, PermissionUser.class, fieldList, cql, true,
-            false, reply -> {
-              try {
-                if (reply.succeeded()) {
-                  PermissionUserListObject permUserCollection = new PermissionUserListObject();
-                  List<PermissionUser> permissionUsers = reply.result().getResults();
-                  permUserCollection.setPermissionUsers(permissionUsers);
-                  permUserCollection.setTotalRecords(reply.result().getResultInfo().getTotalRecords());
-                  asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.respond200WithApplicationJson(permUserCollection)));
-                } else {
-                  String errStr = "Get operation from PostgresClient failed: " + reply.cause().getMessage();
-                  logger.error(errStr);
-                  asyncResultHandler.handle(Future.succeededFuture(
-                      GetPermsUsersResponse.respond500WithTextPlain(errStr)));
-                }
-              } catch (Exception e) {
-                String errStr = "Error building response from reply: " + e.getMessage();
-                logger.error(errStr, e);
-                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.respond500WithTextPlain(getErrorResponse(errStr))));
+      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+          TABLE_NAME_PERMSUSERS, PermissionUser.class, fieldList, cql, true,
+          false, reply -> {
+            try {
+              if (reply.succeeded()) {
+                PermissionUserListObject permUserCollection = new PermissionUserListObject();
+                List<PermissionUser> permissionUsers = reply.result().getResults();
+                permUserCollection.setPermissionUsers(permissionUsers);
+                permUserCollection.setTotalRecords(reply.result().getResultInfo().getTotalRecords());
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.respond200WithApplicationJson(permUserCollection)));
+              } else {
+                String errStr = reply.cause().getMessage();
+                logger.error(errStr);
+                asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.respond400WithTextPlain(errStr)));
               }
-            });
-      } catch (Exception e) {
-        String errStr = e.getMessage();
-        logger.error(errStr, e);
-        if (e.getCause() != null && e.getCause().getClass().getSimpleName().contains("CQLParseException")) {
-          asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersResponse.respond400WithTextPlain(
-              "CQL Parsing Error for '" + query + "': " + errStr)));
-        } else {
-          asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-              GetPermsUsersResponse.respond500WithTextPlain(getErrorResponse(errStr))));
-        }
-      }
+            } catch (Exception e) {
+              logger.error(e.getMessage(), e);
+              asyncResultHandler.handle(Future.succeededFuture(
+                  GetPermsUsersResponse.respond500WithTextPlain(getErrorResponse(e.getMessage()))));
+            }
+          });
     } catch (Exception e) {
-      String errStr = "Error running vertx on context:" + e.getMessage();
-      logger.error(errStr, e);
+      logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsUsersResponse.respond500WithTextPlain(errStr)));
+          GetPermsUsersResponse.respond500WithTextPlain(getErrorResponse(e.getMessage()))));
     }
   }
 

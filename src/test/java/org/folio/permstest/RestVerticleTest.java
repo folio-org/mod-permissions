@@ -13,6 +13,8 @@ import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -31,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import org.folio.permstest.TestUtil.WrappedResponse;
+import org.folio.rest.impl.PermsAPI;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
@@ -52,6 +55,7 @@ import static io.vertx.core.http.HttpMethod.PUT;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
+  private static final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
 
   private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
   private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
@@ -228,6 +232,30 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPermsUsersGetCqlError(TestContext context)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/users?query=a+and";
+
+    CompletableFuture<Response> response = new CompletableFuture();
+    send(url, context, HttpMethod.GET, "",
+        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(response));
+    Response addPermsResponse = response.get(5, TimeUnit.SECONDS);
+    context.assertEquals(400, addPermsResponse.code);
+  }
+
+  @Test
+  public void testPermsUsersGetBadStart(TestContext context)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/users?query=permissions%3Ddummy*&start=0";
+
+    CompletableFuture<Response> response = new CompletableFuture();
+    send(url, context, HttpMethod.GET, "",
+        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(response));
+    Response addPermsResponse = response.get(5, TimeUnit.SECONDS);
+    context.assertEquals(200, addPermsResponse.code);
+  }
+
+  @Test
   public void testGroup(TestContext context){
     String url = "http://localhost:"+port+"/perms/users";
 
@@ -241,9 +269,6 @@ public class RestVerticleTest {
           SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPerms));
       Response addPermsResponse = addPerms.get(5, TimeUnit.SECONDS);
       context.assertEquals(addPermsResponse.code, HttpURLConnection.HTTP_CREATED);
-      System.out.println(addPermsResponse.body +
-          "\nStatus - " + addPermsResponse.code + " at " + System.currentTimeMillis() + " for "
-          + addPermURL2);
 
       /**add a perm again 422 */
       CompletableFuture<Response> addPerms2 = new CompletableFuture();
@@ -251,22 +276,18 @@ public class RestVerticleTest {
           SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPerms2));
       Response addPermsResponse2 = addPerms2.get(5, TimeUnit.SECONDS);
       context.assertEquals(addPermsResponse2.code, 422);
-      System.out.println(addPermsResponse2.body +
-          "\nStatus - " + addPermsResponse2.code + " at " + System.currentTimeMillis() + " for "
-          + addPermURL2);
 
       /* add a perm user with a non-existent perm */
-      {
+
         CompletableFuture<Response> addBadPUCF = new CompletableFuture();
-        String addPUURL = url;
-        send(addPUURL, context, HttpMethod.POST, postBadPermUsersRequest,
+        send(url, context, HttpMethod.POST, postBadPermUsersRequest,
             SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addBadPUCF));
         Response addBadPUResponse = addBadPUCF.get(5, TimeUnit.SECONDS);
-        System.out.println("Status - " + addBadPUResponse.code + " with body " +
+        logger.debug("Status - " + addBadPUResponse.code + " with body " +
             addBadPUResponse.body + " at " +
-            System.currentTimeMillis() + " for " + addPUURL);
+            System.currentTimeMillis() + " for " + url);
         context.assertEquals(addBadPUResponse.code, 422);
-      }
+
 
       /**add a perm user */
       CompletableFuture<Response> addPUCF = new CompletableFuture();
@@ -274,7 +295,7 @@ public class RestVerticleTest {
       send(addPUURL, context, HttpMethod.POST, postPermUsersRequest,
           SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF));
       Response addPUResponse = addPUCF.get(5, TimeUnit.SECONDS);
-      System.out.println("Status - " + addPUResponse.code + " with body " +
+      logger.debug("Status - " + addPUResponse.code + " with body " +
           addPUResponse.body + " at " +
           System.currentTimeMillis() + " for " + addPUURL);
       context.assertEquals(addPUResponse.code, HttpURLConnection.HTTP_CREATED);
@@ -286,7 +307,7 @@ public class RestVerticleTest {
           SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF2));
       Response addPUResponse2 = addPUCF2.get(5, TimeUnit.SECONDS);
       context.assertEquals(addPUResponse2.code, 422);
-      System.out.println(addPUResponse2.body +
+      logger.debug(addPUResponse2.body +
           "\nStatus - " + addPUResponse2.code + " at " + System.currentTimeMillis() + " for "
           + addPUURL2);
 
@@ -297,7 +318,7 @@ public class RestVerticleTest {
           SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF3));
       Response addPUResponse3 = addPUCF3.get(5, TimeUnit.SECONDS);
       context.assertEquals(addPUResponse3.code, HttpURLConnection.HTTP_OK);
-      System.out.println(addPUResponse3.body +
+      logger.debug(addPUResponse3.body +
           "\nStatus - " + addPUResponse3.code + " at " + System.currentTimeMillis() + " for "
           + addPermURL);
 
@@ -307,7 +328,7 @@ public class RestVerticleTest {
           SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(addPUCF4));
       Response addPUResponse4 = addPUCF4.get(5, TimeUnit.SECONDS);
       context.assertEquals(addPUResponse4.code, 422);
-      System.out.println(addPUResponse4.body +
+      logger.debug(addPUResponse4.body +
           "\nStatus - " + addPUResponse4.code + " at " + System.currentTimeMillis() + " for "
           + addPermURL);
 
@@ -746,7 +767,7 @@ public class RestVerticleTest {
     request.putHeader("Accept", "application/json,text/plain");
     request.putHeader("Content-type", contentType);
     request.end(buffer);
-    System.out.println("Sending " + method.toString() + " request to " +
+    logger.debug("Sending " + method.toString() + " request to " +
         url + " with content '" + content + "'");
   }
 
@@ -765,10 +786,10 @@ public class RestVerticleTest {
           try {
             r.body = bh.toJsonObject();
           } catch(Exception e) {
-            System.out.println("Warning: '" + bh.toString() + "' cannot be parsed as JSON");
+            logger.warn("Warning: '" + bh.toString() + "' cannot be parsed as JSON");
             r.body = new JsonObject(); //Or should it be null?
           }
-          System.out.println("Got code '" + hcr.statusCode() + "' and body '" +
+          logger.debug("Got code '" + hcr.statusCode() + "' and body '" +
               bh.toString() + "'");
           event.complete(r);
         } catch(Exception e) {
@@ -1562,7 +1583,7 @@ public class RestVerticleTest {
             .getBytes(StandardCharsets.UTF_8)),
         Base64.getEncoder().encodeToString((header.encode() + payload.encode())
             .getBytes(StandardCharsets.UTF_8)));
-    System.out.println("Generated fake JWT: " + ret);
+    logger.debug("Generated fake JWT: " + ret);
     return ret;
 
   }
