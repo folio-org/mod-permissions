@@ -278,12 +278,12 @@ traits:
       description: Get a list of existing permissions
       queryParameters:
         expandSubs:
-          description: Return one level of subpermissions as objects. Use of parameter expandSubs will ignore parameter expanded.
+          description: Return one level of subpermissions as objects if true. If false or omitted, expanded will be considered.
           required: false
           type: string
           example: "true"
         expanded:
-          description: Recursively return all subpermissions as strings. Use of parameter expandSubs will ignore parameter expanded.
+          description: Recursively return all subpermissions as strings if true. Is only considered if expandSubs is false or omitted.
           required: false
           type: string
           example: "true"
