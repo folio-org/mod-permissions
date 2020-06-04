@@ -179,8 +179,6 @@ traits:
         description: Remove a user
         responses:
           204:
-            body:
-              text/plain: !!null
           404:
             description: "User not found"
             body:
@@ -257,8 +255,6 @@ traits:
             is: [ indexSelectable ]
             responses:
               204:
-                body:
-                  text/plain: !!null
               400:
                 description: "Bad request"
                 body:
@@ -384,8 +380,6 @@ traits:
         description: Remove a permission
         responses:
           204:
-            body:
-              text/plain: !!null
           400:
             description: "Bad request"
             body:

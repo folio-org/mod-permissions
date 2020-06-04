@@ -521,7 +521,7 @@ public class PermsAPI implements Perms {
                           } else {
                             pgClient.endTx(connection, done -> {
                               asyncResultHandler.handle(Future.succeededFuture(
-                                  DeletePermsUsersByIdResponse.respond204WithTextPlain("")));
+                                  DeletePermsUsersByIdResponse.respond204()));
                             });
                           }
                         }
@@ -822,8 +822,7 @@ public class PermsAPI implements Perms {
                         }
                         pgClient.endTx(connection, done -> {
                           asyncResultHandler.handle(Future.succeededFuture(
-                              DeletePermsUsersPermissionsByIdAndPermissionnameResponse
-                                  .respond204WithTextPlain("")));
+                              DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond204()));
                         });
                       });
                     });
@@ -1156,7 +1155,7 @@ public class PermsAPI implements Perms {
                             pgClient.endTx(connection, done -> {
                               asyncResultHandler.handle(Future.succeededFuture(
                                   DeletePermsPermissionsByIdResponse
-                                      .respond204WithTextPlain("")));
+                                      .respond204()));
                             });
                           });
                     });
@@ -1176,7 +1175,7 @@ public class PermsAPI implements Perms {
                     asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond404WithTextPlain("Not found")));
                     return;
                   }
-                  asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond204WithTextPlain("")));
+                  asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond204()));
                 });
               } catch (Exception e) {
                 logger.error("Error using Postgres instance: " + e.getMessage());
