@@ -71,7 +71,7 @@ public class PermsCache {
    */
   public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
     return getPermCache(vertxContext, tenantId,
-        new HashSet<String>(Arrays.asList(permissionName))).map(permCache -> permCache.getFullPerm(permissionName));
+        new HashSet<>(Arrays.asList(permissionName))).map(permCache -> permCache.getFullPerm(permissionName));
   }
 
   private static Future<PermCache> getPermCache(Context vertxContext, String tenantId, Set<String> perms) {

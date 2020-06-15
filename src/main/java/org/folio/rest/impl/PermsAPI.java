@@ -340,7 +340,7 @@ public class PermsAPI implements Perms {
                       getErrorResponse(errStr))));
               return;
             }
-            if (cpfdRes.result()) {
+            if (Boolean.TRUE.equals(cpfdRes.result())) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsUsersByIdResponse.respond400WithTextPlain(
                       String.format("Cannot add permissions flagged as 'dummy' to users"))));

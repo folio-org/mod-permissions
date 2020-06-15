@@ -87,7 +87,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<Void> savePermList(List<Perm> permList, Context vertxContext, String tenantId) {
-    Promise promise = Promise.promise();
+    Promise<Void> promise = Promise.promise();
     if (permList.isEmpty()) {
       return Future.succeededFuture(); //Whee, we're done!
     }
@@ -264,7 +264,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<Void> savePerm(Perm perm, String tenantId, Context vertxContext) {
-    Promise promise = Promise.promise();
+    Promise<Void> promise = Promise.promise();
     if (perm.getPermissionName() == null) {
       return Future.succeededFuture();
     }
@@ -474,10 +474,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           }
         }
       });
-
-    return promise.future().compose(next -> {
-      return makeDummyPermList(connection, permListCopy, vertxContext, tenantId);
-    });
+    return promise.future().compose(next -> makeDummyPermList(connection, permListCopy, vertxContext, tenantId));
   }
 
   private Future<Void> makeDummyPerm(AsyncResult<SQLConnection> connection, String perm,
