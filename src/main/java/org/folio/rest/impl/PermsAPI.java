@@ -340,7 +340,7 @@ public class PermsAPI implements Perms {
                       getErrorResponse(errStr))));
               return;
             }
-            if (cpfdRes.result() == true) {
+            if (cpfdRes.result()) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsUsersByIdResponse.respond400WithTextPlain(
                       String.format("Cannot add permissions flagged as 'dummy' to users"))));
@@ -1351,10 +1351,8 @@ public class PermsAPI implements Perms {
         promise.complete(finalMissingPermissions);
       }
     });
-    return promise.future().compose(mapper -> {
-      return findMissingPermissionsFromList(connection, permissionListCopy,
-          vertxContext, tenantId, finalMissingPermissions);
-    });
+    return promise.future().compose(mapper -> findMissingPermissionsFromList(connection, permissionListCopy,
+        vertxContext, tenantId, finalMissingPermissions));
   }
 
   private Future<List<String>> getAllExpandedPermissionsSequential(
@@ -1391,10 +1389,8 @@ public class PermsAPI implements Perms {
           }
         });
 
-    return promise.future().compose(res -> {
-      return getAllExpandedPermissionsSequential(listOfListsCopy, vertxContext,
-          tenantId, res);
-    });
+    return promise.future().compose(res -> getAllExpandedPermissionsSequential(listOfListsCopy,
+        vertxContext, tenantId, res));
   }
 
   private Future<List<String>> getExpandedPermissionsSequential(List<String> permissionList,
@@ -1629,7 +1625,6 @@ public class PermsAPI implements Perms {
             List<Permission> permList = getReply.result().getResults();
             if (permList.isEmpty()) {
               logger.debug("No permission object '" + permissionName + "' exists");
-              //promise.fail("No permission object found for name '" + permissionName + "'");
               promise.complete(null);
             } else {
               logger.debug("Completing promise for getFullPermissions for '" + permissionName + "'");
@@ -2024,10 +2019,8 @@ public class PermsAPI implements Perms {
         promise.complete();
       }
     });
-    return promise.future().compose(mapper -> {
-      return modifyPermissionArrayFieldList(connection,
-        fuvListCopy, vertxContext, tenantId, logger);
-    });
+    return promise.future().compose(mapper -> modifyPermissionArrayFieldList(connection,
+        fuvListCopy, vertxContext, tenantId, logger));
   }
 
   private Future<Void> removePermissionFromUserList(
@@ -2049,10 +2042,8 @@ public class PermsAPI implements Perms {
           promise.complete();
         }
       });
-    return promise.future().compose(res -> {
-      return removePermissionFromUserList(connection, permissionName, userIdListCopy,
-        vertxContext, tenantId);
-    });
+    return promise.future().compose(res -> removePermissionFromUserList(connection, permissionName, userIdListCopy,
+        vertxContext, tenantId));
   }
 
   private Future<Void> removePermissionFromUser(
@@ -2122,10 +2113,8 @@ public class PermsAPI implements Perms {
           promise.complete();
         }
       });
-    return promise.future().compose(res -> {
-      return removeSubpermissionFromPermissionList(connection, subpermissionName,
-        permissionNameListCopy, vertxContext, tenantId);
-    });
+    return promise.future().compose(res -> removeSubpermissionFromPermissionList(connection, subpermissionName,
+        permissionNameListCopy, vertxContext, tenantId));
   }
 
   private Future<Void> removeSubpermissionFromPermission(
