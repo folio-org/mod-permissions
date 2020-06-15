@@ -2,8 +2,8 @@ package org.folio.permstest;
 
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
@@ -51,44 +51,44 @@ public class TestUtil {
   }
 
   public static Future<WrappedResponse> doRequest(Vertx vertx, String url,
-          HttpMethod method, CaseInsensitiveHeaders headers, String payload,
-          Integer expectedCode) {
-    Future<WrappedResponse> future = Future.future();
+                                                  HttpMethod method, MultiMap headers, String payload,
+                                                  Integer expectedCode) {
+    Promise<WrappedResponse> promise = Promise.promise();
     boolean addPayLoad = false;
     HttpClient client = vertx.createHttpClient();
     HttpClientRequest request = client.requestAbs(method, url);
     //Add standard headers
     request.putHeader("X-Okapi-Tenant", "diku")
-            .putHeader("content-type", "application/json")
-            .putHeader("accept", "application/json")
-            .putHeader("X-Okapi-Token", "dummy");
-    if(headers != null) {
+        .putHeader("content-type", "application/json")
+        .putHeader("accept", "application/json")
+        .putHeader("X-Okapi-Token", "dummy");
+    if (headers != null) {
       for(Map.Entry entry : headers.entries()) {
         request.putHeader((String)entry.getKey(), (String)entry.getValue());
       }
     }
     //standard exception handler
-    request.exceptionHandler(e -> { future.fail(e); });
+    request.exceptionHandler(e -> { promise.fail(e); });
     request.handler( req -> {
       req.bodyHandler(buf -> {
         if(expectedCode != null && expectedCode != req.statusCode()) {
-          future.fail(String.format("%s request to %s failed. Expected status code"
+          promise.fail(String.format("%s request to %s failed. Expected status code"
                   + " '%s' but got status code '%s': %s", method, url,
-                  expectedCode, req.statusCode(), buf));
+              expectedCode, req.statusCode(), buf));
         } else {
           System.out.println("Got status code " + req.statusCode() + " with payload of " + buf.toString());
           WrappedResponse wr = new WrappedResponse(req.statusCode(), buf.toString(), req);
-          future.complete(wr);
+          promise.complete(wr);
         }
       });
     });
     System.out.println("Sending " + method.toString() + " request to url '"+
-              url + " with payload: " + payload + "'\n");
-    if(method == HttpMethod.PUT || method == HttpMethod.POST) {
+        url + " with payload: " + payload + "'\n");
+    if (method == HttpMethod.PUT || method == HttpMethod.POST) {
       request.end(payload);
-    } else {      
+    } else {
       request.end();
     }
-    return future;
+    return promise.future();
   }
 }
