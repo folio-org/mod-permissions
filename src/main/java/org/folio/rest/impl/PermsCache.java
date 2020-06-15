@@ -58,15 +58,7 @@ public class PermsCache {
     if (perms.contains(TEST_EXCEPTION_PERMISSION)) {
       return Future.failedFuture(new RuntimeException(TEST_EXCEPTION_PERMISSION));
     }
-    Promise<List<String>> promise = Promise.promise();
-    getPermCache(vertxContext, tenantId, new HashSet<String>(perms)).onComplete(ar -> {
-      if (ar.succeeded()) {
-        promise.complete(ar.result().expandPerms(perms));
-      } else {
-        promise.fail(ar.cause());
-      }
-    });
-    return promise.future();
+    return getPermCache(vertxContext, tenantId, new HashSet<>(perms)).map(permCache -> permCache.expandPerms(perms));
   }
 
   /**
@@ -78,15 +70,8 @@ public class PermsCache {
    * @return
    */
   public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
-    Promise<Permission> promise = Promise.promise();
-    getPermCache(vertxContext, tenantId, new HashSet<String>(Arrays.asList(permissionName))).onComplete(ar -> {
-      if (ar.succeeded()) {
-        promise.complete(ar.result().getFullPerm(permissionName));
-      } else {
-        promise.fail(ar.cause());
-      }
-    });
-    return promise.future();
+    return getPermCache(vertxContext, tenantId,
+        new HashSet<String>(Arrays.asList(permissionName))).map(permCache -> permCache.getFullPerm(permissionName));
   }
 
   private static Future<PermCache> getPermCache(Context vertxContext, String tenantId, Set<String> perms) {
