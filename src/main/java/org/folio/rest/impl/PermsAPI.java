@@ -411,7 +411,7 @@ public class PermsAPI implements Perms {
                       getReply.cause().getMessage());
                   logger.error(errStr, getReply.cause());
                   asyncResultHandler.handle(Future.succeededFuture(
-                      DeletePermsUsersByIdResponse.respond500WithTextPlain(getErrorResponse(errStr))));
+                      DeletePermsUsersByIdResponse.respond400WithTextPlain(errStr)));
                 });
                 return;
               }
@@ -512,12 +512,10 @@ public class PermsAPI implements Perms {
 
       pnloFuture.onComplete(res -> {
         if (res.failed()) {
-          String errStr = "Error from get reply: " + res.cause()
-              .getMessage();
+          String errStr = res.cause().getMessage();
           logger.error(errStr, res.cause());
           asyncResultHandler.handle(Future.succeededFuture(
-              GetPermsUsersPermissionsByIdResponse
-                  .respond500WithTextPlain(getErrorResponse(errStr))));
+              GetPermsUsersPermissionsByIdResponse.respond400WithTextPlain(errStr)));
           return;
         }
         PermissionNameListObject pnlo = res.result();
@@ -551,11 +549,10 @@ public class PermsAPI implements Perms {
           getReply -> {
             try {
               if (getReply.failed()) {
-                logger.error("Error checking for user: " + getReply.cause()
-                    .getMessage(), getReply.cause());
+                String errStr = "Error checking for user: " + getReply.cause().getMessage();
+                logger.error(errStr);
                 asyncResultHandler.handle(Future.succeededFuture(
-                    PostPermsUsersPermissionsByIdResponse
-                        .respond500WithTextPlain("Internal server error")));
+                    PostPermsUsersPermissionsByIdResponse.respond400WithTextPlain(errStr)));
                 return;
               }
               List<PermissionUser> userList = getReply.result().getResults();
@@ -697,9 +694,10 @@ public class PermsAPI implements Perms {
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
           PermissionUser.class, new Criterion(idCrit), true, false, getReply -> {
             if (getReply.failed()) {
-              logger.error("Error checking for user: " + getReply.cause().getMessage());
+              String errStr = getReply.cause().getMessage();
+              logger.error(errStr);
               asyncResultHandler.handle(Future.succeededFuture(
-                  DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond500WithTextPlain("Internal server error")));
+                  DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond400WithTextPlain(errStr)));
               return;
             }
             List<PermissionUser> userList = getReply.result().getResults();
@@ -788,8 +786,9 @@ public class PermsAPI implements Perms {
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true, false, getReply -> {
             if (getReply.failed()) {
-              logger.error("Error getting existing permissions: " + getReply.cause().getMessage());
-              asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.respond500WithTextPlain("Internal server error")));
+              String errStr = getReply.cause().getMessage();
+              logger.error(errStr);
+              asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.respond400WithTextPlain(errStr)));
               return;
             }
             List<Permission> permissionList = getReply.result().getResults();
@@ -919,14 +918,14 @@ public class PermsAPI implements Perms {
           TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit),
           true, false, getReply -> {
             if (getReply.failed()) {
-              String message = "Error with get: " + getReply.cause().getMessage();
+              String message = getReply.cause().getMessage();
               logger.error(message, getReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsPermissionsByIdResponse.respond500WithTextPlain(getErrorResponse(message))));
+                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(message)));
               return;
             }
             List<Permission> permList = getReply.result().getResults();
-            if (permList.size() < 1) {
+            if (permList.isEmpty()) {
               String message = "No permission found to match that id";
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsPermissionsByIdResponse.respond404WithTextPlain(message)));
@@ -1024,8 +1023,7 @@ public class PermsAPI implements Perms {
               String errStr = getReply.cause().getMessage();
               logger.error(errStr, getReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(
-                  DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                      getErrorResponse(errStr))));
+                  DeletePermsPermissionsByIdResponse.respond400WithTextPlain(errStr)));
               return;
             }
             List<Permission> permList = getReply.result().getResults();

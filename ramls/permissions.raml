@@ -184,6 +184,11 @@ traits:
         description: Remove a user
         responses:
           204:
+          400:
+            description: "Bad request"
+            body:
+              text/plain:
+                example: "Bad request"
           404:
             description: "User not found"
             body:
@@ -217,6 +222,11 @@ traits:
               body:
                 application/json:
                   type: permissionNameListObject
+            400:
+              description: "Bad request"
+              body:
+                text/plain:
+                  example: "Bad request"
             403:
               description: "Access Denied"
               body:
