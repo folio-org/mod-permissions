@@ -353,5 +353,6 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
+    <generate_routing_context>/perms/users</generate_routing_context>
   </properties>
 </project>
