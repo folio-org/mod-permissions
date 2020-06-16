@@ -511,9 +511,44 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testGroup(TestContext context) throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:"+port+"/perms/users";
+  public void testPutPermsUsersById(TestContext context) throws InterruptedException, ExecutionException, TimeoutException {
+    CompletableFuture<Response> futureResponse = new CompletableFuture();
 
+    String userId = UUID.randomUUID().toString();
+    String id = UUID.randomUUID().toString();
+    String postPermUsersRequest = "{\"userId\": \""+ userId +"\",\"permissions\": [], \"id\" : \"" + id + "\"}";
+
+    send("http://localhost:"+port+"/perms/users", context, HttpMethod.POST, postPermUsersRequest,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 201);
+    JsonObject user = response.body;
+    user.remove("metadata");
+    context.assertEquals(id, user.getString("id"));
+
+    futureResponse = new CompletableFuture();
+    send("http://localhost:"+port+"/perms/users/" +id, context, HttpMethod.PUT, user.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 200);
+
+    futureResponse = new CompletableFuture();
+    user.getJsonArray("permissions").add("permission.second");
+    logger.info("USER=" + user.encodePrettily());
+    send("http://localhost:"+port+"/perms/users/" +id, context, HttpMethod.PUT, user.encode(),
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 422);
+
+    futureResponse = new CompletableFuture();
+    send("http://localhost:"+port+"/perms/users/" +id, context, HttpMethod.DELETE, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 204);
+  }
+
+  @Test
+  public void testGroup(TestContext context) throws InterruptedException, ExecutionException, TimeoutException {
     final String permUrl = "http://localhost:"+port+"/perms/permissions";
     final String userUrl = "http://localhost:"+port+"/perms/users";
 
@@ -552,17 +587,17 @@ public class RestVerticleTest {
 
     /* add a perm user with a non-existent perm */
     futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.POST, postBadPermUsersRequest,
+    send(userUrl, context, HttpMethod.POST, postBadPermUsersRequest,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
     response = futureResponse.get(5, TimeUnit.SECONDS);
     logger.debug("Status - " + response.code + " with body " +
         response.body + " at " +
-        System.currentTimeMillis() + " for " + url);
+        System.currentTimeMillis() + " for " + userUrl);
     context.assertEquals(response.code, 422);
 
     /**add a perm user */
     futureResponse = new CompletableFuture();
-    String addPUURL = url;
+    String addPUURL = userUrl;
     send(addPUURL, context, HttpMethod.POST, postPermUsersRequest,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
     response = futureResponse.get(5, TimeUnit.SECONDS);
@@ -573,7 +608,7 @@ public class RestVerticleTest {
 
     /**add a perm user again 422 */
     futureResponse = new CompletableFuture();
-    String addPUURL2 = url;
+    String addPUURL2 = userUrl;
     send(addPUURL2, context, HttpMethod.POST, postPermUsersRequest,
         SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
     response = futureResponse.get(5, TimeUnit.SECONDS);
@@ -582,7 +617,7 @@ public class RestVerticleTest {
         "\nStatus - " + response.code + " at " + System.currentTimeMillis() + " for "
         + addPUURL2);
 
-    String addPermURL = url + "/" + userId2 + "/permissions";
+    String addPermURL = userUrl + "/" + userId2 + "/permissions";
     /**add a perm  for a user */
     futureResponse = new CompletableFuture();
     send(addPermURL, context, HttpMethod.POST, postPermUserPermRequest,
@@ -941,7 +976,6 @@ public class RestVerticleTest {
         new HTTPResponseHandler(futureResponse));
     response = futureResponse.get(5, TimeUnit.SECONDS);
     context.assertEquals(response.code, 404);
-
   }
 
   private void send(String url, TestContext context, HttpMethod method, String content,
