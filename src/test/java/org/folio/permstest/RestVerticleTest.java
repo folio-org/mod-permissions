@@ -221,6 +221,18 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testGetPermsUsersByBadTenant(TestContext context)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/users/1234?indexField=id";
+
+    CompletableFuture<Response> futureResponse = new CompletableFuture();
+    send("badTenant", url, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
+    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(400, response.code);
+  }
+
+  @Test
   public void testPostPermsUsersPermissionsInvalidUUID(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
     String url = "http://localhost:" + port + "/perms/users/123/permissions";

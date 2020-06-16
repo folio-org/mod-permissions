@@ -251,9 +251,9 @@ public class PermsAPI implements Perms {
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
           new Criterion(idCrit), true, false, queryReply -> {
             if (queryReply.failed()) {
-              String errStr = "queryReply failed: " + queryReply.cause().getMessage();
+              String errStr = queryReply.cause().getMessage();
               logger.error(errStr);
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond500WithTextPlain(getErrorResponse(errStr))));
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond400WithTextPlain(errStr)));
               return;
             }
             List<PermissionUser> userList = queryReply.result().getResults();

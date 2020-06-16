@@ -134,6 +134,11 @@ traits:
             body:
               application/json:
                 type: permissionUser
+          400:
+            description: "Bad request"
+            body:
+              text/plain:
+                example: "Bad request"
           403:
             description: "Access Denied"
             body:
