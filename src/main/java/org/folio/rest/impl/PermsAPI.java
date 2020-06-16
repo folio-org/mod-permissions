@@ -291,15 +291,11 @@ public class PermsAPI implements Perms {
                         "Cannot add permissions flagged as 'dummy' to users")));
                 return;
               }
-              Criteria idCrit = new Criteria();
-              idCrit.addField(ID_FIELD);
-              idCrit.setOperation("=");
-              idCrit.setVal(userid);
               String query = "id==" + userid;
               CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
 
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-                  TABLE_NAME_PERMSUSERS, PermissionUser.class, new Criterion(idCrit), true, false,
+                  TABLE_NAME_PERMSUSERS, PermissionUser.class, cqlFilter, true,
                   putPermsUsersbyIdHandle(userid, entity, asyncResultHandler, vertxContext, tenantId, cqlFilter));
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
