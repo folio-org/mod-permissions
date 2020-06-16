@@ -875,21 +875,18 @@ public class PermsAPI implements Perms {
       PostgresClient.getInstance(vertxContext.owner(), tenantId)
           .get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
             if (getReply.failed()) {
-              logger.error("Error in getReply: " + getReply.cause().getMessage());
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.respond500WithTextPlain("Internal server error")));
+              String errStr = getReply.cause().getMessage();
+              logger.error(errStr);
+              asyncResultHandler.handle(Future.succeededFuture(
+                  GetPermsPermissionsByIdResponse.respond400WithTextPlain(errStr)));
               return;
             }
             List<Permission> permList = getReply.result().getResults();
-            if (permList.size() < 1) {
-              //404'd!
+            if (permList.isEmpty()) {
               asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.respond404WithTextPlain("No permission with ID " + id + " exists")));
-            } else if (permList.size() > 1) {
-              //Too many results!
-              logger.warn("Multiple results found for ID " + id);
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.respond500WithTextPlain("Internal server error")));
-            } else {
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.respond200WithApplicationJson(permList.get(0))));
+              return;
             }
+            asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsByIdResponse.respond200WithApplicationJson(permList.get(0))));
           });
     } catch (Exception e) {
       logger.error("Error getting Permission with Postgres client: " + e.getMessage());

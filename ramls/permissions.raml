@@ -355,6 +355,11 @@ traits:
             body:
               application/json:
                 type: permission
+          400:
+            description: "Bad request"
+            body:
+              text/plain:
+                example: "Bad request"
           404:
             description: "Permission not found"
             body:

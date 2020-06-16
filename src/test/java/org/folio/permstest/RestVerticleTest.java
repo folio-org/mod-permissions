@@ -501,6 +501,16 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testGetPermsPermissionsByIdBadTenant(TestContext context) throws InterruptedException, ExecutionException, TimeoutException {
+    String url = "http://localhost:" + port + "/perms/permissions/123";
+    CompletableFuture<Response> futureResponse = new CompletableFuture();
+    send("badTenant", url, context, HttpMethod.GET, null,
+        SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    context.assertEquals(response.code, 400);
+  }
+
+  @Test
   public void testGroup(TestContext context) throws InterruptedException, ExecutionException, TimeoutException {
     String url = "http://localhost:"+port+"/perms/users";
 
