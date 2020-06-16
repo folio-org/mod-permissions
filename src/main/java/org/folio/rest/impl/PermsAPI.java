@@ -420,7 +420,7 @@ public class PermsAPI implements Perms {
                 //rollback, 404
                 pgClient.rollbackTx(connection, rollback -> {
                   asyncResultHandler.handle(Future.succeededFuture(
-                      DeletePermsUsersByIdResponse.respond404WithTextPlain("Not found")));
+                      DeletePermsUsersByIdResponse.respond404WithTextPlain(userid)));
                 });
                 return;
               }
@@ -454,8 +454,7 @@ public class PermsAPI implements Perms {
                         if (deleteReply.result().rowCount() == 0) {
                           pgClient.rollbackTx(connection, rollback -> {
                             asyncResultHandler.handle(Future.succeededFuture(
-                                DeletePermsUsersByIdResponse.respond404WithTextPlain(
-                                    "Not found")));
+                                DeletePermsUsersByIdResponse.respond404WithTextPlain(userid)));
                           });
                           return;
                         }
@@ -1032,8 +1031,7 @@ public class PermsAPI implements Perms {
             List<Permission> permList = getReply.result().getResults();
             if (permList.isEmpty()) {
               asyncResultHandler.handle(Future.succeededFuture(
-                  DeletePermsPermissionsByIdResponse
-                      .respond404WithTextPlain("Not found")));
+                  DeletePermsPermissionsByIdResponse.respond404WithTextPlain(id)));
               return;
             }
             Permission perm = permList.get(0);
@@ -1108,7 +1106,7 @@ public class PermsAPI implements Perms {
                     return;
                   }
                   if (deleteReply.result().rowCount() == 0) {
-                    asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond404WithTextPlain("Not found")));
+                    asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond404WithTextPlain(id)));
                     return;
                   }
                   asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond204()));
