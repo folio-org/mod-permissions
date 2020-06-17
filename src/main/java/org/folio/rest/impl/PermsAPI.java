@@ -101,6 +101,7 @@ public class PermsAPI implements Perms {
   private static final String USER_NAME_FIELD = "'username'";
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ID_FIELD = "'id'";
+  private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static boolean suppressErrorResponse = false;
@@ -213,7 +214,7 @@ public class PermsAPI implements Perms {
                               PostPermsUsersResponse.respond422WithApplicationJson(
                                   ValidationHelper.createValidationErrorMessage(
                                       ID_FIELD, permUser.getId(),
-                                      "Unable to update derived fields: " + updatePermsRes.cause().getMessage()))));
+                                      UNABLE_TO_UPDATE_DERIVED_FIELDS + updatePermsRes.cause().getMessage()))));
                         } else {
                           asyncResultHandler.handle(Future.succeededFuture(
                               PostPermsUsersResponse.respond500WithTextPlain(
@@ -357,8 +358,7 @@ public class PermsAPI implements Perms {
                               PutPermsUsersByIdResponse.respond422WithApplicationJson(
                                   ValidationHelper.createValidationErrorMessage(
                                       ID_FIELD, entity.getId(),
-                                          "Unable to update derived fields: "
-                                              + updateUserPermsRes.cause().getMessage()))));
+                                          UNABLE_TO_UPDATE_DERIVED_FIELDS + updateUserPermsRes.cause().getMessage()))));
                         } else {
                           String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
                           logger.error(errStr, updateUserPermsRes.cause());
@@ -967,8 +967,7 @@ public class PermsAPI implements Perms {
                                       PutPermsPermissionsByIdResponse.respond422WithApplicationJson(
                                           ValidationHelper.createValidationErrorMessage(
                                               ID_FIELD, entity.getId(),
-                                              "Unable to update derived fields: "
-                                                      + updateSubPermsRes.cause().getMessage()))));
+                                              UNABLE_TO_UPDATE_DERIVED_FIELDS + updateSubPermsRes.cause().getMessage()))));
                                 } else {
                                   String errStr = "Error with derived field update: "
                                       + updateSubPermsRes.cause().getMessage();
