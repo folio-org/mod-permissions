@@ -379,7 +379,7 @@ public class RestVerticleTest {
     send(url, context, HttpMethod.GET, "",
         SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
     Response addPermsResponse = futureResponse.get(5, TimeUnit.SECONDS);
-    context.assertEquals(200, addPermsResponse.code);
+    context.assertEquals(400, addPermsResponse.code);
   }
 
   @Test

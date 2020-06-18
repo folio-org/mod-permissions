@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
+import org.folio.rest.annotations.Validate;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionListObject;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
@@ -137,6 +138,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void getPermsUsers(int length, int start, String sortBy, String query,
                             String hasPermissions, RoutingContext routingContext, Map<String, String> okapiHeaders,
@@ -146,6 +148,7 @@ public class PermsAPI implements Perms {
         routingContext, okapiHeaders, vertxContext);
   }
 
+  @Validate
   @Override
   public void postPermsUsers(PermissionUser entity, RoutingContext routingContext, Map<String, String> okapiHeaders,
                              Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -244,6 +247,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void getPermsUsersById(String id, String indexField, Map<String, String> okapiHeaders,
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -272,6 +276,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void putPermsUsersById(String userid, PermissionUser entity, Map<String, String> okapiHeaders,
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -385,6 +390,7 @@ public class PermsAPI implements Perms {
     };
   }
 
+  @Validate
   @Override
   public void deletePermsUsersById(String userid, Map<String, String> okapiHeaders,
                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -479,6 +485,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void getPermsUsersPermissionsById(String id, String expanded,
                                            String full, String indexField, Map<String, String> okapiHeaders,
@@ -528,6 +535,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void postPermsUsersPermissionsById(String id, String indexField,
                                             PermissionNameObject entity, Map<String, String> okapiHeaders,
@@ -671,6 +679,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void deletePermsUsersPermissionsByIdAndPermissionname(
       String id, String permissionname,
@@ -762,6 +771,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void postPermsPermissions(PermissionUpload entity, Map<String, String> okapiHeaders,
                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
@@ -854,6 +864,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void getPermsPermissionsById(String id, Map<String, String> okapiHeaders,
                                       Handler<AsyncResult<Response>> asyncResultHandler,
@@ -889,6 +900,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void putPermsPermissionsById(String id, PermissionUpload entity,
                                       Map<String, String> okapiHeaders,
@@ -1000,6 +1012,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+  @Validate
   @Override
   public void deletePermsPermissionsById(String id,
                                          Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
@@ -1120,6 +1133,7 @@ public class PermsAPI implements Perms {
   }
 
   @SuppressWarnings("java:S3776")
+  @Validate
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
                                   int length, int start, String sortBy, String query, String memberOf,
