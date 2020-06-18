@@ -258,7 +258,7 @@ public class PermsAPI implements Perms {
           new Criterion(idCrit), true, false, queryReply -> {
             if (queryReply.failed()) {
               String errStr = queryReply.cause().getMessage();
-              logger.error(errStr);
+              logger.error(errStr, queryReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond400WithTextPlain(errStr)));
               return;
             }
@@ -551,7 +551,7 @@ public class PermsAPI implements Perms {
             try {
               if (getReply.failed()) {
                 String errStr = "Error checking for user: " + getReply.cause().getMessage();
-                logger.error(errStr);
+                logger.error(errStr, getReply.cause());
                 asyncResultHandler.handle(Future.succeededFuture(
                     PostPermsUsersPermissionsByIdResponse.respond400WithTextPlain(errStr)));
                 return;
@@ -692,7 +692,7 @@ public class PermsAPI implements Perms {
           PermissionUser.class, new Criterion(idCrit), true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
-              logger.error(errStr);
+              logger.error(errStr, getReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond400WithTextPlain(errStr)));
               return;
@@ -789,7 +789,7 @@ public class PermsAPI implements Perms {
           TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
-              logger.error(errStr);
+              logger.error(errStr, getReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(PostPermsPermissionsResponse.respond400WithTextPlain(errStr)));
               return;
             }
@@ -822,7 +822,8 @@ public class PermsAPI implements Perms {
                 postgresClient.save(connection, TABLE_NAME_PERMS, newId, realPerm, postReply -> {
                   if (postReply.failed()) {
                     postgresClient.rollbackTx(connection, done -> {
-                      logger.error("Unable to save new permission: " + postReply.cause().getMessage());
+                      logger.error("Unable to save new permission: "
+                          + postReply.cause().getMessage(), postReply.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsPermissionsResponse
                               .respond500WithTextPlain(getInternalError(postReply.cause().getMessage()))));
@@ -879,7 +880,7 @@ public class PermsAPI implements Perms {
           .get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
-              logger.error(errStr);
+              logger.error(errStr, getReply.cause());
               asyncResultHandler.handle(Future.succeededFuture(
                   GetPermsPermissionsByIdResponse.respond400WithTextPlain(errStr)));
               return;
@@ -1700,7 +1701,9 @@ public class PermsAPI implements Perms {
     CompositeFuture compositeFuture = CompositeFuture.join(futureList);
     compositeFuture.onComplete(compositeResult -> {
       if (compositeResult.failed()) {
-        logger.error("Failed to expand subpermissions for '" + permission.getPermissionName() + "' : " + compositeResult.cause().getMessage());
+        logger.error("Failed to expand subpermissions for '" + permission.getPermissionName()
+                + "' : " + compositeResult.cause().getMessage(),
+            compositeResult.cause());
         promise.fail(compositeResult.cause().getMessage());
         return;
       }
