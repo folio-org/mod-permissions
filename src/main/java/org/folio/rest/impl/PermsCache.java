@@ -33,7 +33,7 @@ public class PermsCache {
   public static final String TEST_EXCEPTION_PERMISSION = "a.test.permission.to.trigger.exception";
 
   // 30 seconds cache
-  private static final long CACHE_PERIOD = 30 * 1000L;
+  public static long cachePeriod = 30 * 1000L;
 
   private static final String TAB_PERMS = "permissions";
 
@@ -137,7 +137,7 @@ public class PermsCache {
     }
 
     public boolean isStale() {
-      return System.currentTimeMillis() > (timestamp + CACHE_PERIOD);
+      return System.currentTimeMillis() > (timestamp + cachePeriod);
     }
 
     public boolean hasAll(Set<String> perms) {
