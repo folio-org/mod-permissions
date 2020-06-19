@@ -32,8 +32,6 @@ public class PermsCache {
 
   public static final String TEST_EXCEPTION_PERMISSION = "a.test.permission.to.trigger.exception";
 
-  // 30 seconds cache
-  public static long cachePeriod = 30 * 1000L;
 
   private static final String TAB_PERMS = "permissions";
 
@@ -43,9 +41,19 @@ public class PermsCache {
   // cache update in progress
   private static final ConcurrentMap<String, Long> CACHE_WIP = new ConcurrentHashMap<>();
 
+  // 30 seconds cache
+  private static long cachePeriod = 30 * 1000L;
+
   private PermsCache() {
   }
 
+  /**
+   * set cache period in millisecond.
+   * @param ms in milliseconds
+   */
+  public static void setCachePeriod(long ms) {
+    cachePeriod = ms;
+  }
   /**
    * Expand permission list to include all sub permissions recursively.
    *

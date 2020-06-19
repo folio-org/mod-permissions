@@ -53,7 +53,7 @@ public class RestVerticleWithCacheTest {
   public static void setup(TestContext context) {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
-    PermsCache.cachePeriod = 3000;
+    PermsCache.setCachePeriod(3000);
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
