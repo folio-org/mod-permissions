@@ -134,6 +134,11 @@ traits:
             body:
               application/json:
                 type: permissionUser
+          400:
+            description: "Bad request"
+            body:
+              text/plain:
+                example: "Bad request"
           403:
             description: "Access Denied"
             body:
@@ -179,6 +184,11 @@ traits:
         description: Remove a user
         responses:
           204:
+          400:
+            description: "Bad request"
+            body:
+              text/plain:
+                example: "Bad request"
           404:
             description: "User not found"
             body:
@@ -212,6 +222,11 @@ traits:
               body:
                 application/json:
                   type: permissionNameListObject
+            400:
+              description: "Bad request"
+              body:
+                text/plain:
+                  example: "Bad request"
             403:
               description: "Access Denied"
               body:
@@ -340,6 +355,11 @@ traits:
             body:
               application/json:
                 type: permission
+          400:
+            description: "Bad request"
+            body:
+              text/plain:
+                example: "Bad request"
           404:
             description: "Permission not found"
             body:

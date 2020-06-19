@@ -19,6 +19,7 @@ import java.util.Set;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermsCache;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.rest.jaxrs.model.Parameter;
@@ -52,7 +53,8 @@ public class RestVerticleWithCacheTest {
   public static void setup(TestContext context) {
     Async async = context.async();
     port = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", "diku");
+    PermsCache.setCachePeriod(3000);
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
         .setWorker(true);
@@ -106,7 +108,7 @@ public class RestVerticleWithCacheTest {
       return testUserPerms(context, w.getJson().getString("id"));
     }).compose(w -> {
       // refresh cache
-      return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE), 32);
+      return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE), 4);
     }).compose(w -> {
       // test again
       return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE, P_DELETE), 2);
