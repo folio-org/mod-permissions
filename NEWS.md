@@ -1,3 +1,11 @@
+## 2020-06-21 v5.11.0
+
+ * [MODPERMS-84](https://issues.folio.org/browse/MODPERMS-84) Creating permissions set in FOLIO Settings ignores provided UUID
+ * [MODPERMS-36](https://issues.folio.org/browse/MODPERMS-36) 500 Errors need to be handled gracefully
+ * Update RAML so that 204: no content, really returns no content.
+ * Add HTTP status 400 as a possible return status for several end-points.
+ * Update to RMB 30.0.3.
+
 ## 2020-06-04 v5.10.0
 
  * [MODPERMS-82](https://issues.folio.org/browse/MODPERMS-82) Update to RMB 30
