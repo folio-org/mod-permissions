@@ -1893,11 +1893,12 @@ public class PermsAPI implements Perms {
           .addField(PERMISSION_NAME_FIELD)
           .setOperation("=")
           .setVal(permissionName);
-      CQLWrapper cqlFilter = new CQLWrapper(new Criterion(nameCrit));
+      Criterion criterion = new Criterion(nameCrit);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       report("Initiating PG Client get() request (in transaction)(mPAF)", logger);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           connection, TABLE_NAME_PERMS,
-          Permission.class, new Criterion(nameCrit), true, false,
+          Permission.class, criterion, true, false,
           getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
@@ -2086,12 +2087,13 @@ public class PermsAPI implements Perms {
           .addField(PERMISSION_NAME_FIELD)
           .setOperation("=")
           .setVal(permissionName);
-      CQLWrapper cqlFilter = new CQLWrapper(new Criterion(nameCrit));
+      Criterion criterion = new Criterion(nameCrit);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
       report("Initiating get() (in transaction) (removeSubpermissionFromPermission");
       pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
-          new Criterion(nameCrit), true, false, getReply -> {
+          criterion, true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
             } else {
