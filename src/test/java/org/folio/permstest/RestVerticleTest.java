@@ -46,11 +46,6 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
-import static io.vertx.core.http.HttpMethod.GET;
-import static io.vertx.core.http.HttpMethod.POST;
-import static io.vertx.core.http.HttpMethod.PUT;
-
-
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
   private static final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
@@ -199,174 +194,107 @@ public class RestVerticleTest {
   @Test
   public void testGetPermsUsersByIdBadIndexField(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/123?indexField=bad";
 
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.GET, "/perms/users/123?indexField=bad", null, context);
     context.assertEquals(500, response.code);
   }
 
   @Test
   public void testGetPermsUsersByIdBadUUID(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/1234?indexField=id";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.GET, "/perms/users/1234?indexField=id", null, context);
     context.assertEquals(404, response.code);
   }
 
   @Test
   public void testGetPermsUsersByIdBadTenant(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/1234";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send("badTenant", url, context, HttpMethod.GET, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send("badTenant", HttpMethod.GET, "/perms/users/1234", null, context);
     context.assertEquals(400, response.code);
   }
 
   @Test
   public void testDeletePermsUsersByIdBadTenant(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/1234";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send("badTenant", url, context, HttpMethod.DELETE, null,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send("badTenant", HttpMethod.DELETE, "/perms/users/1234", null, context);
     context.assertEquals(400, response.code);
   }
 
   @Test
   public void testPostPermsUsersPermissionsInvalidUUID(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/123/permissions";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.POST, postPermUserPermRequest,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.POST, "/perms/users/123/permissions",
+        postPermUserPermRequest, context);
     context.assertEquals(400, response.code);
   }
 
   @Test
   public void testPostPermsUsersInvalidUUID(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
 
     String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
         "[], \"id\" : \"1234\"}";
 
-    send(url, context, HttpMethod.POST, permsUsers,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.POST, "/perms/users",
+        permsUsers, context);
     context.assertEquals(400, response.code);
   }
 
   @Test
   public void testPostPermsUsersNoUserId(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-
     String permsUsers = "{\"permissions\": [], \"id\" : \"1234\"}";
-
-    send(url, context, HttpMethod.POST, permsUsers,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.POST, "/perms/users",
+        permsUsers, context);
     context.assertEquals(400, response.code);
   }
 
   @Test
   public void testPostPermsUsersBadTenant(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-
-    String permsUsersWithBadUUID = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+    String permsUsers = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
         "[], \"id\" : \"1234\"}";
-
-    send("badTenant", url, context, HttpMethod.POST, permsUsersWithBadUUID,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send("badTenant", HttpMethod.POST, "/perms/users",
+        permsUsers, context);
     context.assertEquals(400, response.code);
   }
 
   @Test
   public void testPutPermsUsersInvalidUUID(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/123";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.PUT, postPermUsersRequest,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.PUT, "/perms/users/123", postPermUsersRequest, context);
     context.assertEquals(404, response.code);
   }
 
   @Test
   public void testDeletePermsUsersInvalidUUID(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/123";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.DELETE, "",
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.DELETE, "/perms/users/123", postPermUsersRequest, context);
     context.assertEquals(404, response.code);
   }
 
   @Test
   public void testPutPermsUsersByIdNonExistingPerm(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/123";
-
     String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
         "[\"foo\"], \"id\" : \"1234\"}";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.PUT, permsUsers,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.PUT, "/perms/users/123", permsUsers, context);
     context.assertEquals(404, response.code);
   }
 
   @Test
   public void testPutPermsUsersByIdBadTenant(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users/123";
-
     String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
         "[\"foo\"], \"id\" : \"1234\"}";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send("badTenant", url, context, HttpMethod.PUT, permsUsers,
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send("badTenant", HttpMethod.PUT, "/perms/users/123", permsUsers, context);
     context.assertEquals(400, response.code);
   }
-
 
   @Test
   public void testPermsUsersGetCqlError(TestContext context)
       throws InterruptedException, ExecutionException, TimeoutException {
-    String url = "http://localhost:" + port + "/perms/users?query=a+and";
-
-    CompletableFuture<Response> futureResponse = new CompletableFuture();
-    send(url, context, HttpMethod.GET, "",
-        SUPPORTED_CONTENT_TYPE_JSON_DEF,  new HTTPResponseHandler(futureResponse));
-    Response response = futureResponse.get(5, TimeUnit.SECONDS);
+    Response response = send(HttpMethod.GET, "/perms/users?query=a+and", null, context);
     context.assertEquals(400, response.code);
   }
 
@@ -978,6 +906,22 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 404);
   }
 
+  private Response send(HttpMethod method, String path, String content, TestContext context) {
+    return send("diku", method, path, content, context);
+  }
+
+  private Response send(String tenant, HttpMethod method, String path, String content, TestContext context) {
+    try {
+      CompletableFuture<Response> futureResponse = new CompletableFuture();
+      send(tenant, "http://localhost:" + port + path, context, method, content,
+          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+      return futureResponse.get(5, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      context.fail(e);
+      return null;
+    }
+  }
+
   private void send(String url, TestContext context, HttpMethod method, String content,
                     String contentType, Handler<HttpClientResponse> handler) {
     send("diku", url, context, method, content, contentType, handler);
@@ -1373,7 +1317,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("dummy.all"));
     Future<WrappedResponse> future = Future.future();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users",
-        POST, null, newUser.encode(), 201).onComplete(res -> {
+        HttpMethod.POST, null, newUser.encode(), 201).onComplete(res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
         future.complete(res.result());
       }
@@ -1390,7 +1334,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("spurious.all"));
     Future<WrappedResponse> future = Future.future();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/123",
-        PUT, null, modifiedUser.encode(), 404).onComplete(res -> {
+        HttpMethod.PUT, null, modifiedUser.encode(), 404).onComplete(res -> {
       if(res.failed()) {
         future.fail(res.cause());
       } else {
@@ -1405,7 +1349,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
     Future<WrappedResponse> future = Future.future();
     TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/users/" + permsUserId +
-        "/permissions?expanded=true", GET, headers, null, 200).onComplete(res -> {
+        "/permissions?expanded=true", HttpMethod.GET, headers, null, 200).onComplete(res -> {
       try {
         if(res.failed()) {
           future.fail(res.cause());
@@ -1441,7 +1385,7 @@ public class RestVerticleTest {
       future.fail(e);
       return future;
     }
-    TestUtil.doRequest(vertx, url, GET, headers, null, 200).onComplete(res -> {
+    TestUtil.doRequest(vertx, url, HttpMethod.GET, headers, null, 200).onComplete(res -> {
       if(res.failed()) {
         future.fail(res.cause());
       } else {
@@ -1482,7 +1426,7 @@ public class RestVerticleTest {
       future.fail(e);
       return future;
     }
-    TestUtil.doRequest(vertx, url, GET, headers, null, 200).onComplete(res -> {
+    TestUtil.doRequest(vertx, url, HttpMethod.GET, headers, null, 200).onComplete(res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
         try {
           JsonArray permList = res.result().getJson().getJsonArray("permissions");
@@ -1533,7 +1477,7 @@ public class RestVerticleTest {
                 .put("permissionName", "dummy.write")
             )
         );
-    TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", POST,
+    TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", HttpMethod.POST,
         null, badPermission.encode(), 400).onComplete(res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
         future.complete(res.result());
@@ -1547,7 +1491,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     JsonObject nullPermission = new JsonObject()
         .put("displayName", "nullPermName");
-    TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", POST,
+    TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", HttpMethod.POST,
         null, nullPermission.encode(), 201).onComplete(res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
         future.complete(res.result());
@@ -1572,9 +1516,9 @@ public class RestVerticleTest {
       future.fail(e);
       return future;
     }
-    TestUtil.doRequest(vertx, url, POST, null, newUser.encode(), 201).onComplete(res -> {
+    TestUtil.doRequest(vertx, url, HttpMethod.POST, null, newUser.encode(), 201).onComplete(res -> {
       if(res.failed()) { future.fail(res.cause()); } else {
-        TestUtil.doRequest(vertx, url2, GET, headers, null, 200 ).onComplete(res2 -> {
+        TestUtil.doRequest(vertx, url2, HttpMethod.GET, headers, null, 200 ).onComplete(res2 -> {
           if(res2.failed()) { future.fail(res2.cause()); } else {
             future.complete(res2.result());
           }
@@ -1595,7 +1539,7 @@ public class RestVerticleTest {
     }
     String url = "http://localhost:" + port + "/perms/permissions?" + dummyFlag +
         "query=permissionName=="+permissionName;
-    TestUtil.doRequest(vertx, url, GET, null, null, 200).onComplete(res -> {
+    TestUtil.doRequest(vertx, url, HttpMethod.GET, null, null, 200).onComplete(res -> {
       if(res.failed()) {
         future.fail(res.cause());
       } else {
@@ -1626,14 +1570,14 @@ public class RestVerticleTest {
     String fakeUserId = UUID.randomUUID().toString();
     headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
     headers.add("X-Okapi-User-Id", fakeUserId);
-    TestUtil.doRequest(vertx, url, POST, headers, newUser.encode(), 201).onComplete(
+    TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newUser.encode(), 201).onComplete(
         res -> {
           if(res.failed()) { future.fail(res.cause()); } else {
             try {
               String newUserId = res.result().getJson().getString("id");
               String url2 = String.format("http://localhost:%s/perms/users/%s", port,
                   newUserId);
-              TestUtil.doRequest(vertx, url2, GET, null, null, 200).onComplete(res2 -> {
+              TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).onComplete(res2 -> {
                 try {
                   JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
                   if(metadata == null) {
@@ -1664,14 +1608,14 @@ public class RestVerticleTest {
     String fakeUserId = UUID.randomUUID().toString();
     headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
     headers.add("X-Okapi-User-Id", fakeUserId);
-    TestUtil.doRequest(vertx, url, POST, headers, newPerm.encode(), 201).onComplete(
+    TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newPerm.encode(), 201).onComplete(
         res -> {
           if(res.failed()) { future.fail(res.cause()); } else {
             try {
               String newPermId = res.result().getJson().getString("id");
               String url2 = String.format("http://localhost:%s/perms/permissions/%s", port,
                   newPermId);
-              TestUtil.doRequest(vertx, url2, GET, null, null, 200).onComplete(res2 -> {
+              TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).onComplete(res2 -> {
                 try {
                   JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
                   if(metadata == null) {
@@ -1734,7 +1678,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.a)",
-        GET, headers, null, 200).onComplete(res -> {
+        HttpMethod.GET, headers, null, 200).onComplete(res -> {
       try {
         if (res.failed()) {
           promise.fail(res.cause());
@@ -1787,7 +1731,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.aa)",
-        GET, headers, null, 200).onComplete(res -> {
+        HttpMethod.GET, headers, null, 200).onComplete(res -> {
       if (res.failed()) {
         promise.complete();
       } else {
