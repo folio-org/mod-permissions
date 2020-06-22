@@ -43,27 +43,17 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
+import static org.folio.permstest.TestUtil.*;
+
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
   private static final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
 
-  private static final String       SUPPORTED_CONTENT_TYPE_JSON_DEF = "application/json";
-  private static final String       SUPPORTED_CONTENT_TYPE_TEXT_DEF = "text/plain";
   private static final String userId1 = "35d05a6a-d61e-4e81-9708-fc44daadbec5";
   private static final String userId2 = "176bc0cc-b785-4cf9-9e8a-5fafe8178332";
   private static final String userId3 = "f36400e5-ec5e-4e6c-abac-25fc42e1ec47";
 
-  /*
-  private static String postPermUsersRequest = "{\"userId\": \"93cb7ed4-313e-4f06-bd4b-d44b1308c3f3\",\"permissions\": ["+
-    "{\"permissionName\": \"a\", \"displayName\": \"b\"  } ], \"id\" : \"" + userId2 + "\"}";
-  */
-
   private static final String userUserId = "93cb7ed4-313e-4f06-bd4b-d44b1308c3f3";
-  private static String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
-      "[], \"id\" : \"" + userId2 + "\"}";
-
-  private static String postPermUserPermRequest = "{\"permissionName\":\"a\"}";
-
   private static Vertx vertx;
   private static HttpClient client;
   static int port;
@@ -210,8 +200,10 @@ public class RestVerticleTest {
 
   @Test
   public void testPostPermsUsersPermissionsInvalidUUID(TestContext context) {
+    String request = "{\"permissionName\":\"a\"}";
+
     Response response = send(HttpMethod.POST, "/perms/users/123/permissions",
-        postPermUserPermRequest, context);
+        request, context);
     context.assertEquals(400, response.code);
   }
 
@@ -245,12 +237,16 @@ public class RestVerticleTest {
 
   @Test
   public void testPutPermsUsersInvalidUUID(TestContext context) {
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[], \"id\" : \"" + userId2 + "\"}";
     Response response = send(HttpMethod.PUT, "/perms/users/123", postPermUsersRequest, context);
     context.assertEquals(404, response.code);
   }
 
   @Test
   public void testDeletePermsUsersInvalidUUID(TestContext context) {
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[], \"id\" : \"" + userId2 + "\"}";
     Response response = send(HttpMethod.DELETE, "/perms/users/123", postPermUsersRequest, context);
     context.assertEquals(404, response.code);
   }
@@ -409,8 +405,6 @@ public class RestVerticleTest {
 
   @Test
   public void testGroup(TestContext context) {
-    final String permUrl = "http://localhost:"+port+"/perms/permissions";
-    final String userUrl = "http://localhost:"+port+"/perms/users";
     String postPermRequest = "{\"permissionName\":\"a\",\"displayName\":\"b\"}";
 
     CompletableFuture<Response> futureResponse;
@@ -441,6 +435,8 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 422);
 
     /**add a perm user */
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[], \"id\" : \"" + userId2 + "\"}";
     response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
     context.assertEquals(response.code, 201);
 
@@ -449,6 +445,7 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 422);
 
     /**add a perm  for a user */
+    String postPermUserPermRequest = "{\"permissionName\":\"a\"}";
     response = send(HttpMethod.POST, "/perms/users/" + userId2 + "/permissions", postPermUserPermRequest, context);
     context.assertEquals(response.code, 200);
 
@@ -708,7 +705,7 @@ public class RestVerticleTest {
     try {
       CompletableFuture<Response> futureResponse = new CompletableFuture();
       send(tenant, "http://localhost:" + port + path, context, method, content,
-          SUPPORTED_CONTENT_TYPE_JSON_DEF, new HTTPResponseHandler(futureResponse));
+          CONTENT_TYPE_JSON, new HTTPResponseHandler(futureResponse));
       return futureResponse.get(5, TimeUnit.SECONDS);
     } catch (Exception e) {
       context.fail(e);
@@ -721,7 +718,7 @@ public class RestVerticleTest {
     HttpClientRequest request = client.requestAbs(method, url);
     request.exceptionHandler(error -> context.fail(error.getMessage())).handler(handler);
     request.putHeader("x-okapi-tenant", tenant);
-    request.putHeader("Accept", "application/json,text/plain");
+    request.putHeader("Accept", CONTENT_TYPE_TEXT_JSON);
     request.putHeader("Content-type", contentType);
     if (content == null) {
       request.end();
@@ -745,9 +742,9 @@ public class RestVerticleTest {
           Response r = new Response();
           r.code = hcr.statusCode();
           try {
-            if ("application/json".equals(hcr.getHeader("Content-Type"))) {
+            if (CONTENT_TYPE_JSON.equals(hcr.getHeader("Content-Type"))) {
               r.body = bh.toJsonObject();
-            } else if ("text/plain".equals(hcr.getHeader("Content-Type"))) {
+            } else if (CONTENT_TYPE_TEXT.equals(hcr.getHeader("Content-Type"))) {
               r.body = new JsonObject().put("text", bh.toString());
             } else {
               r.body = null;
@@ -829,7 +826,7 @@ public class RestVerticleTest {
     };
 
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", "application/json,text/plain");
+    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
       if(res.failed()) {
@@ -921,7 +918,7 @@ public class RestVerticleTest {
         );
 
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", "application/json,text/plain");
+    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
       if(res.failed()) {
@@ -963,7 +960,7 @@ public class RestVerticleTest {
         );
 
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", "application/json,text/plain");
+    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
       if(res.failed()) {
@@ -1035,7 +1032,7 @@ public class RestVerticleTest {
         );
 
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", "application/json,text/plain");
+    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
         HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
       if(res.failed()) {
