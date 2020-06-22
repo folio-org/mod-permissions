@@ -191,8 +191,9 @@ public class RestVerticleTest {
 
   @Test
   public void testGetPermsUsersByIdBadUUID(TestContext context) {
-    Response response = send(HttpMethod.GET, "/perms/users/1234?indexField=id", null, context);
+    Response response = send(HttpMethod.GET, "/perms/users/12%2334?indexField=id", null, context);
     context.assertEquals(404, response.code);
+    context.assertEquals("No user with id: 12#34", response.body.getString("text"));
   }
 
   @Test
@@ -312,6 +313,14 @@ public class RestVerticleTest {
     Response response = send("badTenant", HttpMethod.GET, "/perms/users/123/permissions",
         null, context);
     context.assertEquals(response.code, 400);
+  }
+
+  @Test
+  public void testGetPermsUsersPermissionsByIdBadUUID(TestContext context) {
+    Response response = send(HttpMethod.GET, "/perms/users/12%2334/permissions",
+        null, context);
+    context.assertEquals(response.code, 404);
+    context.assertEquals("No user found by id 12#34", response.body.getString("text"));
   }
 
   @Test
@@ -452,7 +461,7 @@ public class RestVerticleTest {
 
     /* Try to add a new permission with a non-existent sub */
     JsonObject addNewBadPermRequestObject = new JsonObject()
-        .put("permissionName", "foo.all")
+        .put("permissionName", "foo.all#")
         .put("displayName", "foo all")
         .put("description", "All foo permissions")
         .put("subPermissions", new JsonArray().add("foo.whizz"));
@@ -463,7 +472,7 @@ public class RestVerticleTest {
     String newPermId = null;
     String newPermId2 = null;
     JsonObject addNewPermRequestObject = new JsonObject()
-        .put("permissionName", "foo.all")
+        .put("permissionName", "foo.all#")
         .put("displayName", "foo all")
         .put("description", "All foo permissions");
     response = send(HttpMethod.POST, "/perms/permissions", addNewPermRequestObject.encode(), context);
@@ -476,7 +485,7 @@ public class RestVerticleTest {
 
     /* Attempt to modify the permission with a non-existent subpermission */
     JsonObject modifyNewPermRequestObject = new JsonObject()
-        .put("permissionName", "foo.all")
+        .put("permissionName", "foo.all#")
         .put("displayName", "foo all")
         .put("description", "All foo permissions")
         .put("id", newPermId)
@@ -495,7 +504,7 @@ public class RestVerticleTest {
 
     /* Modify the first permission to make the second a subpermission */
     JsonObject modifyNewPermRequestObject1 = new JsonObject()
-        .put("permissionName", "foo.all")
+        .put("permissionName", "foo.all#")
         .put("displayName", "foo all")
         .put("description", "All foo permissions")
         .put("id", newPermId)
@@ -515,7 +524,7 @@ public class RestVerticleTest {
     context.assertTrue(response.body.getString("permissionName").equals("foo.whizz"));
     context.assertNotNull(response.body.getJsonArray("childOf"));
     context.assertFalse(response.body.getJsonArray("childOf").isEmpty());
-    context.assertTrue(response.body.getJsonArray("childOf").contains("foo.all"));
+    context.assertTrue(response.body.getJsonArray("childOf").contains("foo.all#"));
 
     /*Retrieve all the permissions */
     response = send(HttpMethod.GET, "/perms/permissions", null, context);
@@ -541,7 +550,7 @@ public class RestVerticleTest {
     /* Add the permission to the user */
 
     JsonObject addPermToUserObject = new JsonObject()
-        .put("permissionName", "foo.all");
+        .put("permissionName", "foo.all#");
     response = send(HttpMethod.POST, "/perms/users/" + newUserId + "/permissions", addPermToUserObject.encode(), context);
     context.assertEquals(response.code, 200);
 
@@ -556,7 +565,7 @@ public class RestVerticleTest {
     response = send(HttpMethod.GET, "/perms/users/" + newUserId + "/permissions", null, context);
     context.assertEquals(response.code, 200);
     context.assertNotNull(response.body.getJsonArray("permissionNames"));
-    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.all"));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.all#"));
 
     /* Get a list of permissions the user has with full subpermissions */
     response = send(HttpMethod.GET, "/perms/users/" + newUserId + "/permissions?full=true", null, context);
@@ -570,7 +579,7 @@ public class RestVerticleTest {
     response = send(HttpMethod.GET, "/perms/users/" + newUserId + "/permissions?expanded=true", null, context);
     context.assertEquals(response.code, 200);
     context.assertNotNull(response.body.getJsonArray("permissionNames"));
-    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.all"));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.all#"));
     context.assertTrue(response.body.getJsonArray("permissionNames").contains("foo.whizz"));
 
     /* Get a list of full and expanded permissions the user has */
@@ -583,7 +592,7 @@ public class RestVerticleTest {
       JsonArray perms = response.body.getJsonArray("permissionNames");
       for(Object ob : perms) {
         JsonObject perm = (JsonObject)ob;
-        if(perm.getString("permissionName").equals("foo.all")) {
+        if(perm.getString("permissionName").equals("foo.all#")) {
           JsonArray subs = perm.getJsonArray("subPermissions");
           if(subs.contains("foo.whizz")) {
             allFound = true;
@@ -595,7 +604,7 @@ public class RestVerticleTest {
         }
       }
       if(!allFound) {
-        context.fail("Did not locate permission for 'foo.all'");
+        context.fail("Did not locate permission for 'foo.all#'");
       } else if(!whizzFound) {
         context.fail("Did not locate permission for 'foo.whizz'");
       }
@@ -613,7 +622,7 @@ public class RestVerticleTest {
     context.assertFalse(response.body.getJsonArray("subPermissions").contains("foo.whizz"));
 
     /* Delete the permission from the user */
-    response = send(HttpMethod.DELETE, "/perms/users/" + newUserId + "/permissions/foo.all", null, context);
+    response = send(HttpMethod.DELETE, "/perms/users/" + newUserId + "/permissions/foo.all%23", null, context);
     context.assertEquals(response.code, 204);
 
     /* Get the original permission, check that our user is no longer in grantedTo */
@@ -626,12 +635,12 @@ public class RestVerticleTest {
     response = send(HttpMethod.GET, "/perms/users/" + newUserId + "/permissions", null, context);
     context.assertEquals(response.code, 200);
     context.assertNotNull(response.body.getJsonArray("permissionNames"));
-    context.assertFalse(response.body.getJsonArray("permissionNames").contains("foo.all"));
+    context.assertFalse(response.body.getJsonArray("permissionNames").contains("foo.all#"));
 
 
     /* Add another new permission */
     JsonObject addAnotherNewPermRequestObject = new JsonObject()
-        .put("permissionName", "moo.all")
+        .put("permissionName", "moo/all")
         .put("displayName", "moo all")
         .put("description", "All moo permissions");
     response = send(HttpMethod.POST, "/perms/permissions", addAnotherNewPermRequestObject.encode(), context);
@@ -640,7 +649,7 @@ public class RestVerticleTest {
 
     /* Add the new permission to the user via the user's userId */
     JsonObject addAnotherPermToUserObject = new JsonObject()
-        .put("permissionName", "moo.all");
+        .put("permissionName", "moo/all");
     response = send(HttpMethod.POST, "/perms/users/" + newUserUserId + "/permissions?indexField=userId",
         addAnotherPermToUserObject.encode(), context);
     context.assertEquals(response.code, 200);
@@ -650,10 +659,10 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 200);
     context.assertNotNull(response.body.getJsonArray("permissionNames"));
     context.assertTrue(response.body.getJsonArray("permissionNames")
-        .contains("moo.all"));
+        .contains("moo/all"));
 
     /* Delete the new permission from the user, via userId */
-    response = send(HttpMethod.DELETE, "/perms/users/" + newUserUserId + "/permissions/moo.all?indexField=userId",
+    response = send(HttpMethod.DELETE, "/perms/users/" + newUserUserId + "/permissions/moo%2Fall?indexField=userId",
         null, context);
     context.assertEquals(response.code, 204);
 

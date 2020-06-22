@@ -11,6 +11,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -249,9 +250,10 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void getPermsUsersById(String id, String indexField, Map<String, String> okapiHeaders,
+  public void getPermsUsersById(String idU, String indexField, Map<String, String> okapiHeaders,
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
+      final String id = URLDecoder.decode(idU, "UTF-8");
       String tenantId = TenantTool.tenantId(okapiHeaders);
       Criteria idCrit = getIdCriteria(indexField, "=", id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
@@ -487,11 +489,12 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void getPermsUsersPermissionsById(String id, String expanded,
+  public void getPermsUsersPermissionsById(String idU, String expanded,
                                            String full, String indexField, Map<String, String> okapiHeaders,
                                            Handler<AsyncResult<Response>> asyncResultHandler,
                                            Context vertxContext) {
     try {
+      String id = URLDecoder.decode(idU, "UTF-8");
       String tenantId = TenantTool.tenantId(okapiHeaders);
       boolean fullBool, expandedBool;
 
@@ -537,11 +540,12 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void postPermsUsersPermissionsById(String id, String indexField,
+  public void postPermsUsersPermissionsById(String idU, String indexField,
                                             PermissionNameObject entity, Map<String, String> okapiHeaders,
                                             Handler<AsyncResult<Response>> asyncResultHandler,
                                             Context vertxContext) {
     try {
+      String id = URLDecoder.decode(idU, "UTF-8");
       String tenantId = TenantTool.tenantId(okapiHeaders);
       Criteria useridCrit = getIdCriteria(indexField, "=", id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
@@ -682,10 +686,11 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void deletePermsUsersPermissionsByIdAndPermissionname(
-      String id, String permissionname,
+      String id, String permissionNameU,
       String indexField, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
+      String permissionName = URLDecoder.decode(permissionNameU, "UTF-8");
       String tenantId = TenantTool.tenantId(okapiHeaders);
       Criteria idCrit = getIdCriteria(indexField, "=", id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
@@ -705,9 +710,9 @@ public class PermsAPI implements Perms {
             }
             //attempt to delete permission
             PermissionUser user = userList.get(0);
-            if (!user.getPermissions().contains(permissionname)) {
+            if (!user.getPermissions().contains(permissionName)) {
               asyncResultHandler.handle(Future.succeededFuture(
-                  DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond400WithTextPlain("User with id " + id + " does not contain " + permissionname)));
+                  DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond400WithTextPlain("User with id " + id + " does not contain " + permissionName)));
               return;
             }
             try {
@@ -715,7 +720,7 @@ public class PermsAPI implements Perms {
               CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
               JsonArray originalPermissions = new JsonArray(
                   new ArrayList<Object>(user.getPermissions()));
-              user.getPermissions().remove(permissionname);
+              user.getPermissions().remove(permissionName);
               PostgresClient pgClient = PostgresClient.getInstance(
                   vertxContext.owner(), tenantId);
               pgClient.startTx(connection -> {
@@ -725,7 +730,7 @@ public class PermsAPI implements Perms {
                         pgClient.rollbackTx(connection, rollback -> {
                           String errStr = String.format(
                               "Error attempting to delete permission '%s' from user: %s",
-                              permissionname,
+                              permissionName,
                               putReply.cause().getMessage());
                           logger.error(errStr, putReply.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
@@ -1878,7 +1883,7 @@ public class PermsAPI implements Perms {
           .setOperation("=")
           .setVal(permissionName);
       String query = "permissionName==" + permissionName;
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
+      CQLWrapper cqlFilter = new CQLWrapper(new Criterion(nameCrit));
       report("Initiating PG Client get() request (in transaction)(mPAF)", logger);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           connection, TABLE_NAME_PERMS,
@@ -2071,8 +2076,7 @@ public class PermsAPI implements Perms {
           .addField(PERMISSION_NAME_FIELD)
           .setOperation("=")
           .setVal(permissionName);
-      String query = String.format("permissionName==%s", permissionName);
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
+      CQLWrapper cqlFilter = new CQLWrapper(new Criterion(nameCrit));
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
       report("Initiating get() (in transaction) (removeSubpermissionFromPermission");
