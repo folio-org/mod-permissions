@@ -584,7 +584,7 @@ public class PermsAPI implements Perms {
                                     + permissionName))));
                 return;
               }
-              updateUser(entity, vertxContext, tenantId, permissionName, user, actualId, originalPermissions, asyncResultHandler);
+              updatePermissionsForUser(entity, vertxContext, tenantId, permissionName, user, actualId, originalPermissions, asyncResultHandler);
             } catch (Exception e) {
               logger.error("Error using Postgres instance to retrieve user: "
                   + e.getMessage(), e);
@@ -602,9 +602,11 @@ public class PermsAPI implements Perms {
     }
   }
 
-  private void updateUser(PermissionNameObject entity,
-                          Context vertxContext, String tenantId, String permissionName, PermissionUser user,
-                          String actualId, JsonArray originalPermissions, Handler<AsyncResult<Response>> asyncResultHandler) {
+  @SuppressWarnings({"squid:S00107"})   // Method has more than 7 parameters
+  private void updatePermissionsForUser(PermissionNameObject entity,
+                                        Context vertxContext, String tenantId, String permissionName,
+                                        PermissionUser user, String actualId, JsonArray originalPermissions,
+                                        Handler<AsyncResult<Response>> asyncResultHandler) {
 
     retrievePermissionByName(permissionName, vertxContext, tenantId)
         .onComplete(rpbnRes -> {
