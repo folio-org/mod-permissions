@@ -601,11 +601,11 @@ public class PermsAPI implements Perms {
                         permissionName))));
             return;
           }
-          if (rpbnRes.result().getDummy() != null && rpbnRes.result().getDummy()) {
+          if (Boolean.TRUE.equals(rpbnRes.result().getDummy())) {
             asyncResultHandler.handle(Future.succeededFuture(
                 PostPermsUsersPermissionsByIdResponse.respond400WithTextPlain(
                     String.format("'%s' is flagged as a dummy permission"
-                        + "and cannot be assigned to a user", permissionName))));
+                        + " and cannot be assigned to a user", permissionName))));
             return;
           }
           try {

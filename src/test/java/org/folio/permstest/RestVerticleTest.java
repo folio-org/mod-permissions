@@ -372,6 +372,57 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPostPermsUsersPermissionsByIdUnknownUser(TestContext context) {
+    String permRequest = "{\"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
+    Response response = send(HttpMethod.POST, "/perms/users/123/permissions",
+        permRequest, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("User with id 123 does not exist", response.body.getString("text"));
+  }
+
+  @Test
+  public void testPostPermsUsersPermissionsByIdUnknownPermission(TestContext context) {
+    String userId = UUID.randomUUID().toString();
+    String userUserId = UUID.randomUUID().toString();
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[ ], \"id\" : \"" + userId + "\"}";
+    Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
+    context.assertEquals(response.code, 201);
+
+    String permRequest = "{\"permissionName\":\"abname\",\"displayName\":\"abdisplay\"}";
+    response = send(HttpMethod.POST, "/perms/users/" + userId + "/permissions",
+        permRequest, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("Permission by name 'abname' does not exist", response.body.getString("text"));
+
+    // adummy.perm not defined so it becomes dummy
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","amodule")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "adummy.all")
+                .put("displayName", "Dummy All")
+                .put("description", "Some Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("abname")
+                )
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.POST, "/perms/users/" + userId + "/permissions",
+        permRequest, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("'abname' is flagged as a dummy permission and cannot be assigned to a user",
+        response.body.getString("text"));
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId, null, context);
+    context.assertEquals(response.code, 204);
+  }
+
+
+  @Test
   public void testGetPermsUsersPermissionsByIdBadTenant(TestContext context) {
     Response response = send("badTenant", HttpMethod.GET, "/perms/users/123/permissions",
         null, context);
@@ -459,7 +510,7 @@ public class RestVerticleTest {
   @Test
   public void testPostPermsPermissions(TestContext context) {
     String uuid = UUID.randomUUID().toString();
-    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
+    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"adname\",\"displayName\":\"addisplay\"}";
 
     Response response = send(HttpMethod.POST, "/perms/permissions",
         permRequest, context);
@@ -518,7 +569,7 @@ public class RestVerticleTest {
     /* get it back */
     response = send(HttpMethod.GET, "/perms/permissions", null, context);
     context.assertEquals(response.code, 200);
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    context.assertTrue( response.body.getInteger("totalRecords") > 0);
 
     response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Da", null, context);
     context.assertEquals(response.code, 200);
