@@ -108,8 +108,6 @@ public class PermsAPI implements Perms {
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
   private static boolean suppressErrorResponse = false;
-  private static boolean doExtraReport = Boolean.parseBoolean(MODULE_SPECIFIC_ARGS
-      .getOrDefault("report.extra.logging", "false"));
 
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -128,16 +126,6 @@ public class PermsAPI implements Perms {
       return "Internal Server Error: Please contact Admin";
     }
     return response;
-  }
-
-  private void report(String noise) {
-    report(noise, logger);
-  }
-
-  private static void report(String noise, Logger logger) {
-    if (doExtraReport) {
-      logger.info(noise);
-    }
   }
 
   @Validate
@@ -1256,7 +1244,6 @@ public class PermsAPI implements Perms {
       nameCrit.addField(PERMISSION_NAME_FIELD);
       nameCrit.setOperation("=");
       nameCrit.setVal(permissionName);
-      report("Initiating PG Client get() request (in transaction)(cPE)", logger);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(connection,
           TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
           true, false, getReply -> {
@@ -1316,11 +1303,6 @@ public class PermsAPI implements Perms {
       List<List<String>> listOfPermissionLists, Context vertxContext,
       String tenantId, List<String> returnedPermissions) {
 
-    if (doExtraReport) {
-      report(String.format(
-          "Calling getAllExpandedPermissionsSequential with listOfPermissionLists: %s",
-          makeListofListStringRep(listOfPermissionLists)));
-    }
     if (returnedPermissions == null) {
       returnedPermissions = new ArrayList<>();
     }
@@ -1353,11 +1335,6 @@ public class PermsAPI implements Perms {
   private Future<List<String>> getExpandedPermissionsSequential(List<String> permissionList,
                                                                 Context vertxContext, String tenantId) {
 
-    if (doExtraReport) {
-      report(String.format(
-          "Calling getExpandedPermissionsSequential with permissionList: %s",
-          String.join(", ", permissionList)));
-    }
     if (permissionList.isEmpty()) {
       return Future.succeededFuture(new ArrayList<>());
     }
@@ -1636,11 +1613,6 @@ public class PermsAPI implements Perms {
     Promise<Void> promise = Promise.promise();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
-    if (doExtraReport) {
-      report("Updating grantedTo fields pertaining to permissions user '" + permUserId
-          + "' for old listing " + originalList.encode()
-          + " and for new listing " + newList.encode(), logger);
-    }
     for (Object ob : newList) {
       if (!originalList.contains(ob)) {
         missingFromOriginalList.add(ob);
@@ -1707,11 +1679,6 @@ public class PermsAPI implements Perms {
 
     Promise<Void> promise = Promise.promise();
     try {
-      if (doExtraReport) {
-        report("Updating childOf fields pertaining to permission '" + permissionName
-            + "' for old listing " + originalList.encode()
-            + " and for new listing " + newList.encode(), logger);
-      }
       JsonArray missingFromOriginalList = new JsonArray();
       JsonArray missingFromNewList = new JsonArray();
       for (Object ob : newList) {
@@ -1787,7 +1754,6 @@ public class PermsAPI implements Perms {
           .setVal(permissionName);
       Criterion criterion = new Criterion(nameCrit);
       CQLWrapper cqlFilter = new CQLWrapper(criterion);
-      report("Initiating PG Client get() request (in transaction)(mPAF)", logger);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           connection, TABLE_NAME_PERMS,
           Permission.class, criterion, true, false,
@@ -1827,7 +1793,6 @@ public class PermsAPI implements Perms {
             }
             if (modified) {
               try {
-                report("Initiating PG Client update() request (in transaction)(mPFAF)", logger);
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).update(
                     connection, TABLE_NAME_PERMS, permission, cqlFilter,
                     true, updateReply -> {
@@ -1912,7 +1877,6 @@ public class PermsAPI implements Perms {
       CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
-      report("Initiating get() (in transaction) (removePermissionFromUser)");
       pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
           new Criterion(idCrit), true, false, getReply -> {
             if (getReply.failed()) {
@@ -1927,7 +1891,6 @@ public class PermsAPI implements Perms {
                   promise.complete(); //User already lacks the permissions
                 } else {
                   user.getPermissions().remove(permissionName);
-                  report("Initiating update() (in transaction) (removePermissionFromUser)");
                   pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter,
                       true, updateReply -> {
                         if (updateReply.failed()) {
@@ -1983,7 +1946,6 @@ public class PermsAPI implements Perms {
       CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
-      report("Initiating get() (in transaction) (removeSubpermissionFromPermission");
       pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
           criterion, true, false, getReply -> {
             if (getReply.failed()) {
@@ -1998,7 +1960,6 @@ public class PermsAPI implements Perms {
                     permissionName, e.getMessage()));
                 return;
               }
-              report("Initiating update() (in transaction) (removeSubpermissionFromPermission");
               pgClient.update(connection, TABLE_NAME_PERMS, permission, cqlFilter,
                   true, updateReply -> {
                     if (updateReply.failed()) {
