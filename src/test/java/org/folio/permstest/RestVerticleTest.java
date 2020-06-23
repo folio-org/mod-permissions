@@ -359,6 +359,14 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testDeletePermsUsersPermissionsByIdAndPermissionnameBadIndexField(TestContext context) {
+    Response response = send(HttpMethod.DELETE, "/perms/users/123/permissions/name?indexField=foo",
+        null, context);
+    context.assertEquals(response.code, 500);
+    context.assertEquals("Invalid value 'foo' for indexField", response.body.getString("text"));
+  }
+
+  @Test
   public void testDeletePermsUsersPermissionsByIdAndPermissionnameBadTenant(TestContext context) {
     Response response = send("badTenant", HttpMethod.DELETE, "/perms/users/123/permissions/name",
         null, context);
@@ -371,6 +379,23 @@ public class RestVerticleTest {
         null, context);
     context.assertEquals(response.code, 400);
     context.assertEquals("User with id 123 does not exist", response.body.getString("text"));
+  }
+
+  @Test
+  public void testDeletePermsUsersPermissionsByIdAndPermissionnameMissingPermissionName(TestContext context) {
+    /**add a perm user */
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[], \"id\" : \"" + userId2 + "\"}";
+    Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
+    context.assertEquals(response.code, 201);
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2 + "/permissions/name",
+        null, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("User with id " + userId2 + " does not contain name", response.body.getString("text"));
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
+    context.assertEquals(response.code, 204);
   }
 
   @Test
@@ -712,6 +737,9 @@ public class RestVerticleTest {
     /*Delete a permission that's not there */
     response = send(HttpMethod.DELETE, "/perms/permissions/ed145a0a-c4ff-46b3-8c44-62d89f32afea", null, context);
     context.assertEquals(response.code, 404);
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
+    context.assertEquals(response.code, 204);
   }
 
   private Response send(HttpMethod method, String path, String content, TestContext context) {
