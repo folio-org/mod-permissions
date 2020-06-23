@@ -309,6 +309,15 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPostPermsUsersPermissionsByIdBadIndexField(TestContext context) {
+    String permRequest = "{\"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
+    Response response = send(HttpMethod.POST, "/perms/users/123/permissions?indexField=foo",
+        permRequest, context);
+    context.assertEquals(response.code, 500);
+    context.assertEquals("Invalid value 'foo' for indexField", response.body.getString("text"));
+  }
+
+  @Test
   public void testGetPermsUsersPermissionsByIdBadTenant(TestContext context) {
     Response response = send("badTenant", HttpMethod.GET, "/perms/users/123/permissions",
         null, context);
@@ -358,6 +367,14 @@ public class RestVerticleTest {
     Response response = send("badTenant", HttpMethod.DELETE, "/perms/users/123/permissions/name",
         null, context);
     context.assertEquals(response.code, 400);
+  }
+
+  @Test
+  public void testDeletePermsUsersPermissionsByIdAndPermissionnameInvalidUUID(TestContext context) {
+    Response response = send(HttpMethod.DELETE, "/perms/users/123/permissions/name",
+        null, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("User with id 123 does not exist", response.body.getString("text"));
   }
 
   @Test
