@@ -16,6 +16,10 @@ import java.util.Map;
  * @author kurt
  */
 public class TestUtil {
+  public static final String CONTENT_TYPE_JSON = "application/json";
+  public static final String CONTENT_TYPE_TEXT = "text/plain";
+  public static final String CONTENT_TYPE_TEXT_JSON = "application/json,text/plain";
+
   static class WrappedResponse {
     private int code;
     private String body;
@@ -59,9 +63,8 @@ public class TestUtil {
     HttpClientRequest request = client.requestAbs(method, url);
     //Add standard headers
     request.putHeader("X-Okapi-Tenant", "diku")
-        .putHeader("content-type", "application/json")
-        .putHeader("accept", "application/json")
-        .putHeader("X-Okapi-Token", "dummy");
+        .putHeader("content-type", CONTENT_TYPE_JSON)
+        .putHeader("accept", CONTENT_TYPE_JSON);
     if (headers != null) {
       for(Map.Entry entry : headers.entries()) {
         request.putHeader((String)entry.getKey(), (String)entry.getValue());

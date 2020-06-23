@@ -32,7 +32,7 @@
     <dependency>
       <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-      <version>30.0.3</version>
+      <version>30.2.1</version>
     </dependency>
 
     <dependency>
