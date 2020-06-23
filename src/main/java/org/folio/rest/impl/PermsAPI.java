@@ -410,7 +410,8 @@ public class PermsAPI implements Perms {
                 //rollback, 404
                 pgClient.rollbackTx(connection, rollback -> {
                   asyncResultHandler.handle(Future.succeededFuture(
-                      DeletePermsUsersByIdResponse.respond404WithTextPlain(userid)));
+                      DeletePermsUsersByIdResponse.respond404WithTextPlain(
+                          String.format("No permissions user found with id %s", userid))));
                 });
                 return;
               }

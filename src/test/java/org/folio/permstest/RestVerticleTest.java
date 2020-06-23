@@ -221,8 +221,7 @@ public class RestVerticleTest {
   @Test
   public void testPostPermsUsersNoUserId(TestContext context) {
     String permsUsers = "{\"permissions\": [], \"id\" : \"1234\"}";
-    Response response = send(HttpMethod.POST, "/perms/users",
-        permsUsers, context);
+    Response response = send(HttpMethod.POST, "/perms/users", permsUsers, context);
     context.assertEquals(400, response.code);
   }
 
@@ -241,18 +240,24 @@ public class RestVerticleTest {
         "[], \"id\" : \"" + userId2 + "\"}";
     Response response = send(HttpMethod.PUT, "/perms/users/123", postPermUsersRequest, context);
     context.assertEquals(404, response.code);
+    context.assertEquals("No permissions user found with id 123", response.body.getString("text"));
   }
 
   @Test
-  public void testDeletePermsUsersInvalidUUID(TestContext context) {
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
-        "[], \"id\" : \"" + userId2 + "\"}";
-    Response response = send(HttpMethod.DELETE, "/perms/users/123", postPermUsersRequest, context);
+  public void testDeletePermsUsersByIdInvalidUUID(TestContext context) {
+    Response response = send(HttpMethod.DELETE, "/perms/users/123", null, context);
     context.assertEquals(404, response.code);
+    context.assertEquals("No permissions user found with id 123", response.body.getString("text"));
   }
 
   @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[], \"id\" : \"" + userId2 + "\"}";
+    Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
+    context.assertEquals(response.code, 201);
+
+    // adummy.perm not defined so it becomes dummy
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","amodule")
         .put("perms", new JsonArray()
@@ -265,21 +270,48 @@ public class RestVerticleTest {
                 )
             )
         );
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
-    String permsUsers = "{\"userId\": \"1234\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
-    response = send(HttpMethod.PUT, "/perms/users/123", permsUsers, context);
+    String permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
+    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
     context.assertEquals(400, response.code);
     context.assertEquals("Cannot add permissions flagged as 'dummy' to users", response.body.getString("text"));
+
+    // adummy.perm becomes non-dummy
+    permissionSet = new JsonObject()
+        .put("moduleId","bmodule")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "adummy.perm")
+                .put("displayName", "Dummy perm")
+                .put("description", "permission")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
+    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
+    context.assertEquals(200, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
+    context.assertEquals(response.code, 204);
   }
 
   @Test
   public void testPutPermsUsersByIdNonExistingPerm(TestContext context) {
-    String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
-        "[\"foo\"], \"id\" : \"1234\"}";
-    Response response = send(HttpMethod.PUT, "/perms/users/123", permsUsers, context);
-    context.assertEquals(404, response.code);
+    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+        "[], \"id\" : \"" + userId2 + "\"}";
+    Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
+    context.assertEquals(response.code, 201);
+
+    String permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"non.existing\"], \"id\" : \"1234\"}";
+    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
+    context.assertEquals(422, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
+    context.assertEquals(response.code, 204);
   }
 
   @Test
