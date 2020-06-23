@@ -2090,13 +2090,4 @@ public class PermsAPI implements Perms {
     }
     return criterion;
   }
-
-  private String makeListofListStringRep(List<List<String>> listOfLists) {
-    List<String> concatList = new ArrayList<>();
-    for (List<String> stringList : listOfLists) {
-      concatList.add("( " + String.join(", ", stringList) + " )");
-    }
-    return String.join(", ", concatList);
-  }
-
 }
