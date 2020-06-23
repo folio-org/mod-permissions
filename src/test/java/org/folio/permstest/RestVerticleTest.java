@@ -252,6 +252,29 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPutPermsUsersByIdDummyPerm(TestContext context) {
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","amodule")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "adummy.all")
+                .put("displayName", "Dummy All")
+                .put("description", "Some Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("adummy.perm")
+                )
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String permsUsers = "{\"userId\": \"1234\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
+    response = send(HttpMethod.PUT, "/perms/users/123", permsUsers, context);
+    context.assertEquals(400, response.code);
+    context.assertEquals("Cannot add permissions flagged as 'dummy' to users", response.body.getString("text"));
+  }
+
+  @Test
   public void testPutPermsUsersByIdNonExistingPerm(TestContext context) {
     String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
         "[\"foo\"], \"id\" : \"1234\"}";
