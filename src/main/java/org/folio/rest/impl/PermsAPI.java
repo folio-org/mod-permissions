@@ -594,8 +594,7 @@ public class PermsAPI implements Perms {
             }
           });
     } catch (Exception e) {
-      logger.error("Error using Postgres instance to retrieve user: "
-          + e.getMessage());
+      logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
           PostPermsUsersPermissionsByIdResponse
               .respond500WithTextPlain(e.getMessage())));
