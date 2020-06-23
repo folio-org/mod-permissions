@@ -485,19 +485,8 @@ public class PermsAPI implements Perms {
     try {
       String id = URLDecoder.decode(idU, StandardCharsets.UTF_8.name());
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      boolean fullBool, expandedBool;
-
-      if (full == null || !full.equals("true")) {
-        fullBool = false;
-      } else {
-        fullBool = true;
-      }
-
-      if (expanded == null || !expanded.equals("true")) {
-        expandedBool = false;
-      } else {
-        expandedBool = true;
-      }
+      boolean fullBool = "true".equals(full);
+      boolean expandedBool = "true".equals(expanded);
 
       Future<PermissionNameListObject> pnloFuture = this.getPermissionsForUser(
           id, expandedBool, fullBool, indexField, tenantId, vertxContext);
