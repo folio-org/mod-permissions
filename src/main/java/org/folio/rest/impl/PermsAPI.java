@@ -44,8 +44,6 @@ import org.folio.rest.tools.messages.Messages;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 
-import static org.folio.rest.RestVerticle.MODULE_SPECIFIC_ARGS;
-
 /**
  * @author kurt
  */
