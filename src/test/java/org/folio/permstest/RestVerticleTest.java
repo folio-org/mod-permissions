@@ -284,9 +284,12 @@ public class RestVerticleTest {
 
   @Test
   public void testPutPermsUsersByIdBadTenant(TestContext context) {
-    String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
-        "[\"foo\"], \"id\" : \"1234\"}";
+    String permsUsers = "{\"userId\": \"1234\",\"permissions\": [\"foo\"], \"id\" : \"1234\"}";
     Response response = send("badTenant", HttpMethod.PUT, "/perms/users/123", permsUsers, context);
+    context.assertEquals(400, response.code);
+
+    String permsUsers2 = "{\"userId\": \"1234\",\"permissions\": [], \"id\" : \"1234\"}";
+    response = send("badTenant", HttpMethod.PUT, "/perms/users/123", permsUsers2, context);
     context.assertEquals(400, response.code);
   }
 

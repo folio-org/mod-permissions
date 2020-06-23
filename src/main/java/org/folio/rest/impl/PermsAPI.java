@@ -315,66 +315,66 @@ public class PermsAPI implements Perms {
         String errStr = getReply.cause().getMessage();
         logger.error(errStr, getReply.cause());
         asyncResultHandler.handle(Future.succeededFuture(
-            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
-      } else {
-        List<PermissionUser> userList = getReply.result().getResults();
-        if (userList.isEmpty()) {
-          asyncResultHandler.handle(Future.succeededFuture(
-              PutPermsUsersByIdResponse.respond404WithTextPlain(
-                  "No permissions user found with id " + userid)));
-          return;
-        }
-        try {
-          PermissionUser originalUser = userList.get(0);
-          PostgresClient pgClient = PostgresClient
-              .getInstance(vertxContext.owner(), tenantId);
-          pgClient.startTx(connection -> {
-            pgClient.update(connection, TABLE_NAME_PERMSUSERS,
-                entity, cqlFilter, true, updateReply -> {
-                  if (updateReply.failed()) {
+            PutPermsUsersByIdResponse.respond400WithTextPlain(errStr)));
+        return;
+      }
+      List<PermissionUser> userList = getReply.result().getResults();
+      if (userList.isEmpty()) {
+        asyncResultHandler.handle(Future.succeededFuture(
+            PutPermsUsersByIdResponse.respond404WithTextPlain(
+                "No permissions user found with id " + userid)));
+        return;
+      }
+      try {
+        PermissionUser originalUser = userList.get(0);
+        PostgresClient pgClient = PostgresClient
+            .getInstance(vertxContext.owner(), tenantId);
+        pgClient.startTx(connection -> {
+          pgClient.update(connection, TABLE_NAME_PERMSUSERS,
+              entity, cqlFilter, true, updateReply -> {
+                if (updateReply.failed()) {
+                  pgClient.rollbackTx(connection, done -> {
+                    String errStr = "Error with put: "
+                        + updateReply.cause().getMessage();
+                    logger.error(errStr, updateReply.cause());
+                    asyncResultHandler.handle(Future.succeededFuture(
+                        PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                  });
+                  return;
+                }
+                updateUserPermissions(connection, userid,
+                    new JsonArray(originalUser.getPermissions()),
+                    new JsonArray(entity.getPermissions()),
+                    vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
+                  if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, done -> {
-                      String errStr = "Error with put: "
-                          + updateReply.cause().getMessage();
-                      logger.error(errStr, updateReply.cause());
-                      asyncResultHandler.handle(Future.succeededFuture(
-                          PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                      if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
+                        asyncResultHandler.handle(Future.succeededFuture(
+                            PutPermsUsersByIdResponse.respond422WithApplicationJson(
+                                ValidationHelper.createValidationErrorMessage(
+                                    ID_FIELD, entity.getId(),
+                                    UNABLE_TO_UPDATE_DERIVED_FIELDS + updateUserPermsRes.cause().getMessage()))));
+                      } else {
+                        String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
+                        logger.error(errStr, updateUserPermsRes.cause());
+                        asyncResultHandler.handle(Future.succeededFuture(
+                            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                      }
                     });
                     return;
                   }
-                  updateUserPermissions(connection, userid,
-                      new JsonArray(originalUser.getPermissions()),
-                      new JsonArray(entity.getPermissions()),
-                      vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
-                    if (updateUserPermsRes.failed()) {
-                      pgClient.rollbackTx(connection, done -> {
-                        if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
-                          asyncResultHandler.handle(Future.succeededFuture(
-                              PutPermsUsersByIdResponse.respond422WithApplicationJson(
-                                  ValidationHelper.createValidationErrorMessage(
-                                      ID_FIELD, entity.getId(),
-                                          UNABLE_TO_UPDATE_DERIVED_FIELDS + updateUserPermsRes.cause().getMessage()))));
-                        } else {
-                          String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
-                          logger.error(errStr, updateUserPermsRes.cause());
-                          asyncResultHandler.handle(Future.succeededFuture(
-                              PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
-                        }
-                      });
-                    } else {
-                      //close Tx
-                      pgClient.endTx(connection, done -> {
-                        asyncResultHandler.handle(Future.succeededFuture(
-                            PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
-                      });
-                    }
+                  //close Tx
+                  pgClient.endTx(connection, done -> {
+                    asyncResultHandler.handle(Future.succeededFuture(
+                        PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
                   });
                 });
-          });
-        } catch (Exception e) {
-          logger.error(e.getMessage(), e);
-          asyncResultHandler.handle(Future.succeededFuture(
-              PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
-        }
+              });
+        });
+      } catch (Exception e) {
+        logger.error(e.getMessage(), e);
+        asyncResultHandler.handle(Future.succeededFuture(
+            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
       }
     };
   }
