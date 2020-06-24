@@ -677,7 +677,7 @@ public class PermsAPI implements Perms {
               return;
             }
             List<PermissionUser> userList = getReply.result().getResults();
-            if (userList.size() == 0) {
+            if (userList.isEmpty()) {
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond400WithTextPlain(
                       "User with id " + id + " does not exist")));
@@ -1486,42 +1486,6 @@ public class PermsAPI implements Perms {
       promise.fail(e);
     }
     return promise.future();
-  }
-
-  private JsonObject parseTokenPayload(String token) {
-    if (token == null) {
-      return null;
-    }
-    String[] tokenParts = token.split("\\.");
-    if (tokenParts.length == 3) {
-      String encodedPayload = tokenParts[1];
-      byte[] decodedJsonBytes = Base64.getDecoder().decode(encodedPayload);
-      String decodedJson = new String(decodedJsonBytes);
-      return new JsonObject(decodedJson);
-    } else {
-      return null;
-    }
-  }
-
-  private String getUsername(String token) {
-    JsonObject payload = parseTokenPayload(token);
-    if (payload == null) {
-      return null;
-    }
-    String username = payload.getString("sub");
-    return username;
-  }
-
-  private boolean allowAccessByPermission(String permissions, String permissionName) {
-    if (permissions == null || permissions.isEmpty()) {
-      return false;
-    }
-    JsonArray permissionsArray = new JsonArray(permissions);
-    if (permissionsArray != null && permissionsArray.contains(permissionName)) {
-      logger.debug("Permission allowed for possessing permission bit '" + permissionName + "'");
-      return true;
-    }
-    return false;
   }
 
   private Future<Permission> expandSubPermissions(Permission permission,
