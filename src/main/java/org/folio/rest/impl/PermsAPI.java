@@ -1339,7 +1339,7 @@ public class PermsAPI implements Perms {
                 listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
                     tenantId, foundPermNameList);
               }
-              listFuture.onComplete(gaepsRes -> promise.handle(gaepsRes));
+              listFuture.onComplete(promise::handle);
             }
           });
     } catch (Exception e) {
