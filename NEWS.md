@@ -1,3 +1,8 @@
+## 2020-06-24 v5.11.1
+
+ * [MODPERMS-85](https://issues.folio.org/browse/MODPERMS-85) Invalid CQL when encoding permission name value
+ * Updating to RMB 30.2.1 so that path components are properly decoded
+
 ## 2020-06-21 v5.11.0
 
  * [MODPERMS-84](https://issues.folio.org/browse/MODPERMS-84) Creating permissions set in FOLIO Settings ignores provided UUID
