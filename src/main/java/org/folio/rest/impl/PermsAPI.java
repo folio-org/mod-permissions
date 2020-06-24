@@ -7,12 +7,10 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -1332,7 +1330,7 @@ public class PermsAPI implements Perms {
               if (splitSize < permissionList.size()) {
                 splitSize = permissionList.size();
               }
-              List<List<String>> listOfSubPermLists = this.splitStringList(
+              List<List<String>> listOfSubPermLists = splitStringList(
                   allSubPermList, splitSize);
               Future<List<String>> listFuture;
               if (listOfSubPermLists.isEmpty()) {
@@ -1453,7 +1451,7 @@ public class PermsAPI implements Perms {
               interimFuture = Future.succeededFuture(permissionNameList);
             } else {
               List<List<String>> listOfPermNamesList
-                  = this.splitStringList(permissionNameList, 10);
+                  = splitStringList(permissionNameList, 10);
               interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
                   vertxContext, tenantId, null);
             }
