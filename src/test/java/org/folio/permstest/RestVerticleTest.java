@@ -10,6 +10,7 @@ import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
@@ -29,7 +30,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
+import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.Perm;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -552,6 +555,79 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.DELETE, "/perms/users/" + id, null, context);
     context.assertEquals(response.code, 204);
+  }
+
+  @Test
+  public void testPostTenantPermissionsBadTenant(TestContext context) {
+    List<Perm> perms = new LinkedList<>();
+    perms.add(new Perm().withPermissionName("perm" + UUID.randomUUID().toString()));
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    Response response = send("badTenant", HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(400, response.code);
+  }
+
+  @Test
+  public void testPostTenantPermissionsEmpty(TestContext context) {
+    OkapiPermissionSet set = new OkapiPermissionSet();
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+
+    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString());
+    response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
+    public void testPostTenantPermissionsMutual1(TestContext context) {
+    String permName1 = "perm" + UUID.randomUUID().toString();
+    String permName2 = "perm" + UUID.randomUUID().toString();
+    List<Perm> perms = new LinkedList<>();
+    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    perms.add(new Perm().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(400, response.code);
+    context.assertTrue(response.body.getString("text").contains("Unable to resolve permission dependencies for"));
+  }
+
+  @Test
+  public void testPostTenantPermissionsMutual2(TestContext context) {
+    String permName1 = "perm" + UUID.randomUUID().toString();
+    String permName2 = "perm" + UUID.randomUUID().toString();
+
+    List<Perm> perms = new LinkedList<>();
+    perms.add(new Perm().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+
+    perms.clear();
+    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName1, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String id1 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName2, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String id2 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    response = send(HttpMethod.GET, "/perms/permissions/" + id1, null, context);
+    context.assertEquals(200, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + id1, null, context);
+    context.assertEquals(204, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions/" + id2, null, context);
+    context.assertEquals(200, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + id2, null, context);
+    context.assertEquals(500, response.code); // should return 204
   }
 
   @Test
