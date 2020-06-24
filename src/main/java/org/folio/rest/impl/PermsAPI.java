@@ -1865,16 +1865,14 @@ public class PermsAPI implements Perms {
           criterion, true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
-            } else {
-              Permission permission = null;
-              try {
-                permission = getReply.result().getResults().get(0);
-                permission.getSubPermissions().remove(subpermissionName);
-              } catch (Exception e) {
-                promise.fail(String.format("Unable to get permission with name %s: %s",
-                    permissionName, e.getMessage()));
-                return;
-              }
+              return;
+            }
+            if (getReply.result().getResults().isEmpty()) {
+              promise.complete();
+              return;
+            }
+            Permission permission = getReply.result().getResults().get(0);
+            permission.getSubPermissions().remove(subpermissionName);
               pgClient.update(connection, TABLE_NAME_PERMS, permission, cqlFilter,
                   true, updateReply -> {
                     if (updateReply.failed()) {
@@ -1883,7 +1881,6 @@ public class PermsAPI implements Perms {
                       promise.complete();
                     }
                   });
-            }
           });
     } catch (Exception e) {
       promise.fail(e);

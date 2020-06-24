@@ -503,8 +503,8 @@ public class RestVerticleTest {
 
   @Test
   public void testPutPermsPermissionsByIdDummy(TestContext context) {
-    String normalPerm = "perm-" + UUID.randomUUID().toString();
-    String dummyPerm = "perm-" + UUID.randomUUID().toString();
+    String normalPerm = "normal-" + UUID.randomUUID().toString();
+    String dummyPerm = "dummy-" + UUID.randomUUID().toString();
 
     JsonObject permissionSet = new JsonObject()
         .put("perms", new JsonArray()
@@ -518,12 +518,14 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm, null, context);
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm,
+        null, context);
     context.assertEquals(200, response.code);
     context.assertEquals(1, response.body.getInteger("totalRecords"));
     String dummyId = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
 
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + normalPerm, null, context);
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + normalPerm,
+        null, context);
     context.assertEquals(200, response.code);
     context.assertEquals(1, response.body.getInteger("totalRecords"));
     String normalId = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
@@ -533,12 +535,26 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 400);
     context.assertEquals("dummy permissions cannot be modified", response.body.getString("text"));
 
-    // if dummyId is deleted last, that results in 500 error
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + normalId, null, context);
+    context.assertEquals(response.code, 204);
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + normalPerm,
+        null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(0, response.body.getInteger("totalRecords"));
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm,
+        null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+
     response = send(HttpMethod.DELETE, "/perms/permissions/" + dummyId, null, context);
     context.assertEquals(response.code, 204);
 
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + normalId, null, context);
-    context.assertEquals(response.code, 204);
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm,
+        null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(0, response.body.getInteger("totalRecords"));
   }
 
   @Test
@@ -720,7 +736,7 @@ public class RestVerticleTest {
     context.assertEquals(200, response.code);
 
     response = send(HttpMethod.DELETE, "/perms/permissions/" + id2, null, context);
-    context.assertEquals(500, response.code); // should return 204
+    context.assertEquals(204, response.code);
   }
 
   @Test
