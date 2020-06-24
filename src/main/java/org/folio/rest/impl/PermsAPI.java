@@ -239,9 +239,9 @@ public class PermsAPI implements Perms {
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = getIdCriteria(indexField, "=", id);
+      Criterion idCrit = getIdCriterion(indexField, id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          new Criterion(idCrit), true, false, queryReply -> {
+          idCrit, true, false, queryReply -> {
             if (queryReply.failed()) {
               String errStr = queryReply.cause().getMessage();
               logger.error(errStr, queryReply.cause());
@@ -382,14 +382,11 @@ public class PermsAPI implements Perms {
                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(userid);
+      Criterion idCrit = getIdCriterion(userid);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.startTx(connection -> {
         pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
-            new Criterion(idCrit), true, false, getReply -> {
+            idCrit, true, false, getReply -> {
               if (getReply.failed()) {
                 //rollback
                 pgClient.rollbackTx(connection, rollback -> {
@@ -427,7 +424,7 @@ public class PermsAPI implements Perms {
                     return;
                   }
                   pgClient.delete(connection, TABLE_NAME_PERMSUSERS,
-                      new Criterion(idCrit), deleteReply -> {
+                      idCrit, deleteReply -> {
                         if (deleteReply.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
                             String errStr = String.format("Error deleting user: %s",
@@ -518,10 +515,10 @@ public class PermsAPI implements Perms {
                                             Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria useridCrit = getIdCriteria(indexField, "=", id);
+      Criterion useridCrit = getIdCriterion(indexField, id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           TABLE_NAME_PERMSUSERS,
-          PermissionUser.class, new Criterion(useridCrit), true, false,
+          PermissionUser.class, useridCrit, true, false,
           getReply -> {
             try {
               if (getReply.failed()) {
@@ -669,9 +666,9 @@ public class PermsAPI implements Perms {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = getIdCriteria(indexField, "=", id);
+      Criterion idCrit = getIdCriterion(indexField, id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
-          PermissionUser.class, new Criterion(idCrit), true, false, getReply -> {
+          PermissionUser.class, idCrit, true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
               logger.error(errStr, getReply.cause());
@@ -856,12 +853,8 @@ public class PermsAPI implements Perms {
                                       Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId)
-          .get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
+          .get(TABLE_NAME_PERMS, Permission.class, getIdCriterion(id), true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
               logger.error(errStr, getReply.cause());
@@ -892,19 +885,15 @@ public class PermsAPI implements Perms {
                                       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(entity.getId());
-      Criterion criterion = new Criterion(idCrit);
-      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       if (entity.getId() == null || !entity.getId().equals(id)) {
         asyncResultHandler.handle(Future.succeededFuture(
             PutPermsPermissionsByIdResponse.respond400WithTextPlain("Invalid id value")));
         return;
       }
+      Criterion criterion = getIdCriterion(id);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit),
+          TABLE_NAME_PERMS, Permission.class, criterion,
           true, false, getReply -> {
             if (getReply.failed()) {
               String message = getReply.cause().getMessage();
@@ -1004,12 +993,9 @@ public class PermsAPI implements Perms {
                                          Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(id);
+      Criterion idCrit = getIdCriterion(id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-          Permission.class, new Criterion(idCrit), true, false, getReply -> {
+          Permission.class, idCrit, true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
               logger.error(errStr, getReply.cause());
@@ -1062,7 +1048,7 @@ public class PermsAPI implements Perms {
                         return;
                       }
                       pgClient.delete(connection, TABLE_NAME_PERMS,
-                          new Criterion(idCrit), deleteReply -> {
+                          idCrit, deleteReply -> {
                             if (deleteReply.failed()) {
                               //rollback
                               pgClient.rollbackTx(connection, rollback -> {
@@ -1088,7 +1074,7 @@ public class PermsAPI implements Perms {
             } else {
               try {
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMS,
-                    new Criterion(idCrit), deleteReply -> {
+                    idCrit, deleteReply -> {
                       if (deleteReply.failed()) {
                         logger.error("deleteReply failed: " + deleteReply.cause().getMessage());
                         asyncResultHandler.handle(Future.succeededFuture(
@@ -1443,11 +1429,9 @@ public class PermsAPI implements Perms {
 
     Promise<PermissionNameListObject> promise = Promise.promise();
     try {
-      Criteria idCrit = getIdCriteria(indexField, "=", userId);
-      idCrit.setOperation("=");
-      idCrit.setVal(userId);
+      Criterion idCrit = getIdCriterion(indexField, userId);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMSUSERS, PermissionUser.class, new Criterion(idCrit),
+          TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit,
           true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
@@ -1841,14 +1825,9 @@ public class PermsAPI implements Perms {
 
     Promise promise = Promise.promise();
     try {
-      Criteria idCrit = new Criteria()
-          .addField(ID_FIELD)
-          .setOperation("=")
-          .setVal(userId);
-      Criterion criterion = new Criterion(idCrit);
+      Criterion criterion = getIdCriterion(userId);
       CQLWrapper cqlFilter = new CQLWrapper(criterion);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-          tenantId);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
           criterion, true, false, getReply -> {
             if (getReply.failed()) {
@@ -1987,21 +1966,16 @@ public class PermsAPI implements Perms {
         rpbnRes -> {
           if (rpbnRes.failed()) {
             promise.fail(rpbnRes.cause());
+            return;
+          }
+          if (rpbnRes.result() == null) {
+            promise.complete(false);
           } else {
-            if (rpbnRes.result() == null) {
-              promise.complete(false);
-            } else {
-              Boolean dummy = rpbnRes.result().getDummy();
-              if (dummy != null && dummy) {
-                promise.complete(true);
-              } else {
-                promise.complete(false);
-              }
-            }
+            promise.complete(Boolean.TRUE.equals(rpbnRes.result().getDummy()));
           }
         });
     return promise.future().compose(next -> {
-      if (next) {
+      if (Boolean.TRUE.equals(next)) {
         return Future.succeededFuture(true);
       } else {
         return checkPermlistForDummy(permListCopy, vertxContext, tenantId);
@@ -2009,7 +1983,15 @@ public class PermsAPI implements Perms {
     });
   }
 
-  private Criteria getIdCriteria(String indexField, String operation, String value) {
+  private static Criterion getIdCriterion(String id) {
+    Criteria idCrit = new Criteria();
+    idCrit.addField(ID_FIELD);
+    idCrit.setOperation("=");
+    idCrit.setVal(id);
+    return new Criterion(idCrit);
+  }
+
+  private static Criterion getIdCriterion(String indexField, String value) {
     Criteria crit = new Criteria();
     if (indexField == null || indexField.equals("id")) {
       crit.addField(ID_FIELD);
@@ -2018,12 +2000,12 @@ public class PermsAPI implements Perms {
     } else {
       throw new IllegalArgumentException("Invalid value '" + indexField + "' for indexField");
     }
-    crit.setOperation(operation);
+    crit.setOperation("=");
     crit.setVal(value);
-    return crit;
+    return new Criterion(crit);
   }
 
-  private Permission getRealPermObject(PermissionUpload entity) {
+  private static Permission getRealPermObject(PermissionUpload entity) {
     Permission perm = new Permission();
     perm.setId(entity.getId());
     perm.setPermissionName(entity.getPermissionName());
@@ -2041,7 +2023,7 @@ public class PermsAPI implements Perms {
     return perm;
   }
 
-  private List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
+  private static List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
     List<List<String>> listOfLists = new ArrayList<>();
     int count = 0;
     List<String> currentChunk = new ArrayList<>();
@@ -2060,7 +2042,7 @@ public class PermsAPI implements Perms {
     return listOfLists;
   }
 
-  private Criterion buildPermissionNameListQuery(List<String> permissionNameList) {
+  private static Criterion buildPermissionNameListQuery(List<String> permissionNameList) {
     Criterion criterion = null;
     for (String permissionName : permissionNameList) {
       Criteria nameCrit = new Criteria()
