@@ -1339,13 +1339,7 @@ public class PermsAPI implements Perms {
                 listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
                     tenantId, foundPermNameList);
               }
-              listFuture.onComplete(gaepsRes -> {
-                if (gaepsRes.failed()) {
-                  promise.fail(gaepsRes.cause());
-                } else {
-                  promise.complete(gaepsRes.result());
-                }
-              });
+              listFuture.onComplete(gaepsRes -> promise.handle(gaepsRes));
             }
           });
     } catch (Exception e) {
@@ -1713,13 +1707,7 @@ public class PermsAPI implements Perms {
               try {
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).update(
                     connection, TABLE_NAME_PERMS, permission, cqlFilter,
-                    true, updateReply -> {
-                      if (updateReply.failed()) {
-                        promise.fail(updateReply.cause());
-                      } else {
-                        promise.complete();
-                      }
-                    });
+                    true, updateReply -> promise.handle(updateReply.mapEmpty()));
               } catch (Exception e) {
                 promise.fail(e);
               }
@@ -1747,13 +1735,7 @@ public class PermsAPI implements Perms {
     Future<Void> modifyPermArrayFieldFuture = modifyPermissionArrayField(connection,
         fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
         fuv.getOperation(), vertxContext, tenantId, logger);
-    modifyPermArrayFieldFuture.onComplete(res -> {
-      if (res.failed()) {
-        promise.fail(res.cause());
-      } else {
-        promise.complete();
-      }
-    });
+    modifyPermArrayFieldFuture.onComplete(res -> promise.handle(res.mapEmpty()));
     return promise.future().compose(mapper -> modifyPermissionArrayFieldList(connection,
         fuvListCopy, vertxContext, tenantId, logger));
   }
@@ -1770,13 +1752,7 @@ public class PermsAPI implements Perms {
     String userId = userIdListCopy.get(0);
     userIdListCopy.remove(0);
     removePermissionFromUser(connection, permissionName, userId, vertxContext,
-        tenantId).onComplete(rpfuRes -> {
-      if (rpfuRes.failed()) {
-        promise.fail(rpfuRes.cause());
-      } else {
-        promise.complete();
-      }
-    });
+        tenantId).onComplete(rpfuRes -> promise.handle(rpfuRes.mapEmpty()));
     return promise.future().compose(res -> removePermissionFromUserList(connection, permissionName, userIdListCopy,
         vertxContext, tenantId));
   }
@@ -1834,13 +1810,7 @@ public class PermsAPI implements Perms {
     permissionNameListCopy.remove(0);
     Promise promise = Promise.promise();
     removeSubpermissionFromPermission(connection, subpermissionName, permissionName,
-        vertxContext, tenantId).onComplete(rsfpRes -> {
-      if (rsfpRes.failed()) {
-        promise.fail(rsfpRes.cause());
-      } else {
-        promise.complete();
-      }
-    });
+        vertxContext, tenantId).onComplete(rsfpRes -> promise.handle(rsfpRes.mapEmpty()));
     return promise.future().compose(res -> removeSubpermissionFromPermissionList(connection, subpermissionName,
         permissionNameListCopy, vertxContext, tenantId));
   }
