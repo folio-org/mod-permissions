@@ -401,13 +401,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             promise.complete();
           } else {
             makeDummyPerm(connection, perm, vertxContext, tenantId).onComplete(
-              makeDummyRes -> {
-                if (makeDummyRes.failed()) {
-                  promise.fail(makeDummyRes.cause());
-                } else {
-                  promise.complete();
-                }
-              });
+                makeDummyRes -> promise.handle(makeDummyRes.mapEmpty()));
           }
         }
       });
@@ -427,13 +421,8 @@ public class TenantPermsAPI implements Tenantpermissions {
     dummyPermission.setMutable(false);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
         tenantId);
-    pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission, saveReply -> {
-      if (saveReply.failed()) {
-        promise.fail(saveReply.cause());
-        return;
-      }
-      promise.complete();
-    });
+    pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission,
+        saveReply -> promise.handle(saveReply.mapEmpty()));
     return promise.future();
   }
 
@@ -447,13 +436,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     PostgresClient pgClient = PostgresClient.getInstance(
       vertxContext.owner(), tenantId);
     pgClient.delete(connection, TABLE_NAME_PERMS, new Criterion(nameCrit),
-      deleteReply -> {
-        if (deleteReply.failed()) {
-          promise.fail(deleteReply.cause());
-          return;
-        }
-        promise.complete();
-      });
+      deleteReply -> promise.handle(deleteReply.mapEmpty()));
     return promise.future();
   }
 
