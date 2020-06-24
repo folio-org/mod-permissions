@@ -1228,11 +1228,7 @@ public class PermsAPI implements Perms {
               promise.fail(getReply.cause());
             } else {
               List<Permission> permList = getReply.result().getResults();
-              if (permList.isEmpty()) {
-                promise.complete(Boolean.FALSE);
-              } else {
-                promise.complete(Boolean.TRUE);
-              }
+              promise.complete(!permList.isEmpty());
             }
           });
     } catch (Exception e) {
@@ -1264,12 +1260,12 @@ public class PermsAPI implements Perms {
     checkPermissionExistsFuture.onComplete(res -> {
       if (res.failed()) {
         promise.fail(res.cause());
-      } else {
-        if (!res.result()) {
-          finalMissingPermissions.add(permissionName);
-        }
-        promise.complete(finalMissingPermissions);
+        return;
       }
+      if (Boolean.FALSE.equals(res.result())) {
+        finalMissingPermissions.add(permissionName);
+      }
+      promise.complete(finalMissingPermissions);
     });
     return promise.future().compose(mapper -> findMissingPermissionsFromList(connection, permissionListCopy,
         vertxContext, tenantId, finalMissingPermissions));

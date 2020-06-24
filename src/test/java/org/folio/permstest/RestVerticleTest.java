@@ -453,11 +453,21 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testPutPermsPermissionsByIdBadIdValue(TestContext context) {
+  public void testPutPermsPermissionsByIdBadIdValue1(TestContext context) {
     String permRequest = "{\"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
-    Response response = send(HttpMethod.PUT, "/perms/users/123/permissions",
+    Response response = send(HttpMethod.PUT, "/perms/permissions/123",
         permRequest, context);
     context.assertEquals(response.code, 400);
+    context.assertEquals("Invalid id value", response.body.getString("text"));
+  }
+
+  @Test
+  public void testPutPermsPermissionsByIdBadIdValue2(TestContext context) {
+    String permRequest = "{\"permissionName\":\"aaname\",\"displayName\":\"aadisplay\", \"id\":\"1\"}";
+    Response response = send(HttpMethod.PUT, "/perms/permissions/123",
+        permRequest, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("Invalid id value", response.body.getString("text"));
   }
 
   @Test
@@ -465,6 +475,8 @@ public class RestVerticleTest {
     String permRequest = "{\"id\": \"123\", \"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
     Response response = send(HttpMethod.PUT, "/perms/permissions/123",
         permRequest, context);
+    context.assertEquals(response.code, 404);
+    context.assertEquals("No permission found to match that id", response.body.getString("text"));
   }
 
   @Test
@@ -473,6 +485,60 @@ public class RestVerticleTest {
     Response response = send("badTenant", HttpMethod.PUT, "/perms/permissions/123",
         permRequest, context);
     context.assertEquals(response.code, 400);
+  }
+
+  @Test
+  public void testPutPermsPermissionsByIdCannotModify(TestContext context) {
+    String permName = "perm-" + UUID.randomUUID().toString();
+    JsonObject o = new JsonObject().put("permissionName", permName);
+    Response response = send(HttpMethod.POST, "/perms/permissions", o.encode(), context);
+    context.assertEquals(response.code, 201);
+    String id = response.body.getString("id");
+
+    o = new JsonObject().put("id", id).put("permissionName", "otherName");
+    response = send(HttpMethod.PUT, "/perms/permissions/" + id, o.encode(), context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("permission name property cannot change", response.body.getString("text"));
+  }
+
+  @Test
+  public void testPutPermsPermissionsByIdDummy(TestContext context) {
+    String normalPerm = "perm-" + UUID.randomUUID().toString();
+    String dummyPerm = "perm-" + UUID.randomUUID().toString();
+
+    JsonObject permissionSet = new JsonObject()
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", normalPerm)
+                .put("subPermissions", new JsonArray()
+                    .add(dummyPerm)
+                )
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String dummyId = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + normalPerm, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String normalId = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    JsonObject o = new JsonObject().put("id", dummyId).put("permissionName", dummyPerm);
+    response = send(HttpMethod.PUT, "/perms/permissions/" + dummyId, o.encode(), context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("dummy permissions cannot be modified", response.body.getString("text"));
+
+    // if dummyId is deleted last, that results in 500 error
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + dummyId, null, context);
+    context.assertEquals(response.code, 204);
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + normalId, null, context);
+    context.assertEquals(response.code, 204);
   }
 
   @Test
@@ -573,7 +639,7 @@ public class RestVerticleTest {
   public void testPostTenantPermissionsBadTenant(TestContext context) {
     List<Perm> perms = new LinkedList<>();
     perms.add(new Perm().withPermissionName("perm" + UUID.randomUUID().toString()));
-    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
     Response response = send("badTenant", HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
   }
@@ -584,7 +650,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
 
-    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString());
+    set = new OkapiPermissionSet().withModuleId("module");
     response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
   }
