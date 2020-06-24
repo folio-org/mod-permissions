@@ -6,10 +6,10 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.ws.rs.core.Response;
-import org.folio.rest.impl.PermsAPI.InvalidPermissionsException;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Perm;
 import org.folio.rest.jaxrs.model.Permission;
@@ -27,7 +26,6 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.tools.utils.TenantTool;
-import org.folio.rest.tools.utils.ValidationHelper;
 
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 
@@ -43,30 +41,25 @@ public class TenantPermsAPI implements Tenantpermissions {
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
 
   @Override
-  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+  public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders,
+                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      //should we duplicate the list first?
       savePermList(entity.getPerms(), vertxContext, tenantId).onComplete(savePermsRes -> {
         if (savePermsRes.failed()) {
           String err = savePermsRes.cause().getMessage();
           logger.error(err, savePermsRes.cause());
-          if (savePermsRes.cause() instanceof InvalidPermissionsException) {
-            asyncResultHandler.handle(Future.succeededFuture(
-                PostTenantpermissionsResponse.respond422WithApplicationJson(
-                    ValidationHelper.createValidationErrorMessage(
-                        "permissions for module", entity.getModuleId(), err))));
-          } else {
-            asyncResultHandler.handle(Future.succeededFuture(
-                PostTenantpermissionsResponse.respond400WithTextPlain(err)));
-          }
+          asyncResultHandler.handle(Future.succeededFuture(
+              PostTenantpermissionsResponse.respond400WithTextPlain(err)));
           return;
         }
-        asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.respond201WithApplicationJson(entity)));
+        asyncResultHandler.handle(Future.succeededFuture(
+            PostTenantpermissionsResponse.respond201WithApplicationJson(entity)));
       });
     } catch (Exception e) {
-      logger.error("Error adding permissions set: " + e.getLocalizedMessage());
-      asyncResultHandler.handle(Future.succeededFuture(PostTenantpermissionsResponse.respond500WithTextPlain("Internal Server Error")));
+      logger.error(e.getMessage(), e);
+      asyncResultHandler.handle(Future.succeededFuture(
+          PostTenantpermissionsResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -126,7 +119,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                           promise.complete();
                         } else {
                           promise.fail(String.format("Unable to resolve permission dependencies for %s",
-                              getPermListStringRep(permListCopy)));
+                              Json.encode(permListCopy)));
                         }
                       });
                 });
@@ -462,24 +455,6 @@ public class TenantPermsAPI implements Tenantpermissions {
         promise.complete();
       });
     return promise.future();
-  }
-
-  static String getPermListStringRep(List<Perm> permList) {
-    if (permList.isEmpty()) {
-      return "";
-    }
-    JsonArray jsonPermList = new JsonArray();
-    for (Perm perm : permList) {
-      JsonArray subList = new JsonArray();
-      for (String sub : perm.getSubPermissions()) {
-        subList.add(sub);
-      }
-      jsonPermList.add(new JsonObject()
-        .put("permissionName", perm.getPermissionName())
-        .put("subPermissions", subList)
-      );
-    }
-    return jsonPermList.encode();
   }
 
 }

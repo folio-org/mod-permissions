@@ -386,8 +386,7 @@ public class PermsAPI implements Perms {
       idCrit.addField(ID_FIELD);
       idCrit.setOperation("=");
       idCrit.setVal(userid);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-          tenantId);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.startTx(connection -> {
         pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
             new Criterion(idCrit), true, false, getReply -> {
@@ -892,13 +891,13 @@ public class PermsAPI implements Perms {
                                       Map<String, String> okapiHeaders,
                                       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      String query = "id==" + id;
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       Criteria idCrit = new Criteria();
       idCrit.addField(ID_FIELD);
       idCrit.setOperation("=");
       idCrit.setVal(entity.getId());
+      Criterion criterion = new Criterion(idCrit);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       if (entity.getId() == null || !entity.getId().equals(id)) {
         asyncResultHandler.handle(Future.succeededFuture(
             PutPermsPermissionsByIdResponse.respond400WithTextPlain("Invalid id value")));
@@ -1128,10 +1127,7 @@ public class PermsAPI implements Perms {
                                   Context vertxContext) {
 
     try {
-      boolean includeDummyPerms = false;
-      if (includeDummy != null && includeDummy.equals("true")) {
-        includeDummyPerms = true;
-      }
+      boolean includeDummyPerms = "true".equals(includeDummy);
       String[] queryArr = new String[]{""};
       if (!includeDummyPerms) {
         //filter out all dummy perms from query
@@ -1147,7 +1143,6 @@ public class PermsAPI implements Perms {
       logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
           TABLE_NAME_PERMS, queryArr[0]));
       cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start - 1);
-      logger.fatal("START 2");
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
@@ -1162,9 +1157,8 @@ public class PermsAPI implements Perms {
               List<Permission> permissions = getReply.result().getResults();
               List<Future> futureList = new ArrayList<>();
               for (Permission permission : permissions) {
-                List<Object> subPermList = permission.getSubPermissions();
                 Future<Permission> permFuture;
-                if (expandSubs != null && expandSubs.equals("true")) {
+                if ("true".equals(expandSubs)) {
                   permFuture = expandSubPermissions(permission, vertxContext, tenantId);
                 } else if ("true".equals(expanded)) {
                   Promise<Permission> promise = Promise.promise();
@@ -1850,17 +1844,17 @@ public class PermsAPI implements Perms {
       String userId, Context vertxContext, String tenantId) {
 
     Promise promise = Promise.promise();
-    String query = String.format("id==%s", userId);
-    Criteria idCrit = new Criteria()
-        .addField(ID_FIELD)
-        .setOperation("=")
-        .setVal(userId);
     try {
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
+      Criteria idCrit = new Criteria()
+          .addField(ID_FIELD)
+          .setOperation("=")
+          .setVal(userId);
+      Criterion criterion = new Criterion(idCrit);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
       pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          new Criterion(idCrit), true, false, getReply -> {
+          criterion, true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
             } else {

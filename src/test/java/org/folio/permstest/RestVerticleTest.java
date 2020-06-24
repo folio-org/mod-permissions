@@ -276,6 +276,18 @@ public class RestVerticleTest {
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Dadummy.perm&includeDummy=true", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Dadummy.perm&includeDummy=xx", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(0, response.body.getInteger("totalRecords"));
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Dadummy.perm", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(0, response.body.getInteger("totalRecords"));
+
     String permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
     response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
     context.assertEquals(400, response.code);
@@ -578,6 +590,15 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPostTenantPermissionsNoPermissionName(TestContext context) {
+    List<Perm> perms = new LinkedList<>();
+    perms.add(new Perm());
+    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
     public void testPostTenantPermissionsMutual1(TestContext context) {
     String permName1 = "perm" + UUID.randomUUID().toString();
     String permName2 = "perm" + UUID.randomUUID().toString();
@@ -601,13 +622,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
 
-    perms.clear();
-    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
-    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
-    response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
-    context.assertEquals(201, response.code);
-
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName1, null, context);
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName%3D" + permName1, null, context);
     context.assertEquals(200, response.code);
     context.assertEquals(1, response.body.getInteger("totalRecords"));
     String id1 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
@@ -616,6 +631,18 @@ public class RestVerticleTest {
     context.assertEquals(200, response.code);
     context.assertEquals(1, response.body.getInteger("totalRecords"));
     String id2 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    perms.clear();
+    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+
+    // Need to get id for permName1 again .. It has changed.. Which appears to be an error
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName1, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    id1 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
 
     response = send(HttpMethod.GET, "/perms/permissions/" + id1, null, context);
     context.assertEquals(200, response.code);
