@@ -153,11 +153,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             promise.fail(fmsRes.cause());
             return;
           }
-          if (fmsRes.result().isEmpty()) {
-            promise.complete(true);
-          } else {
-            promise.complete(false);
-          }
+          promise.complete(fmsRes.result().isEmpty());
         });
     return promise.future().compose(next -> {
       if (Boolean.TRUE.equals(next)) {
@@ -190,7 +186,7 @@ public class TenantPermsAPI implements Tenantpermissions {
       while (it.hasNext()) {
         Map.Entry<String, Future<Boolean>> pair = it.next();
         Future<Boolean> existsCheckFuture = pair.getValue();
-        if (!existsCheckFuture.result()) {
+        if (Boolean.FALSE.equals(existsCheckFuture.result())) {
           notFoundList.add(pair.getKey());
         }
       }
@@ -250,97 +246,96 @@ public class TenantPermsAPI implements Tenantpermissions {
       //If already exists, we don't have to do anything
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
-      pgClient.startTx(connection -> {
-        pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
-            new Criterion(nameCrit), true, false, getReply -> {
-              if (getReply.failed()) {
-                //rollback the transaction
-                pgClient.rollbackTx(connection, rollback -> {
-                  logger.debug(String.format("Error querying permission: %s",
-                      getReply.cause().getLocalizedMessage()));
-                  promise.fail(getReply.cause());
-                });
-                return;
+      pgClient.startTx(connection -> pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
+          new Criterion(nameCrit), true, false, getReply -> {
+            if (getReply.failed()) {
+              //rollback the transaction
+              pgClient.rollbackTx(connection, rollback -> {
+                logger.debug(String.format("Error querying permission: %s",
+                    getReply.cause().getLocalizedMessage()));
+                promise.fail(getReply.cause());
+              });
+              return;
+            }
+            List<Permission> returnList = getReply.result().getResults();
+            Permission foundPerm = null;
+            if (!returnList.isEmpty()) {
+              foundPerm = returnList.get(0);
+              // leverage dummy permission to handle permission update
+              if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
+                  || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
+                  || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
+                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))) {
+                foundPerm.setDummy(true);
               }
-              List<Permission> returnList = getReply.result().getResults();
-              Permission foundPerm = null;
-              if (!returnList.isEmpty()) {
-                foundPerm = returnList.get(0);
-                // leverage dummy permission to handle permission update
-                if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
-                    || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
-                    || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
-                    || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))) {
-                  foundPerm.setDummy(true);
-                }
-              }
-              if (foundPerm != null && !foundPerm.getDummy()) {
-                //If it isn't a dummy permission, we won't replace it
-                pgClient.endTx(connection, done -> promise.complete());
+            }
+            if (foundPerm != null && !foundPerm.getDummy()) {
+              //If it isn't a dummy permission, we won't replace it
+              pgClient.endTx(connection, done -> promise.complete());
+            } else {
+              Future<Void> deleteExistingFuture = null;
+              if (foundPerm == null) {
+                deleteExistingFuture = Future.succeededFuture();
               } else {
-                Future<Void> deleteExistingFuture = null;
-                if (foundPerm == null) {
-                  deleteExistingFuture = Future.succeededFuture();
-                } else {
-                  deleteExistingFuture = deletePerm(connection, perm.getPermissionName(),
-                      vertxContext, tenantId);
+                deleteExistingFuture = deletePerm(connection, perm.getPermissionName(),
+                    vertxContext, tenantId);
+              }
+              deleteExistingFuture.onComplete(deleteExistingRes -> {
+                if (deleteExistingRes.failed()) {
+                  pgClient.rollbackTx(connection, rollback -> {
+                    promise.fail(deleteExistingRes.cause());
+                  });
+                  return;
                 }
-                deleteExistingFuture.onComplete(deleteExistingRes -> {
-                  if (deleteExistingRes.failed()) {
-                    pgClient.rollbackTx(connection, rollback -> {
-                      promise.fail(deleteExistingRes.cause());
-                    });
-                    return;
-                  }
-                  String newId = UUID.randomUUID().toString();
-                  permission.setId(newId);
-                  permission.setDummy(false);
+                String newId = UUID.randomUUID().toString();
+                permission.setId(newId);
+                permission.setDummy(false);
 
-                  if (perm.getVisible() == null) {
-                    permission.setVisible(false);
-                  } else {
-                    permission.setVisible(perm.getVisible());
-                  }
-                  try {
-                    pgClient.save(connection, TABLE_NAME_PERMS, newId, permission,
-                        postReply -> {
-                          if (postReply.failed()) {
+                if (perm.getVisible() == null) {
+                  permission.setVisible(false);
+                } else {
+                  permission.setVisible(perm.getVisible());
+                }
+                try {
+                  pgClient.save(connection, TABLE_NAME_PERMS, newId, permission,
+                      postReply -> {
+                        if (postReply.failed()) {
+                          pgClient.rollbackTx(connection, rollback -> {
+                            logger.debug(String.format("Error saving permission: %s",
+                                postReply.cause().getLocalizedMessage()));
+                            promise.fail(postReply.cause());
+                          });
+                          return;
+                        }
+                        PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
+                            new JsonArray(), new JsonArray(permission.getSubPermissions()),
+                            vertxContext, tenantId, logger).onComplete(updateSubsRes -> {
+                          if (updateSubsRes.failed()) {
                             pgClient.rollbackTx(connection, rollback -> {
-                              logger.debug(String.format("Error saving permission: %s",
-                                  postReply.cause().getLocalizedMessage()));
-                              promise.fail(postReply.cause());
+                              logger.debug(String.format("Error updating permission metadata: %s",
+                                  updateSubsRes.cause().getLocalizedMessage()));
+                              promise.fail(updateSubsRes.cause());
                             });
                             return;
                           }
-                          PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
-                              new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                              vertxContext, tenantId, logger).onComplete(updateSubsRes -> {
-                            if (updateSubsRes.failed()) {
-                              pgClient.rollbackTx(connection, rollback -> {
-                                logger.debug(String.format("Error updating permission metadata: %s",
-                                    updateSubsRes.cause().getLocalizedMessage()));
-                                promise.fail(updateSubsRes.cause());
-                              });
-                              return;
-                            }
-                            pgClient.endTx(connection, done -> {
-                              logger.info(String.format("Saved perm %s",
-                                  perm.getPermissionName()));
-                              promise.complete();
-                            });
-
+                          pgClient.endTx(connection, done -> {
+                            logger.info(String.format("Saved perm %s",
+                                perm.getPermissionName()));
+                            promise.complete();
                           });
+
                         });
-                  } catch (Exception e) {
-                    pgClient.rollbackTx(connection, rollback -> {
-                      logger.debug(String.format("Error: %s", e.getLocalizedMessage()));
-                      promise.fail(e);
-                    });
-                  }
-                });
-              }
-            });
-      });
+                      });
+                } catch (Exception e) {
+                  pgClient.rollbackTx(connection, rollback -> {
+                    logger.debug(String.format("Error: %s", e.getLocalizedMessage()));
+                    promise.fail(e);
+                  });
+                }
+              });
+            }
+          })
+      );
     } catch (Exception e) {
       logger.debug("Error running on vertx for savePerm: " + e.getLocalizedMessage());
       promise.fail(e);
