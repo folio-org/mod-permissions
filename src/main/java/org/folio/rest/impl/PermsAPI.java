@@ -1932,7 +1932,7 @@ public class PermsAPI implements Perms {
     return perm;
   }
 
-  private static List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
+  static List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
     List<List<String>> listOfLists = new ArrayList<>();
     int count = 0;
     List<String> currentChunk = new ArrayList<>();
