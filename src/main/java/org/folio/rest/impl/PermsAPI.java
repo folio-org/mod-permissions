@@ -101,7 +101,6 @@ public class PermsAPI implements Perms {
   private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
-  private static boolean suppressErrorResponse = false;
 
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -115,10 +114,7 @@ public class PermsAPI implements Perms {
 
   private final Messages messages = Messages.getInstance();
 
-  private String getInternalError(String response) {
-    if (suppressErrorResponse) {
-      return "Internal Server Error: Please contact Admin";
-    }
+  static String getInternalError(String response) {
     return response;
   }
 
@@ -1186,15 +1182,14 @@ public class PermsAPI implements Perms {
           TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
           true, false, getReply -> {
             if (getReply.failed()) {
-              logger.error("Error in getReply: " + getReply.cause().getMessage());
               promise.fail(getReply.cause());
-            } else {
-              List<Permission> permList = getReply.result().getResults();
-              promise.complete(!permList.isEmpty());
+              return;
             }
+            List<Permission> permList = getReply.result().getResults();
+            promise.complete(!permList.isEmpty());
           });
     } catch (Exception e) {
-      logger.error("Error from PostgresClient instance: " + e.getMessage());
+      logger.error(e.getMessage(), e);
       promise.fail(e);
     }
     return promise.future();
@@ -1255,11 +1250,11 @@ public class PermsAPI implements Perms {
         .onComplete(gepsRes -> {
           if (gepsRes.failed()) {
             promise.fail(gepsRes.cause());
-          } else {
-            List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
-            combinedResult.addAll(gepsRes.result());
-            promise.complete(combinedResult);
+            return;
           }
+          List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
+          combinedResult.addAll(gepsRes.result());
+          promise.complete(combinedResult);
         });
 
     return promise.future().compose(res -> getAllExpandedPermissionsSequential(listOfListsCopy,
@@ -1273,13 +1268,13 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture(new ArrayList<>());
     }
 
-    Promise<List<String>> promise = Promise.promise();
-
     // use cache by default unless set to false explicitly
     Boolean usePermsCache = vertxContext.config().getBoolean(PermsCache.CACHE_HEADER);
     if (usePermsCache == null || usePermsCache) {
       return PermsCache.expandPerms(permissionList, vertxContext, tenantId);
     }
+
+    Promise<List<String>> promise = Promise.promise();
 
     try {
       Criterion criterion = buildPermissionNameListQuery(permissionList);
@@ -1289,36 +1284,36 @@ public class PermsAPI implements Perms {
           getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
-            } else {
-              List<String> allSubPermList = new ArrayList<>();
-              List<String> foundPermNameList = new ArrayList<>();
-              List<Permission> foundPermList = getReply.result().getResults();
-              for (Permission perm : foundPermList) {
-                foundPermNameList.add(perm.getPermissionName());
-                List<String> subPermList = perm.getSubPermissions().stream()
-                    .map(object -> Objects.toString(object, null))
-                    .collect(Collectors.toList());
-                for (String subPerm : subPermList) {
-                  if (!allSubPermList.contains(subPerm)) {
-                    allSubPermList.add(subPerm);
-                  }
+              return;
+            }
+            List<String> allSubPermList = new ArrayList<>();
+            List<String> foundPermNameList = new ArrayList<>();
+            List<Permission> foundPermList = getReply.result().getResults();
+            for (Permission perm : foundPermList) {
+              foundPermNameList.add(perm.getPermissionName());
+              List<String> subPermList = perm.getSubPermissions().stream()
+                  .map(object -> Objects.toString(object, null))
+                  .collect(Collectors.toList());
+              for (String subPerm : subPermList) {
+                if (!allSubPermList.contains(subPerm)) {
+                  allSubPermList.add(subPerm);
                 }
               }
-              int splitSize = 15;
-              if (splitSize < permissionList.size()) {
-                splitSize = permissionList.size();
-              }
-              List<List<String>> listOfSubPermLists = splitStringList(
-                  allSubPermList, splitSize);
-              Future<List<String>> listFuture;
-              if (listOfSubPermLists.isEmpty()) {
-                listFuture = Future.succeededFuture(foundPermNameList);
-              } else {
-                listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
-                    tenantId, foundPermNameList);
-              }
-              listFuture.onComplete(promise::handle);
             }
+            int splitSize = 15;
+            if (splitSize < permissionList.size()) {
+              splitSize = permissionList.size();
+            }
+            List<List<String>> listOfSubPermLists = splitStringList(
+                allSubPermList, splitSize);
+            Future<List<String>> listFuture;
+            if (listOfSubPermLists.isEmpty()) {
+              listFuture = Future.succeededFuture(foundPermNameList);
+            } else {
+              listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
+                  tenantId, foundPermNameList);
+            }
+            listFuture.onComplete(promise::handle);
           });
     } catch (Exception e) {
       promise.fail(e);
@@ -1547,13 +1542,7 @@ public class PermsAPI implements Perms {
         promise.complete(); //Nuthin' to do
       } else {
         modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-            tenantId, logger).onComplete(res -> {
-          if (res.failed()) {
-            promise.fail(res.cause());
-          } else {
-            promise.complete();
-          }
-        });
+            tenantId, logger).onComplete(res -> promise.handle(res.mapEmpty()));
       }
     });
     return promise.future();
@@ -1618,13 +1607,7 @@ public class PermsAPI implements Perms {
           promise.complete();
         } else {
           modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-              tenantId, logger).onComplete(res2 -> {
-            if (res2.failed()) {
-              promise.fail(res2.cause());
-            } else {
-              promise.complete();
-            }
-          });
+              tenantId, logger).onComplete(res2 -> promise.handle(res2.mapEmpty()));
         }
       });
     } catch (Exception e) {
@@ -1759,13 +1742,7 @@ public class PermsAPI implements Perms {
                 } else {
                   user.getPermissions().remove(permissionName);
                   pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter,
-                      true, updateReply -> {
-                        if (updateReply.failed()) {
-                          promise.fail(updateReply.cause());
-                        } else {
-                          promise.complete();
-                        }
-                      });
+                      true, updateReply -> promise.handle(updateReply.mapEmpty()));
                 }
               }
             }
@@ -1820,13 +1797,7 @@ public class PermsAPI implements Perms {
             Permission permission = getReply.result().getResults().get(0);
             permission.getSubPermissions().remove(subpermissionName);
               pgClient.update(connection, TABLE_NAME_PERMS, permission, cqlFilter,
-                  true, updateReply -> {
-                    if (updateReply.failed()) {
-                      promise.fail(updateReply.cause());
-                    } else {
-                      promise.complete();
-                    }
-                  });
+                  true, updateReply -> promise.handle(updateReply.mapEmpty()));
           });
     } catch (Exception e) {
       promise.fail(e);
