@@ -40,6 +40,7 @@ import org.folio.rest.impl.PermsCache;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,6 +48,7 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 
 import static org.folio.permstest.TestUtil.*;
+import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -185,8 +187,17 @@ public class RestVerticleTest {
   @Test
   public void testGetPermsUsersByIdBadUUID(TestContext context) {
     Response response = send(HttpMethod.GET, "/perms/users/12%2334?indexField=id", null, context);
+    context.assertEquals(400, response.code);
+    Assert.assertThat(response.body.getString("text"),
+    containsString("invalid input syntax for type uuid: \"12#34\""));
+  }
+
+  @Test
+  public void testGetPermsUsersByIdDoesNotExist(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    Response response = send(HttpMethod.GET, "/perms/users/" + uuid + "?indexField=id", null, context);
     context.assertEquals(404, response.code);
-    context.assertEquals("No user with id: 12#34", response.body.getString("text"));
+    context.assertEquals("No user with id: " + uuid, response.body.getString("text"));
   }
 
   @Test
@@ -249,8 +260,17 @@ public class RestVerticleTest {
   @Test
   public void testDeletePermsUsersByIdInvalidUUID(TestContext context) {
     Response response = send(HttpMethod.DELETE, "/perms/users/123", null, context);
+    context.assertEquals(400, response.code);
+    Assert.assertThat(response.body.getString("text"),
+        containsString("invalid input syntax for type uuid"));
+  }
+
+  @Test
+  public void testDeletePermsUsersByIdDoesNotExist(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    Response response = send(HttpMethod.DELETE, "/perms/users/" + uuid, null, context);
     context.assertEquals(404, response.code);
-    context.assertEquals("No permissions user found with id 123", response.body.getString("text"));
+    context.assertEquals("No permissions user found with id " + uuid, response.body.getString("text"));
   }
 
   @Test
@@ -387,12 +407,22 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testPostPermsUsersPermissionsByIdUnknownUser(TestContext context) {
+  public void testPostPermsUsersPermissionsByIdBadUUID(TestContext context) {
     String permRequest = "{\"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
     Response response = send(HttpMethod.POST, "/perms/users/123/permissions",
         permRequest, context);
     context.assertEquals(response.code, 400);
-    context.assertEquals("User with id 123 does not exist", response.body.getString("text"));
+    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax for type uuid"));
+  }
+
+  @Test
+  public void testPostPermsUsersPermissionsByIdUnknownUser(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    String permRequest = "{\"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
+    Response response = send(HttpMethod.POST, "/perms/users/" + uuid + "/permissions",
+        permRequest, context);
+    context.assertEquals(response.code, 400);
+    context.assertEquals("User with id " + uuid + " does not exist", response.body.getString("text"));
   }
 
   @Test
@@ -448,8 +478,18 @@ public class RestVerticleTest {
   public void testGetPermsUsersPermissionsByIdBadUUID(TestContext context) {
     Response response = send(HttpMethod.GET, "/perms/users/12%2334/permissions",
         null, context);
+    context.assertEquals(response.code, 400);
+    Assert.assertThat(response.body.getString("text"),
+        containsString("invalid input syntax for type uuid: \"12#34\""));
+  }
+
+  @Test
+  public void testGetPermsUsersPermissionsByIdDoesNotExist(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    Response response = send(HttpMethod.GET, "/perms/users/" + uuid + "/permissions",
+        null, context);
     context.assertEquals(response.code, 404);
-    context.assertEquals("No user found by id 12#34", response.body.getString("text"));
+    context.assertEquals("No user found by id " + uuid, response.body.getString("text"));
   }
 
   @Test
@@ -471,9 +511,19 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testPutPermsPermissionsByIdNotFound(TestContext context) {
+  public void testPutPermsPermissionsByIdBadUUID(TestContext context) {
     String permRequest = "{\"id\": \"123\", \"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
     Response response = send(HttpMethod.PUT, "/perms/permissions/123",
+        permRequest, context);
+    context.assertEquals(response.code, 400);
+    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax for type uuid"));
+  }
+
+  @Test
+  public void testPutPermsPermissionsByIdNotFound(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"aaname\",\"displayName\":\"aadisplay\"}";
+    Response response = send(HttpMethod.PUT, "/perms/permissions/" + uuid,
         permRequest, context);
     context.assertEquals(response.code, 404);
     context.assertEquals("No permission found to match that id", response.body.getString("text"));
@@ -584,7 +634,16 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.DELETE, "/perms/users/123/permissions/name",
         null, context);
     context.assertEquals(response.code, 400);
-    context.assertEquals("User with id 123 does not exist", response.body.getString("text"));
+    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax"));
+  }
+
+  @Test
+  public void testDeletePermsUsersPermissionsByIdAndPermissionnameDoesNotExist(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    Response response = send(HttpMethod.DELETE, "/perms/users/" + uuid + "/permissions/name",
+        null, context);
+    context.assertEquals(response.code, 404);
+    context.assertEquals("User with id " + uuid +" does not exist", response.body.getString("text"));
   }
 
   @Test
