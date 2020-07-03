@@ -12,7 +12,6 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -175,14 +174,11 @@ public class TenantPermsAPI implements Tenantpermissions {
         promise.fail(compositeRes.cause());
         return;
       }
-      Iterator<Map.Entry<String, Future<Boolean>>> it = futureMap.entrySet().iterator();
-      while (it.hasNext()) {
-        Map.Entry<String, Future<Boolean>> pair = it.next();
-        Future<Boolean> existsCheckFuture = pair.getValue();
+      futureMap.forEach((permName, existsCheckFuture) -> {
         if (Boolean.FALSE.equals(existsCheckFuture.result())) {
-          notFoundList.add(pair.getKey());
+          notFoundList.add(permName);
         }
-      }
+      });
       promise.complete(notFoundList);
     });
     return promise.future();

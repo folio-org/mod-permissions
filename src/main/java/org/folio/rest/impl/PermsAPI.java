@@ -383,7 +383,7 @@ public class PermsAPI implements Perms {
       Criterion idCrit = getIdCriterion(userid);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.startTx(connection -> {
-        pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
+        pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
             idCrit, true, false, getReply -> {
               if (getReply.failed()) {
                 //rollback
@@ -422,7 +422,7 @@ public class PermsAPI implements Perms {
                     return;
                   }
                   pgClient.delete(connection, TABLE_NAME_PERMSUSERS,
-                      idCrit, deleteReply -> {
+                      userid, deleteReply -> {
                         if (deleteReply.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
                             String errStr = String.format("Error deleting user: %s",
@@ -849,31 +849,8 @@ public class PermsAPI implements Perms {
   public void getPermsPermissionsById(String id, Map<String, String> okapiHeaders,
                                       Handler<AsyncResult<Response>> asyncResultHandler,
                                       Context vertxContext) {
-    try {
-      String tenantId = TenantTool.tenantId(okapiHeaders);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId)
-          .get(TABLE_NAME_PERMS, Permission.class, getIdCriterion(id), true, false, getReply -> {
-            if (getReply.failed()) {
-              String errStr = getReply.cause().getMessage();
-              logger.error(errStr, getReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(
-                  GetPermsPermissionsByIdResponse.respond400WithTextPlain(errStr)));
-              return;
-            }
-            List<Permission> permList = getReply.result().getResults();
-            if (permList.isEmpty()) {
-              asyncResultHandler.handle(Future.succeededFuture(
-                  GetPermsPermissionsByIdResponse.respond404WithTextPlain("No permission with ID " + id + " exists")));
-              return;
-            }
-            asyncResultHandler.handle(Future.succeededFuture(
-                GetPermsPermissionsByIdResponse.respond200WithApplicationJson(permList.get(0))));
-          });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
-    }
+    PgUtil.getById(TABLE_NAME_PERMS, Permission.class, id, okapiHeaders, vertxContext,
+        GetPermsPermissionsByIdResponse.class, asyncResultHandler);
   }
 
   @Validate
@@ -1046,7 +1023,7 @@ public class PermsAPI implements Perms {
                         return;
                       }
                       pgClient.delete(connection, TABLE_NAME_PERMS,
-                          idCrit, deleteReply -> {
+                          id, deleteReply -> {
                             if (deleteReply.failed()) {
                               //rollback
                               pgClient.rollbackTx(connection, rollback -> {
@@ -1072,7 +1049,7 @@ public class PermsAPI implements Perms {
             } else {
               try {
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMS,
-                    idCrit, deleteReply -> {
+                    id, deleteReply -> {
                       if (deleteReply.failed()) {
                         logger.error("deleteReply failed: " + deleteReply.cause().getMessage());
                         asyncResultHandler.handle(Future.succeededFuture(

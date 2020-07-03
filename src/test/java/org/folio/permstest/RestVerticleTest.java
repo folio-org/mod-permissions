@@ -622,7 +622,7 @@ public class RestVerticleTest {
   public void testGetPermsPermissionsByIdBadTenant(TestContext context) {
     Response response = send("badTenant", HttpMethod.GET, "/perms/permissions/123",
         null, context);
-    context.assertEquals(response.code, 400);
+    context.assertEquals(response.code, 404);
   }
 
   @Test
