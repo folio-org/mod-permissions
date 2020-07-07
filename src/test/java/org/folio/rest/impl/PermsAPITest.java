@@ -10,6 +10,7 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
@@ -99,4 +100,114 @@ public class PermsAPITest {
       future.onComplete(context.asyncAssertFailure());
     });
   }
+
+  @Test
+  public void testPostPermsUsersNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.postPermsUsers(null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testPutPermsUsersByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.putPermsUsersById(null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testDeletePermsUsersByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.deletePermsUsersById(null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testGetPermsUsersPermissionsByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.getPermsUsersPermissionsById(null, null, null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testPostPermsUsersPermissionsByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.postPermsUsersPermissionsById(null, null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testDeletePermsUsersPermissionsByIdAndPermissionnameNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.deletePermsUsersPermissionsByIdAndPermissionname(null, null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testPostPermsPermissionsNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.postPermsPermissions(null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testGetPermsPermissionsByIdNullId(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.getPermsPermissionsById(null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(404, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testGetPermsPermissionsByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.getPermsPermissionsById(UUID.randomUUID().toString(), null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testPutPermsPermissionsByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.putPermsPermissionsById(null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testDeletePermsPermissionsByIdNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.deletePermsPermissionsById(null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testGetPermsPermissionsNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.getPermsPermissions(null, null, null, 1, 1, null, null,
+        null, null, null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
 }
