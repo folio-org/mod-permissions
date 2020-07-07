@@ -112,8 +112,6 @@ public class PermsAPI implements Perms {
     return new CQLWrapper(cql2pgJson, query);
   }
 
-  private final Messages messages = Messages.getInstance();
-
   @Validate
   @Override
   public void getPermsUsers(int length, int start, String sortBy, String query,
