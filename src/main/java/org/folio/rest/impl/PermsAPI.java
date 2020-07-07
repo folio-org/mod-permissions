@@ -7,12 +7,10 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +36,6 @@ import org.folio.rest.persist.Criteria.Offset;
 import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
-import org.folio.rest.tools.messages.Messages;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 
@@ -99,11 +96,10 @@ public class PermsAPI implements Perms {
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   private static final String USER_NAME_FIELD = "'username'";
   private static final String USER_ID_FIELD = "'userId'";
-  private static final String ID_FIELD = "'id'";
+  private static final String ID_FIELD = "id";
   private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
-  private static boolean suppressErrorResponse = false;
 
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -113,15 +109,6 @@ public class PermsAPI implements Perms {
   private static CQLWrapper getCQL(String query, String tableName) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
     return new CQLWrapper(cql2pgJson, query);
-  }
-
-  private final Messages messages = Messages.getInstance();
-
-  private String getInternalError(String response) {
-    if (suppressErrorResponse) {
-      return "Internal Server Error: Please contact Admin";
-    }
-    return response;
   }
 
   @Validate
@@ -149,6 +136,7 @@ public class PermsAPI implements Perms {
       if (entity.getId() != null) {
         Criteria idCrit = new Criteria();
         idCrit.addField(ID_FIELD);
+        idCrit.setJSONB(false);
         idCrit.setOperation("=");
         idCrit.setVal(entity.getId());
         criterion.addCriterion(idCrit, "OR", userIdCrit);
@@ -179,58 +167,64 @@ public class PermsAPI implements Perms {
             if (entity.getId() == null) {
               entity.setId(UUID.randomUUID().toString());
             }
-            PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-            postgresClient.startTx(beginTx -> {
-              logger.debug("Starting transaction to save new permissions user");
-              postgresClient.save(beginTx, TABLE_NAME_PERMSUSERS, entity.getId(), entity, postReply -> {
-                try {
-                  if (postReply.failed()) {
-                    String errStr = postReply.cause().getMessage();
-                    logger.error(errStr, postReply.cause());
-                    asyncResultHandler.handle(
-                        Future.succeededFuture(PostPermsUsersResponse.respond400WithTextPlain(errStr)));
-                    return;
-                  }
-                  final PermissionUser permUser = entity;
-                  updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
-                      new JsonArray(permUser.getPermissions()), vertxContext,
-                      tenantId, logger).onComplete(updatePermsRes -> {
-                    if (updatePermsRes.failed()) {
-                      postgresClient.rollbackTx(beginTx, rollbackTx -> {
-                        logger.error("Error updating derived fields: " + updatePermsRes.cause());
-                        if (updatePermsRes.cause() instanceof InvalidPermissionsException) {
-                          asyncResultHandler.handle(Future.succeededFuture(
-                              PostPermsUsersResponse.respond422WithApplicationJson(
-                                  ValidationHelper.createValidationErrorMessage(
-                                      ID_FIELD, permUser.getId(),
-                                      UNABLE_TO_UPDATE_DERIVED_FIELDS + updatePermsRes.cause().getMessage()))));
-                        } else {
-                          asyncResultHandler.handle(Future.succeededFuture(
-                              PostPermsUsersResponse.respond500WithTextPlain(
-                                  getInternalError(updatePermsRes.cause().getMessage()))));
-                        }
-                      });
-                      return;
-                    }
-                    postgresClient.endTx(beginTx, endTx -> {
-                      asyncResultHandler.handle(Future.succeededFuture(
-                          PostPermsUsersResponse.respond201WithApplicationJson(entity)));
-                    });
-                  });
-                } catch (Exception e) {
-                  String errStr = "Error saving entity " + entity.toString() + ": " + e.getMessage();
-                  logger.error(errStr, e);
-                  asyncResultHandler.handle(Future.succeededFuture(
-                      PostPermsUsersResponse.respond500WithTextPlain(getInternalError(errStr))));
-                }
-              });
-            });
+            postPermsUsersTrans(entity, vertxContext, tenantId, asyncResultHandler);
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          PostPermsUsersResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          PostPermsUsersResponse.respond500WithTextPlain(e.getMessage())));
     }
+  }
+
+  void postPermsUsersTrans(PermissionUser entity, Context vertxContext,
+                           String tenantId, Handler<AsyncResult<Response>> asyncResultHandler) {
+
+    PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    postgresClient.startTx(beginTx -> {
+      logger.debug("Starting transaction to save new permissions user");
+      postgresClient.save(beginTx, TABLE_NAME_PERMSUSERS, entity.getId(), entity, postReply -> {
+        try {
+          if (postReply.failed()) {
+            String errStr = postReply.cause().getMessage();
+            logger.error(errStr, postReply.cause());
+            asyncResultHandler.handle(
+                Future.succeededFuture(PostPermsUsersResponse.respond400WithTextPlain(errStr)));
+            return;
+          }
+          final PermissionUser permUser = entity;
+          updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
+              new JsonArray(permUser.getPermissions()), vertxContext,
+              tenantId, logger).onComplete(updatePermsRes -> {
+            if (updatePermsRes.failed()) {
+              postgresClient.rollbackTx(beginTx, rollbackTx -> {
+                logger.error("Error updating derived fields: " + updatePermsRes.cause());
+                if (updatePermsRes.cause() instanceof InvalidPermissionsException) {
+                  asyncResultHandler.handle(Future.succeededFuture(
+                      PostPermsUsersResponse.respond422WithApplicationJson(
+                          ValidationHelper.createValidationErrorMessage(
+                              ID_FIELD, permUser.getId(),
+                              UNABLE_TO_UPDATE_DERIVED_FIELDS + updatePermsRes.cause().getMessage()))));
+                } else {
+                  asyncResultHandler.handle(Future.succeededFuture(
+                      PostPermsUsersResponse.respond500WithTextPlain(
+                          updatePermsRes.cause().getMessage())));
+                }
+              });
+              return;
+            }
+            postgresClient.endTx(beginTx, endTx -> {
+              asyncResultHandler.handle(Future.succeededFuture(
+                  PostPermsUsersResponse.respond201WithApplicationJson(entity)));
+            });
+          });
+        } catch (Exception e) {
+          String errStr = "Error saving entity " + entity.toString() + ": " + e.getMessage();
+          logger.error(errStr, e);
+          asyncResultHandler.handle(Future.succeededFuture(
+              PostPermsUsersResponse.respond500WithTextPlain(errStr)));
+        }
+      });
+    });
   }
 
   @Validate
@@ -239,9 +233,9 @@ public class PermsAPI implements Perms {
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = getIdCriteria(indexField, "=", id);
+      Criterion idCrit = getIdCriterion(indexField, id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          new Criterion(idCrit), true, false, queryReply -> {
+          idCrit, true, false, queryReply -> {
             if (queryReply.failed()) {
               String errStr = queryReply.cause().getMessage();
               logger.error(errStr, queryReply.cause());
@@ -258,7 +252,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          GetPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -293,13 +287,13 @@ public class PermsAPI implements Perms {
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+                  PutPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(
-          Future.succeededFuture(PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          Future.succeededFuture(PutPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -335,7 +329,7 @@ public class PermsAPI implements Perms {
                         + updateReply.cause().getMessage();
                     logger.error(errStr, updateReply.cause());
                     asyncResultHandler.handle(Future.succeededFuture(
-                        PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                        PutPermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                   });
                   return;
                 }
@@ -355,7 +349,7 @@ public class PermsAPI implements Perms {
                         String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
                         logger.error(errStr, updateUserPermsRes.cause());
                         asyncResultHandler.handle(Future.succeededFuture(
-                            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                            PutPermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                       }
                     });
                     return;
@@ -371,7 +365,7 @@ public class PermsAPI implements Perms {
       } catch (Exception e) {
         logger.error(e.getMessage(), e);
         asyncResultHandler.handle(Future.succeededFuture(
-            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+            PutPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
       }
     };
   }
@@ -382,15 +376,11 @@ public class PermsAPI implements Perms {
                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(userid);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-          tenantId);
+      Criterion idCrit = getIdCriterion(userid);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.startTx(connection -> {
-        pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
-            new Criterion(idCrit), true, false, getReply -> {
+        pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
+            idCrit, true, false, getReply -> {
               if (getReply.failed()) {
                 //rollback
                 pgClient.rollbackTx(connection, rollback -> {
@@ -423,19 +413,19 @@ public class PermsAPI implements Perms {
                           updateUserPermsRes.cause().getMessage());
                       logger.error(errStr, updateUserPermsRes.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
-                          DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                          DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                     });
                     return;
                   }
                   pgClient.delete(connection, TABLE_NAME_PERMSUSERS,
-                      new Criterion(idCrit), deleteReply -> {
+                      userid, deleteReply -> {
                         if (deleteReply.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
                             String errStr = String.format("Error deleting user: %s",
                                 deleteReply.cause().getMessage());
                             logger.error(errStr, deleteReply.cause());
                             asyncResultHandler.handle(Future.succeededFuture(
-                                DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                                DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                           });
                           return;
                         }
@@ -459,7 +449,7 @@ public class PermsAPI implements Perms {
                       e.getMessage());
                   logger.error(errStr, e);
                   asyncResultHandler.handle(Future.succeededFuture(
-                      DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                      DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                 });
               }
             });
@@ -468,7 +458,7 @@ public class PermsAPI implements Perms {
       String errStr = "Error using Postgres instance: " + e.getMessage();
       logger.error(errStr, e);
       asyncResultHandler.handle(Future.succeededFuture(
-          DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+          DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
     }
   }
 
@@ -507,7 +497,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsUsersPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          GetPermsUsersPermissionsByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -519,10 +509,10 @@ public class PermsAPI implements Perms {
                                             Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria useridCrit = getIdCriteria(indexField, "=", id);
+      Criterion useridCrit = getIdCriterion(indexField, id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
           TABLE_NAME_PERMSUSERS,
-          PermissionUser.class, new Criterion(useridCrit), true, false,
+          PermissionUser.class, useridCrit, true, false,
           getReply -> {
             try {
               if (getReply.failed()) {
@@ -586,7 +576,7 @@ public class PermsAPI implements Perms {
             logger.error(errStr, rpbnRes.cause());
             asyncResultHandler.handle(Future.succeededFuture(
                 PostPermsUsersPermissionsByIdResponse
-                    .respond500WithTextPlain(getInternalError(errStr))));
+                    .respond500WithTextPlain(errStr)));
             return;
           }
           if (rpbnRes.result() == null) {
@@ -621,7 +611,7 @@ public class PermsAPI implements Perms {
                         logger.error(errStr, putReply.cause());
                         asyncResultHandler.handle(Future.succeededFuture(
                             PostPermsUsersPermissionsByIdResponse
-                                .respond500WithTextPlain(getInternalError(errStr))));
+                                .respond500WithTextPlain(errStr)));
                       });
                       return;
                     }
@@ -638,7 +628,7 @@ public class PermsAPI implements Perms {
                           logger.error(errStr, updateUserPermsRes.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               PostPermsUsersPermissionsByIdResponse
-                                  .respond500WithTextPlain(getInternalError(errStr))));
+                                  .respond500WithTextPlain(errStr)));
                         });
                         return;
                       }
@@ -657,7 +647,7 @@ public class PermsAPI implements Perms {
             logger.error(e.getMessage(), e);
             asyncResultHandler.handle(Future.succeededFuture(
                 PostPermsUsersPermissionsByIdResponse
-                    .respond500WithTextPlain(getInternalError(e.getMessage()))));
+                    .respond500WithTextPlain(e.getMessage())));
           }
         });
   }
@@ -670,9 +660,9 @@ public class PermsAPI implements Perms {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = getIdCriteria(indexField, "=", id);
+      Criterion idCrit = getIdCriterion(indexField, id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS,
-          PermissionUser.class, new Criterion(idCrit), true, false, getReply -> {
+          PermissionUser.class, idCrit, true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
               logger.error(errStr, getReply.cause());
@@ -681,9 +671,9 @@ public class PermsAPI implements Perms {
               return;
             }
             List<PermissionUser> userList = getReply.result().getResults();
-            if (userList.size() == 0) {
+            if (userList.isEmpty()) {
               asyncResultHandler.handle(Future.succeededFuture(
-                  DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond400WithTextPlain(
+                  DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond404WithTextPlain(
                       "User with id " + id + " does not exist")));
               return;
             }
@@ -715,7 +705,7 @@ public class PermsAPI implements Perms {
                           logger.error(errStr, putReply.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               DeletePermsUsersPermissionsByIdAndPermissionnameResponse
-                                  .respond500WithTextPlain(getInternalError(errStr))));
+                                  .respond500WithTextPlain(errStr)));
                         });
                         return;
                       }
@@ -730,7 +720,7 @@ public class PermsAPI implements Perms {
                             logger.error(errStr, updateUserPermsRes.cause());
                             asyncResultHandler.handle(Future.succeededFuture(
                                 DeletePermsUsersPermissionsByIdAndPermissionnameResponse
-                                    .respond500WithTextPlain(getInternalError(errStr))));
+                                    .respond500WithTextPlain(errStr)));
                           });
                           return;
                         }
@@ -745,14 +735,14 @@ public class PermsAPI implements Perms {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond500WithTextPlain(
-                      getInternalError(e.getMessage()))));
+                      e.getMessage())));
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
           DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond500WithTextPlain(
-              getInternalError(e.getMessage()))));
+              e.getMessage())));
     }
   }
 
@@ -811,7 +801,7 @@ public class PermsAPI implements Perms {
                           + postReply.cause().getMessage(), postReply.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsPermissionsResponse
-                              .respond500WithTextPlain(getInternalError(postReply.cause().getMessage()))));
+                              .respond500WithTextPlain(postReply.cause().getMessage())));
                     });
                     return;
                   }
@@ -838,7 +828,7 @@ public class PermsAPI implements Perms {
                 postgresClient.rollbackTx(connection, done -> {
                   logger.error(e.getMessage(), e);
                   asyncResultHandler.handle(Future.succeededFuture(
-                      PostPermsPermissionsResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+                      PostPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
                 });
               }
             });
@@ -846,7 +836,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          PostPermsPermissionsResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          PostPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -855,35 +845,8 @@ public class PermsAPI implements Perms {
   public void getPermsPermissionsById(String id, Map<String, String> okapiHeaders,
                                       Handler<AsyncResult<Response>> asyncResultHandler,
                                       Context vertxContext) {
-    try {
-      String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(id);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId)
-          .get(TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit), true, false, getReply -> {
-            if (getReply.failed()) {
-              String errStr = getReply.cause().getMessage();
-              logger.error(errStr, getReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(
-                  GetPermsPermissionsByIdResponse.respond400WithTextPlain(errStr)));
-              return;
-            }
-            List<Permission> permList = getReply.result().getResults();
-            if (permList.isEmpty()) {
-              asyncResultHandler.handle(Future.succeededFuture(
-                  GetPermsPermissionsByIdResponse.respond404WithTextPlain("No permission with ID " + id + " exists")));
-              return;
-            }
-            asyncResultHandler.handle(Future.succeededFuture(
-                GetPermsPermissionsByIdResponse.respond200WithApplicationJson(permList.get(0))));
-          });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
-    }
+    PgUtil.getById(TABLE_NAME_PERMS, Permission.class, id, okapiHeaders, vertxContext,
+        GetPermsPermissionsByIdResponse.class, asyncResultHandler);
   }
 
   @Validate
@@ -892,20 +855,16 @@ public class PermsAPI implements Perms {
                                       Map<String, String> okapiHeaders,
                                       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      String query = "id==" + id;
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(entity.getId());
       if (entity.getId() == null || !entity.getId().equals(id)) {
         asyncResultHandler.handle(Future.succeededFuture(
             PutPermsPermissionsByIdResponse.respond400WithTextPlain("Invalid id value")));
         return;
       }
+      Criterion criterion = getIdCriterion(id);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMS, Permission.class, new Criterion(idCrit),
+          TABLE_NAME_PERMS, Permission.class, criterion,
           true, false, getReply -> {
             if (getReply.failed()) {
               String message = getReply.cause().getMessage();
@@ -949,7 +908,7 @@ public class PermsAPI implements Perms {
                           logger.error("Error with put: " + putReply.cause().getMessage(), putReply.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               PutPermsPermissionsByIdResponse.respond500WithTextPlain(
-                                  getInternalError(putReply.cause().getMessage()))));
+                                  putReply.cause().getMessage())));
                         });
                         return;
                       }
@@ -972,7 +931,7 @@ public class PermsAPI implements Perms {
                                   logger.error(errStr, updateSubPermsRes.cause());
                                   asyncResultHandler.handle(Future.succeededFuture(
                                       PutPermsPermissionsByIdResponse.respond500WithTextPlain(
-                                          getInternalError(errStr))));
+                                          errStr)));
                                 }
                               });
                               return;
@@ -988,13 +947,13 @@ public class PermsAPI implements Perms {
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse
-                  .respond500WithTextPlain(getInternalError(e.getMessage()))));
+                  .respond500WithTextPlain(e.getMessage())));
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          PutPermsPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          PutPermsPermissionsByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -1005,12 +964,9 @@ public class PermsAPI implements Perms {
                                          Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criteria idCrit = new Criteria();
-      idCrit.addField(ID_FIELD);
-      idCrit.setOperation("=");
-      idCrit.setVal(id);
+      Criterion idCrit = getIdCriterion(id);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-          Permission.class, new Criterion(idCrit), true, false, getReply -> {
+          Permission.class, idCrit, true, false, getReply -> {
             if (getReply.failed()) {
               String errStr = getReply.cause().getMessage();
               logger.error(errStr, getReply.cause());
@@ -1046,7 +1002,7 @@ public class PermsAPI implements Perms {
                       logger.error(errStr, rpfulRes.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                              getInternalError(errStr))));
+                              errStr)));
                     });
                   } else {
                     removeSubpermissionFromPermissionList(connection,
@@ -1058,12 +1014,12 @@ public class PermsAPI implements Perms {
                           logger.error(errStr, rsfplRes.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                                  getInternalError(errStr))));
+                                  errStr)));
                         });
                         return;
                       }
                       pgClient.delete(connection, TABLE_NAME_PERMS,
-                          new Criterion(idCrit), deleteReply -> {
+                          id, deleteReply -> {
                             if (deleteReply.failed()) {
                               //rollback
                               pgClient.rollbackTx(connection, rollback -> {
@@ -1071,7 +1027,7 @@ public class PermsAPI implements Perms {
                                 logger.error(errStr, deleteReply.cause());
                                 asyncResultHandler.handle(Future.succeededFuture(
                                     DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                                        getInternalError(errStr))));
+                                        errStr)));
                               });
                               return;
                             }
@@ -1089,12 +1045,12 @@ public class PermsAPI implements Perms {
             } else {
               try {
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMS,
-                    new Criterion(idCrit), deleteReply -> {
+                    id, deleteReply -> {
                       if (deleteReply.failed()) {
                         logger.error("deleteReply failed: " + deleteReply.cause().getMessage());
                         asyncResultHandler.handle(Future.succeededFuture(
                             DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                                getInternalError(deleteReply.cause().getMessage()))));
+                                deleteReply.cause().getMessage())));
                         return;
                       }
                       if (deleteReply.result().rowCount() == 0) {
@@ -1107,14 +1063,14 @@ public class PermsAPI implements Perms {
               } catch (Exception e) {
                 logger.error(e.getMessage(), e);
                 asyncResultHandler.handle(Future.succeededFuture(
-                    DeletePermsPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+                    DeletePermsPermissionsByIdResponse.respond500WithTextPlain(e.getMessage())));
               }
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-          getInternalError(e.getMessage()))));
+          e.getMessage())));
     }
   }
 
@@ -1128,10 +1084,7 @@ public class PermsAPI implements Perms {
                                   Context vertxContext) {
 
     try {
-      boolean includeDummyPerms = false;
-      if (includeDummy != null && includeDummy.equals("true")) {
-        includeDummyPerms = true;
-      }
+      boolean includeDummyPerms = "true".equals(includeDummy);
       String[] queryArr = new String[]{""};
       if (!includeDummyPerms) {
         //filter out all dummy perms from query
@@ -1147,7 +1100,6 @@ public class PermsAPI implements Perms {
       logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
           TABLE_NAME_PERMS, queryArr[0]));
       cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start - 1);
-      logger.fatal("START 2");
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
@@ -1162,9 +1114,8 @@ public class PermsAPI implements Perms {
               List<Permission> permissions = getReply.result().getResults();
               List<Future> futureList = new ArrayList<>();
               for (Permission permission : permissions) {
-                List<Object> subPermList = permission.getSubPermissions();
                 Future<Permission> permFuture;
-                if (expandSubs != null && expandSubs.equals("true")) {
+                if ("true".equals(expandSubs)) {
                   permFuture = expandSubPermissions(permission, vertxContext, tenantId);
                 } else if ("true".equals(expanded)) {
                   Promise<Permission> promise = Promise.promise();
@@ -1230,19 +1181,14 @@ public class PermsAPI implements Perms {
           TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
           true, false, getReply -> {
             if (getReply.failed()) {
-              logger.error("Error in getReply: " + getReply.cause().getMessage());
               promise.fail(getReply.cause());
-            } else {
-              List<Permission> permList = getReply.result().getResults();
-              if (permList.isEmpty()) {
-                promise.complete(Boolean.FALSE);
-              } else {
-                promise.complete(Boolean.TRUE);
-              }
+              return;
             }
+            List<Permission> permList = getReply.result().getResults();
+            promise.complete(!permList.isEmpty());
           });
     } catch (Exception e) {
-      logger.error("Error from PostgresClient instance: " + e.getMessage());
+      logger.error(e.getMessage(), e);
       promise.fail(e);
     }
     return promise.future();
@@ -1270,12 +1216,12 @@ public class PermsAPI implements Perms {
     checkPermissionExistsFuture.onComplete(res -> {
       if (res.failed()) {
         promise.fail(res.cause());
-      } else {
-        if (!res.result()) {
-          finalMissingPermissions.add(permissionName);
-        }
-        promise.complete(finalMissingPermissions);
+        return;
       }
+      if (Boolean.FALSE.equals(res.result())) {
+        finalMissingPermissions.add(permissionName);
+      }
+      promise.complete(finalMissingPermissions);
     });
     return promise.future().compose(mapper -> findMissingPermissionsFromList(connection, permissionListCopy,
         vertxContext, tenantId, finalMissingPermissions));
@@ -1303,11 +1249,11 @@ public class PermsAPI implements Perms {
         .onComplete(gepsRes -> {
           if (gepsRes.failed()) {
             promise.fail(gepsRes.cause());
-          } else {
-            List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
-            combinedResult.addAll(gepsRes.result());
-            promise.complete(combinedResult);
+            return;
           }
+          List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
+          combinedResult.addAll(gepsRes.result());
+          promise.complete(combinedResult);
         });
 
     return promise.future().compose(res -> getAllExpandedPermissionsSequential(listOfListsCopy,
@@ -1321,13 +1267,13 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture(new ArrayList<>());
     }
 
-    Promise<List<String>> promise = Promise.promise();
-
     // use cache by default unless set to false explicitly
     Boolean usePermsCache = vertxContext.config().getBoolean(PermsCache.CACHE_HEADER);
     if (usePermsCache == null || usePermsCache) {
       return PermsCache.expandPerms(permissionList, vertxContext, tenantId);
     }
+
+    Promise<List<String>> promise = Promise.promise();
 
     try {
       Criterion criterion = buildPermissionNameListQuery(permissionList);
@@ -1337,42 +1283,36 @@ public class PermsAPI implements Perms {
           getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
-            } else {
-              List<String> allSubPermList = new ArrayList<>();
-              List<String> foundPermNameList = new ArrayList<>();
-              List<Permission> foundPermList = getReply.result().getResults();
-              for (Permission perm : foundPermList) {
-                foundPermNameList.add(perm.getPermissionName());
-                List<String> subPermList = perm.getSubPermissions().stream()
-                    .map(object -> Objects.toString(object, null))
-                    .collect(Collectors.toList());
-                for (String subPerm : subPermList) {
-                  if (!allSubPermList.contains(subPerm)) {
-                    allSubPermList.add(subPerm);
-                  }
-                }
-              }
-              int splitSize = 15;
-              if (splitSize < permissionList.size()) {
-                splitSize = permissionList.size();
-              }
-              List<List<String>> listOfSubPermLists = this.splitStringList(
-                  allSubPermList, splitSize);
-              Future<List<String>> listFuture;
-              if (listOfSubPermLists.isEmpty()) {
-                listFuture = Future.succeededFuture(foundPermNameList);
-              } else {
-                listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
-                    tenantId, foundPermNameList);
-              }
-              listFuture.onComplete(gaepsRes -> {
-                if (gaepsRes.failed()) {
-                  promise.fail(gaepsRes.cause());
-                } else {
-                  promise.complete(gaepsRes.result());
-                }
-              });
+              return;
             }
+            List<String> allSubPermList = new ArrayList<>();
+            List<String> foundPermNameList = new ArrayList<>();
+            List<Permission> foundPermList = getReply.result().getResults();
+            for (Permission perm : foundPermList) {
+              foundPermNameList.add(perm.getPermissionName());
+              List<String> subPermList = perm.getSubPermissions().stream()
+                  .map(object -> Objects.toString(object, null))
+                  .collect(Collectors.toList());
+              for (String subPerm : subPermList) {
+                if (!allSubPermList.contains(subPerm)) {
+                  allSubPermList.add(subPerm);
+                }
+              }
+            }
+            int splitSize = 15;
+            if (splitSize < permissionList.size()) {
+              splitSize = permissionList.size();
+            }
+            List<List<String>> listOfSubPermLists = splitStringList(
+                allSubPermList, splitSize);
+            Future<List<String>> listFuture;
+            if (listOfSubPermLists.isEmpty()) {
+              listFuture = Future.succeededFuture(foundPermNameList);
+            } else {
+              listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
+                  tenantId, foundPermNameList);
+            }
+            listFuture.onComplete(promise::handle);
           });
     } catch (Exception e) {
       promise.fail(e);
@@ -1453,11 +1393,9 @@ public class PermsAPI implements Perms {
 
     Promise<PermissionNameListObject> promise = Promise.promise();
     try {
-      Criteria idCrit = getIdCriteria(indexField, "=", userId);
-      idCrit.setOperation("=");
-      idCrit.setVal(userId);
+      Criterion idCrit = getIdCriterion(indexField, userId);
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMSUSERS, PermissionUser.class, new Criterion(idCrit),
+          TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit,
           true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
@@ -1479,7 +1417,7 @@ public class PermsAPI implements Perms {
               interimFuture = Future.succeededFuture(permissionNameList);
             } else {
               List<List<String>> listOfPermNamesList
-                  = this.splitStringList(permissionNameList, 10);
+                  = splitStringList(permissionNameList, 10);
               interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
                   vertxContext, tenantId, null);
             }
@@ -1512,42 +1450,6 @@ public class PermsAPI implements Perms {
       promise.fail(e);
     }
     return promise.future();
-  }
-
-  private JsonObject parseTokenPayload(String token) {
-    if (token == null) {
-      return null;
-    }
-    String[] tokenParts = token.split("\\.");
-    if (tokenParts.length == 3) {
-      String encodedPayload = tokenParts[1];
-      byte[] decodedJsonBytes = Base64.getDecoder().decode(encodedPayload);
-      String decodedJson = new String(decodedJsonBytes);
-      return new JsonObject(decodedJson);
-    } else {
-      return null;
-    }
-  }
-
-  private String getUsername(String token) {
-    JsonObject payload = parseTokenPayload(token);
-    if (payload == null) {
-      return null;
-    }
-    String username = payload.getString("sub");
-    return username;
-  }
-
-  private boolean allowAccessByPermission(String permissions, String permissionName) {
-    if (permissions == null || permissions.isEmpty()) {
-      return false;
-    }
-    JsonArray permissionsArray = new JsonArray(permissions);
-    if (permissionsArray != null && permissionsArray.contains(permissionName)) {
-      logger.debug("Permission allowed for possessing permission bit '" + permissionName + "'");
-      return true;
-    }
-    return false;
   }
 
   private Future<Permission> expandSubPermissions(Permission permission,
@@ -1639,13 +1541,7 @@ public class PermsAPI implements Perms {
         promise.complete(); //Nuthin' to do
       } else {
         modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-            tenantId, logger).onComplete(res -> {
-          if (res.failed()) {
-            promise.fail(res.cause());
-          } else {
-            promise.complete();
-          }
-        });
+            tenantId, logger).onComplete(res -> promise.handle(res.mapEmpty()));
       }
     });
     return promise.future();
@@ -1710,13 +1606,7 @@ public class PermsAPI implements Perms {
           promise.complete();
         } else {
           modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-              tenantId, logger).onComplete(res2 -> {
-            if (res2.failed()) {
-              promise.fail(res2.cause());
-            } else {
-              promise.complete();
-            }
-          });
+              tenantId, logger).onComplete(res2 -> promise.handle(res2.mapEmpty()));
         }
       });
     } catch (Exception e) {
@@ -1777,13 +1667,7 @@ public class PermsAPI implements Perms {
               try {
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).update(
                     connection, TABLE_NAME_PERMS, permission, cqlFilter,
-                    true, updateReply -> {
-                      if (updateReply.failed()) {
-                        promise.fail(updateReply.cause());
-                      } else {
-                        promise.complete();
-                      }
-                    });
+                    true, updateReply -> promise.handle(updateReply.mapEmpty()));
               } catch (Exception e) {
                 promise.fail(e);
               }
@@ -1811,13 +1695,7 @@ public class PermsAPI implements Perms {
     Future<Void> modifyPermArrayFieldFuture = modifyPermissionArrayField(connection,
         fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
         fuv.getOperation(), vertxContext, tenantId, logger);
-    modifyPermArrayFieldFuture.onComplete(res -> {
-      if (res.failed()) {
-        promise.fail(res.cause());
-      } else {
-        promise.complete();
-      }
-    });
+    modifyPermArrayFieldFuture.onComplete(res -> promise.handle(res.mapEmpty()));
     return promise.future().compose(mapper -> modifyPermissionArrayFieldList(connection,
         fuvListCopy, vertxContext, tenantId, logger));
   }
@@ -1834,13 +1712,7 @@ public class PermsAPI implements Perms {
     String userId = userIdListCopy.get(0);
     userIdListCopy.remove(0);
     removePermissionFromUser(connection, permissionName, userId, vertxContext,
-        tenantId).onComplete(rpfuRes -> {
-      if (rpfuRes.failed()) {
-        promise.fail(rpfuRes.cause());
-      } else {
-        promise.complete();
-      }
-    });
+        tenantId).onComplete(rpfuRes -> promise.handle(rpfuRes.mapEmpty()));
     return promise.future().compose(res -> removePermissionFromUserList(connection, permissionName, userIdListCopy,
         vertxContext, tenantId));
   }
@@ -1850,17 +1722,12 @@ public class PermsAPI implements Perms {
       String userId, Context vertxContext, String tenantId) {
 
     Promise promise = Promise.promise();
-    String query = String.format("id==%s", userId);
-    Criteria idCrit = new Criteria()
-        .addField(ID_FIELD)
-        .setOperation("=")
-        .setVal(userId);
     try {
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-          tenantId);
+      Criterion criterion = getIdCriterion(userId);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          new Criterion(idCrit), true, false, getReply -> {
+          criterion, true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
             } else {
@@ -1874,13 +1741,7 @@ public class PermsAPI implements Perms {
                 } else {
                   user.getPermissions().remove(permissionName);
                   pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter,
-                      true, updateReply -> {
-                        if (updateReply.failed()) {
-                          promise.fail(updateReply.cause());
-                        } else {
-                          promise.complete();
-                        }
-                      });
+                      true, updateReply -> promise.handle(updateReply.mapEmpty()));
                 }
               }
             }
@@ -1903,13 +1764,7 @@ public class PermsAPI implements Perms {
     permissionNameListCopy.remove(0);
     Promise promise = Promise.promise();
     removeSubpermissionFromPermission(connection, subpermissionName, permissionName,
-        vertxContext, tenantId).onComplete(rsfpRes -> {
-      if (rsfpRes.failed()) {
-        promise.fail(rsfpRes.cause());
-      } else {
-        promise.complete();
-      }
-    });
+        vertxContext, tenantId).onComplete(rsfpRes -> promise.handle(rsfpRes.mapEmpty()));
     return promise.future().compose(res -> removeSubpermissionFromPermissionList(connection, subpermissionName,
         permissionNameListCopy, vertxContext, tenantId));
   }
@@ -1932,25 +1787,16 @@ public class PermsAPI implements Perms {
           criterion, true, false, getReply -> {
             if (getReply.failed()) {
               promise.fail(getReply.cause());
-            } else {
-              Permission permission = null;
-              try {
-                permission = getReply.result().getResults().get(0);
-                permission.getSubPermissions().remove(subpermissionName);
-              } catch (Exception e) {
-                promise.fail(String.format("Unable to get permission with name %s: %s",
-                    permissionName, e.getMessage()));
-                return;
-              }
-              pgClient.update(connection, TABLE_NAME_PERMS, permission, cqlFilter,
-                  true, updateReply -> {
-                    if (updateReply.failed()) {
-                      promise.fail(updateReply.cause());
-                    } else {
-                      promise.complete();
-                    }
-                  });
+              return;
             }
+            if (getReply.result().getResults().isEmpty()) {
+              promise.complete();
+              return;
+            }
+            Permission permission = getReply.result().getResults().get(0);
+            permission.getSubPermissions().remove(subpermissionName);
+              pgClient.update(connection, TABLE_NAME_PERMS, permission, cqlFilter,
+                  true, updateReply -> promise.handle(updateReply.mapEmpty()));
           });
     } catch (Exception e) {
       promise.fail(e);
@@ -1997,21 +1843,16 @@ public class PermsAPI implements Perms {
         rpbnRes -> {
           if (rpbnRes.failed()) {
             promise.fail(rpbnRes.cause());
+            return;
+          }
+          if (rpbnRes.result() == null) {
+            promise.complete(false);
           } else {
-            if (rpbnRes.result() == null) {
-              promise.complete(false);
-            } else {
-              Boolean dummy = rpbnRes.result().getDummy();
-              if (dummy != null && dummy) {
-                promise.complete(true);
-              } else {
-                promise.complete(false);
-              }
-            }
+            promise.complete(Boolean.TRUE.equals(rpbnRes.result().getDummy()));
           }
         });
     return promise.future().compose(next -> {
-      if (next) {
+      if (Boolean.TRUE.equals(next)) {
         return Future.succeededFuture(true);
       } else {
         return checkPermlistForDummy(permListCopy, vertxContext, tenantId);
@@ -2019,21 +1860,31 @@ public class PermsAPI implements Perms {
     });
   }
 
-  private Criteria getIdCriteria(String indexField, String operation, String value) {
+  private static Criterion getIdCriterion(String id) {
+    Criteria idCrit = new Criteria();
+    idCrit.addField(ID_FIELD);
+    idCrit.setJSONB(false);
+    idCrit.setOperation("=");
+    idCrit.setVal(id);
+    return new Criterion(idCrit);
+  }
+
+  private static Criterion getIdCriterion(String indexField, String value) {
     Criteria crit = new Criteria();
     if (indexField == null || indexField.equals("id")) {
       crit.addField(ID_FIELD);
+      crit.setJSONB(false);
     } else if (indexField.equals("userId")) {
       crit.addField(USER_ID_FIELD);
     } else {
       throw new IllegalArgumentException("Invalid value '" + indexField + "' for indexField");
     }
-    crit.setOperation(operation);
+    crit.setOperation("=");
     crit.setVal(value);
-    return crit;
+    return new Criterion(crit);
   }
 
-  private Permission getRealPermObject(PermissionUpload entity) {
+  private static Permission getRealPermObject(PermissionUpload entity) {
     Permission perm = new Permission();
     perm.setId(entity.getId());
     perm.setPermissionName(entity.getPermissionName());
@@ -2051,7 +1902,7 @@ public class PermsAPI implements Perms {
     return perm;
   }
 
-  private List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
+  static List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
     List<List<String>> listOfLists = new ArrayList<>();
     int count = 0;
     List<String> currentChunk = new ArrayList<>();
@@ -2070,7 +1921,7 @@ public class PermsAPI implements Perms {
     return listOfLists;
   }
 
-  private Criterion buildPermissionNameListQuery(List<String> permissionNameList) {
+  private static Criterion buildPermissionNameListQuery(List<String> permissionNameList) {
     Criterion criterion = null;
     for (String permissionName : permissionNameList) {
       Criteria nameCrit = new Criteria()

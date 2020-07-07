@@ -77,7 +77,7 @@ public class PermsCache {
    * @param tenantId
    * @return
    */
-  public static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
+  static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
     return getPermCache(vertxContext, tenantId,
         new HashSet<>(Arrays.asList(permissionName))).map(permCache -> permCache.getFullPerm(permissionName));
   }
@@ -102,7 +102,7 @@ public class PermsCache {
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TAB_PERMS, Permission.class, new Criterion(), false,
         false, reply -> {
           if (reply.failed()) {
-            promise.fail("postgres client 'get' " + TAB_PERMS + " failed: " + reply.cause().getLocalizedMessage());
+            promise.fail(reply.cause());
           } else {
             List<Permission> perms = reply.result().getResults();
             Map<String, Set<String>> subPermMap = new HashMap<>();
