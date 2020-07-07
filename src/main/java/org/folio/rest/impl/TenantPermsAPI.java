@@ -64,7 +64,7 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private Future<Void> savePermList(List<Perm> permList, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
-    if (permList.isEmpty()) {
+    if (permList == null || permList.isEmpty()) {
       return Future.succeededFuture(); //Whee, we're done!
     }
     List<Perm> permListCopy = new ArrayList<>(permList);

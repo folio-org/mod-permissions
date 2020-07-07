@@ -275,6 +275,12 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testTenantPermissionsNullPermList(TestContext context) {
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", "{}", context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
     String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";
