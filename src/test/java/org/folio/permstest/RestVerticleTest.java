@@ -33,6 +33,7 @@ import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Perm;
+import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -1948,6 +1949,14 @@ public class RestVerticleTest {
     logger.debug("Generated fake JWT: " + ret);
     return ret;
 
+  }
+
+  @Test
+  public void testRefreshCacheFail(TestContext context) {
+    Future<Permission> fullPerms = PermsCache.getFullPerms("foo",
+        vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
+      Assert.assertThat(res.getMessage(), containsString("password authentication failed"));
+    }));
   }
 }
 
