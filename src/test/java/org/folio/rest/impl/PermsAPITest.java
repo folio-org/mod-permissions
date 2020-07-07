@@ -34,7 +34,8 @@ public class PermsAPITest {
 
   @AfterClass
   public static void tearDown(TestContext context) {
-    vertx.close(x -> context.asyncAssertFailure(y -> PostgresClient.stopEmbeddedPostgres()));
+    PostgresClient.stopEmbeddedPostgres();
+    vertx.close();
   }
 
   @Test
