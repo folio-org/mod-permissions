@@ -114,10 +114,6 @@ public class PermsAPI implements Perms {
 
   private final Messages messages = Messages.getInstance();
 
-  static String getInternalError(String response) {
-    return response;
-  }
-
   @Validate
   @Override
   public void getPermsUsers(int length, int start, String sortBy, String query,
@@ -202,7 +198,7 @@ public class PermsAPI implements Perms {
                         } else {
                           asyncResultHandler.handle(Future.succeededFuture(
                               PostPermsUsersResponse.respond500WithTextPlain(
-                                  getInternalError(updatePermsRes.cause().getMessage()))));
+                                  updatePermsRes.cause().getMessage())));
                         }
                       });
                       return;
@@ -216,7 +212,7 @@ public class PermsAPI implements Perms {
                   String errStr = "Error saving entity " + entity.toString() + ": " + e.getMessage();
                   logger.error(errStr, e);
                   asyncResultHandler.handle(Future.succeededFuture(
-                      PostPermsUsersResponse.respond500WithTextPlain(getInternalError(errStr))));
+                      PostPermsUsersResponse.respond500WithTextPlain(errStr)));
                 }
               });
             });
@@ -224,7 +220,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          PostPermsUsersResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          PostPermsUsersResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -253,7 +249,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          GetPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -288,13 +284,13 @@ public class PermsAPI implements Perms {
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+                  PutPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(
-          Future.succeededFuture(PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          Future.succeededFuture(PutPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -330,7 +326,7 @@ public class PermsAPI implements Perms {
                         + updateReply.cause().getMessage();
                     logger.error(errStr, updateReply.cause());
                     asyncResultHandler.handle(Future.succeededFuture(
-                        PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                        PutPermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                   });
                   return;
                 }
@@ -350,7 +346,7 @@ public class PermsAPI implements Perms {
                         String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
                         logger.error(errStr, updateUserPermsRes.cause());
                         asyncResultHandler.handle(Future.succeededFuture(
-                            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                            PutPermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                       }
                     });
                     return;
@@ -366,7 +362,7 @@ public class PermsAPI implements Perms {
       } catch (Exception e) {
         logger.error(e.getMessage(), e);
         asyncResultHandler.handle(Future.succeededFuture(
-            PutPermsUsersByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+            PutPermsUsersByIdResponse.respond500WithTextPlain(e.getMessage())));
       }
     };
   }
@@ -414,7 +410,7 @@ public class PermsAPI implements Perms {
                           updateUserPermsRes.cause().getMessage());
                       logger.error(errStr, updateUserPermsRes.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
-                          DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                          DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                     });
                     return;
                   }
@@ -426,7 +422,7 @@ public class PermsAPI implements Perms {
                                 deleteReply.cause().getMessage());
                             logger.error(errStr, deleteReply.cause());
                             asyncResultHandler.handle(Future.succeededFuture(
-                                DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                                DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                           });
                           return;
                         }
@@ -450,7 +446,7 @@ public class PermsAPI implements Perms {
                       e.getMessage());
                   logger.error(errStr, e);
                   asyncResultHandler.handle(Future.succeededFuture(
-                      DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+                      DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
                 });
               }
             });
@@ -459,7 +455,7 @@ public class PermsAPI implements Perms {
       String errStr = "Error using Postgres instance: " + e.getMessage();
       logger.error(errStr, e);
       asyncResultHandler.handle(Future.succeededFuture(
-          DeletePermsUsersByIdResponse.respond500WithTextPlain(getInternalError(errStr))));
+          DeletePermsUsersByIdResponse.respond500WithTextPlain(errStr)));
     }
   }
 
@@ -498,7 +494,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          GetPermsUsersPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          GetPermsUsersPermissionsByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -577,7 +573,7 @@ public class PermsAPI implements Perms {
             logger.error(errStr, rpbnRes.cause());
             asyncResultHandler.handle(Future.succeededFuture(
                 PostPermsUsersPermissionsByIdResponse
-                    .respond500WithTextPlain(getInternalError(errStr))));
+                    .respond500WithTextPlain(errStr)));
             return;
           }
           if (rpbnRes.result() == null) {
@@ -612,7 +608,7 @@ public class PermsAPI implements Perms {
                         logger.error(errStr, putReply.cause());
                         asyncResultHandler.handle(Future.succeededFuture(
                             PostPermsUsersPermissionsByIdResponse
-                                .respond500WithTextPlain(getInternalError(errStr))));
+                                .respond500WithTextPlain(errStr)));
                       });
                       return;
                     }
@@ -629,7 +625,7 @@ public class PermsAPI implements Perms {
                           logger.error(errStr, updateUserPermsRes.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               PostPermsUsersPermissionsByIdResponse
-                                  .respond500WithTextPlain(getInternalError(errStr))));
+                                  .respond500WithTextPlain(errStr)));
                         });
                         return;
                       }
@@ -648,7 +644,7 @@ public class PermsAPI implements Perms {
             logger.error(e.getMessage(), e);
             asyncResultHandler.handle(Future.succeededFuture(
                 PostPermsUsersPermissionsByIdResponse
-                    .respond500WithTextPlain(getInternalError(e.getMessage()))));
+                    .respond500WithTextPlain(e.getMessage())));
           }
         });
   }
@@ -706,7 +702,7 @@ public class PermsAPI implements Perms {
                           logger.error(errStr, putReply.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               DeletePermsUsersPermissionsByIdAndPermissionnameResponse
-                                  .respond500WithTextPlain(getInternalError(errStr))));
+                                  .respond500WithTextPlain(errStr)));
                         });
                         return;
                       }
@@ -721,7 +717,7 @@ public class PermsAPI implements Perms {
                             logger.error(errStr, updateUserPermsRes.cause());
                             asyncResultHandler.handle(Future.succeededFuture(
                                 DeletePermsUsersPermissionsByIdAndPermissionnameResponse
-                                    .respond500WithTextPlain(getInternalError(errStr))));
+                                    .respond500WithTextPlain(errStr)));
                           });
                           return;
                         }
@@ -736,14 +732,14 @@ public class PermsAPI implements Perms {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond500WithTextPlain(
-                      getInternalError(e.getMessage()))));
+                      e.getMessage())));
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
           DeletePermsUsersPermissionsByIdAndPermissionnameResponse.respond500WithTextPlain(
-              getInternalError(e.getMessage()))));
+              e.getMessage())));
     }
   }
 
@@ -802,7 +798,7 @@ public class PermsAPI implements Perms {
                           + postReply.cause().getMessage(), postReply.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsPermissionsResponse
-                              .respond500WithTextPlain(getInternalError(postReply.cause().getMessage()))));
+                              .respond500WithTextPlain(postReply.cause().getMessage())));
                     });
                     return;
                   }
@@ -829,7 +825,7 @@ public class PermsAPI implements Perms {
                 postgresClient.rollbackTx(connection, done -> {
                   logger.error(e.getMessage(), e);
                   asyncResultHandler.handle(Future.succeededFuture(
-                      PostPermsPermissionsResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+                      PostPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
                 });
               }
             });
@@ -837,7 +833,7 @@ public class PermsAPI implements Perms {
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          PostPermsPermissionsResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          PostPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -909,7 +905,7 @@ public class PermsAPI implements Perms {
                           logger.error("Error with put: " + putReply.cause().getMessage(), putReply.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               PutPermsPermissionsByIdResponse.respond500WithTextPlain(
-                                  getInternalError(putReply.cause().getMessage()))));
+                                  putReply.cause().getMessage())));
                         });
                         return;
                       }
@@ -932,7 +928,7 @@ public class PermsAPI implements Perms {
                                   logger.error(errStr, updateSubPermsRes.cause());
                                   asyncResultHandler.handle(Future.succeededFuture(
                                       PutPermsPermissionsByIdResponse.respond500WithTextPlain(
-                                          getInternalError(errStr))));
+                                          errStr)));
                                 }
                               });
                               return;
@@ -948,13 +944,13 @@ public class PermsAPI implements Perms {
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse
-                  .respond500WithTextPlain(getInternalError(e.getMessage()))));
+                  .respond500WithTextPlain(e.getMessage())));
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
-          PutPermsPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+          PutPermsPermissionsByIdResponse.respond500WithTextPlain(e.getMessage())));
     }
   }
 
@@ -1003,7 +999,7 @@ public class PermsAPI implements Perms {
                       logger.error(errStr, rpfulRes.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                              getInternalError(errStr))));
+                              errStr)));
                     });
                   } else {
                     removeSubpermissionFromPermissionList(connection,
@@ -1015,7 +1011,7 @@ public class PermsAPI implements Perms {
                           logger.error(errStr, rsfplRes.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                                  getInternalError(errStr))));
+                                  errStr)));
                         });
                         return;
                       }
@@ -1028,7 +1024,7 @@ public class PermsAPI implements Perms {
                                 logger.error(errStr, deleteReply.cause());
                                 asyncResultHandler.handle(Future.succeededFuture(
                                     DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                                        getInternalError(errStr))));
+                                        errStr)));
                               });
                               return;
                             }
@@ -1051,7 +1047,7 @@ public class PermsAPI implements Perms {
                         logger.error("deleteReply failed: " + deleteReply.cause().getMessage());
                         asyncResultHandler.handle(Future.succeededFuture(
                             DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-                                getInternalError(deleteReply.cause().getMessage()))));
+                                deleteReply.cause().getMessage())));
                         return;
                       }
                       if (deleteReply.result().rowCount() == 0) {
@@ -1064,14 +1060,14 @@ public class PermsAPI implements Perms {
               } catch (Exception e) {
                 logger.error(e.getMessage(), e);
                 asyncResultHandler.handle(Future.succeededFuture(
-                    DeletePermsPermissionsByIdResponse.respond500WithTextPlain(getInternalError(e.getMessage()))));
+                    DeletePermsPermissionsByIdResponse.respond500WithTextPlain(e.getMessage())));
               }
             }
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
-          getInternalError(e.getMessage()))));
+          e.getMessage())));
     }
   }
 
