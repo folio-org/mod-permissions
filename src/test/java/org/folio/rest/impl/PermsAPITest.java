@@ -1,11 +1,41 @@
 package org.folio.rest.impl;
 
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
 import java.util.List;
+import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.persist.PostgresClient;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import static org.hamcrest.CoreMatchers.containsString;
+
+@RunWith(VertxUnitRunner.class)
 public class PermsAPITest {
+
+  private final Logger logger = LoggerFactory.getLogger(PermsAPITest.class);
+  Vertx vertx;
+
+  @Before
+  public void setup(TestContext context) {
+    vertx = Vertx.vertx();
+  }
+
+  @After
+  public void tearDown(TestContext context) {
+    vertx.close(context.asyncAssertSuccess());
+  }
 
   @Test
   public void testSplitStringList() {
@@ -34,4 +64,38 @@ public class PermsAPITest {
 
   }
 
+  @Test
+  public void testPostPermsUsersTransFailure(TestContext context) {
+    PermsAPI api = new PermsAPI();
+    PermissionUser permissionUser = new PermissionUser();
+
+    api.postPermsUsersTrans(permissionUser, vertx.getOrCreateContext(), "badTenant",
+        context.asyncAssertSuccess(res -> {
+          context.assertEquals(400, res.getStatus());
+        }));
+  }
+
+  @Test
+  public void testRefreshCacheFail(TestContext context) {
+    Future<Permission> fullPerms = PermsCache.getFullPerms("foo",
+        vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
+      Assert.assertThat(res.getMessage(),
+          containsString("relation \"badtenant_mod_permissions.permissions\" does not exist"));
+    }));
+  }
+
+  @Test
+  public void testUpdateUserPermissionsFail(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    String tenantId = "badTenant";
+    Context vertxContext = vertx.getOrCreateContext();
+    PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    postgresClient.startTx(s -> {
+      Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
+          new JsonArray().add("this"), new JsonArray().add("that"),
+          vertxContext, tenantId, logger);
+      future.onComplete(context.asyncAssertFailure());
+    });
+  }
 }

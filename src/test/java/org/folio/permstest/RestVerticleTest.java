@@ -1948,15 +1948,6 @@ public class RestVerticleTest {
             .getBytes(StandardCharsets.UTF_8)));
     logger.debug("Generated fake JWT: " + ret);
     return ret;
-
-  }
-
-  @Test
-  public void testRefreshCacheFail(TestContext context) {
-    Future<Permission> fullPerms = PermsCache.getFullPerms("foo",
-        vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
-      Assert.assertThat(res.getMessage(), containsString("password authentication failed"));
-    }));
   }
 }
 
