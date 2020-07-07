@@ -13,9 +13,9 @@ import java.util.List;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
-import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -25,16 +25,16 @@ import static org.hamcrest.CoreMatchers.containsString;
 public class PermsAPITest {
 
   private final Logger logger = LoggerFactory.getLogger(PermsAPITest.class);
-  Vertx vertx;
+  static Vertx vertx;
 
-  @Before
-  public void setup(TestContext context) {
+  @BeforeClass
+  public static void setup(TestContext context) {
     vertx = Vertx.vertx();
   }
 
-  @After
-  public void tearDown(TestContext context) {
-    vertx.close(context.asyncAssertSuccess());
+  @AfterClass
+  public static void tearDown(TestContext context) {
+    vertx.close(x -> context.asyncAssertFailure(y -> PostgresClient.stopEmbeddedPostgres()));
   }
 
   @Test
