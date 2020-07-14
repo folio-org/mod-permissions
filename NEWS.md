@@ -1,3 +1,7 @@
+## 2020-07-14 v5.11.2
+
+ * [MODPERMS-88](https://issues.folio.org/browse/MODPERMS-88) Upgrade issue between Q1 and Q2: "public.gin_trgm_ops" does not exist
+
 ## 2020-06-24 v5.11.1
 
  * [MODPERMS-85](https://issues.folio.org/browse/MODPERMS-85) Invalid CQL when encoding permission name value
