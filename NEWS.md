@@ -1,6 +1,11 @@
+## 2020-08-28 v5.11.3
+
+ * [MODPERMS-96](https://issues.folio.org/browse/MODPERMS-96) Update to raml-module-builder (RMB) 30.2.6
+ * [MODPERMS-95](https://issues.folio.org/browse/MODPERMS-95) Upgrade to raml-module-builder (RMB) 30.2.5
+
 ## 2020-07-14 v5.11.2
 
- * [MODPERMS-88](https://issues.folio.org/browse/MODPERMS-88) Upgrade issue between Q1 and Q2: "public.gin_trgm_ops" does not exist
+ * [MODPERMS-88](https://issues.folio.org/browse/MODPERMS-88) Upgrade issue between Q1 and Q2: "public.gin\_trgm\_ops" does not exist
 
 ## 2020-06-24 v5.11.1
 
