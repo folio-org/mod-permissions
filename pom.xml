@@ -25,7 +25,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.12</version>
+      <version>4.13</version>
       <optional>true</optional>
     </dependency>
 
@@ -252,14 +252,14 @@
               <target>
                 <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*" replace="baseUri: http://localhost:{http.port}">
                   <fileset dir="${basedir}/target/classes/apidocs/raml">
-                    <include name="**/*.raml" />
+                    <include name="**/*.raml"/>
                   </fileset>
                 </replaceregexp>
                 <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml" />
+                  <include name="**/*.raml"/>
                 </replace>
                 <replace token="../.." value="../ramls/raml-util" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml" />
+                  <include name="**/*.raml"/>
                 </replace>
               </target>
             </configuration>
@@ -289,7 +289,7 @@
                   </manifestEntries>
                 </transformer>
               </transformers>
-              <artifactSet />
+              <artifactSet/>
               <outputFile>${project.build.directory}/${project.artifactId}-fat.jar</outputFile>
             </configuration>
           </execution>
