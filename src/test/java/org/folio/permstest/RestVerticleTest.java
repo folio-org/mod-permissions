@@ -33,7 +33,6 @@ import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Perm;
-import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -335,7 +334,7 @@ public class RestVerticleTest {
 
     permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
     response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
-    context.assertEquals(200, response.code);
+    context.assertEquals(204, response.code);
 
     response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
     context.assertEquals(response.code, 204);
@@ -706,7 +705,7 @@ public class RestVerticleTest {
     context.assertEquals(id, user.getString("id"));
 
     response = send(HttpMethod.PUT, "/perms/users/" + id, user.encode(), context);
-    context.assertEquals(response.code, 200);
+    context.assertEquals(response.code, 204);
 
     futureResponse = new CompletableFuture();
     user.getJsonArray("permissions").add("permission.second");
@@ -909,7 +908,7 @@ public class RestVerticleTest {
         .put("id", newPermId)
         .put("subPermissions", new JsonArray().add("foo.whizz"));
     response = send(HttpMethod.PUT, "/perms/permissions/" + newPermId, modifyNewPermRequestObject1.encode(), context);
-    context.assertEquals(response.code, 200);
+    context.assertEquals(response.code, 204);
 
     /* Get the first permission, check for subpermission */
     response = send(HttpMethod.GET, "/perms/permissions/" + newPermId, null, context);

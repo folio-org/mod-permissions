@@ -356,11 +356,8 @@ public class PermsAPI implements Perms {
                   }
                   //close Tx
                   pgClient.endTx(connection, done -> {
-                    // https://issues.folio.org/browse/MODPERMS-99
-                    // Remove inconsistent metadata - the update trigger uses different data
-                    entity.setMetadata(null);
                     asyncResultHandler.handle(Future.succeededFuture(
-                        PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
+                        PutPermsUsersByIdResponse.respond204()));
                   });
                 });
               });
@@ -942,7 +939,7 @@ public class PermsAPI implements Perms {
                             //close connection
                             pgClient.endTx(connection, done -> {
                               asyncResultHandler.handle(Future.succeededFuture(
-                                  PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)));
+                                  PutPermsPermissionsByIdResponse.respond204()));
                             });
                           });
                     });
