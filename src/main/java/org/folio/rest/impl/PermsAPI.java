@@ -356,6 +356,9 @@ public class PermsAPI implements Perms {
                   }
                   //close Tx
                   pgClient.endTx(connection, done -> {
+                    // https://issues.folio.org/browse/MODPERMS-99
+                    // Remove inconsistent metadata - the update trigger uses different data
+                    entity.setMetadata(null);
                     asyncResultHandler.handle(Future.succeededFuture(
                         PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
                   });
