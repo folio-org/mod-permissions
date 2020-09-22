@@ -355,10 +355,10 @@ public class PermsAPI implements Perms {
                     return;
                   }
                   //close Tx
-                  pgClient.endTx(connection, done -> {
+                  pgClient.endTx(connection, done ->
                     asyncResultHandler.handle(Future.succeededFuture(
-                        PutPermsUsersByIdResponse.respond204()));
-                  });
+                        PutPermsUsersByIdResponse.respond204()))
+                  );
                 });
               });
         });
