@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-permissions</artifactId>
-  <version>5.12.0-SNAPSHOT</version>
+  <version>5.12.0</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -251,14 +251,14 @@
               <target>
                 <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*" replace="baseUri: http://localhost:{http.port}">
                   <fileset dir="${basedir}/target/classes/apidocs/raml">
-                    <include name="**/*.raml"/>
+                    <include name="**/*.raml" />
                   </fileset>
                 </replaceregexp>
                 <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml"/>
+                  <include name="**/*.raml" />
                 </replace>
                 <replace token="../.." value="../ramls/raml-util" dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml"/>
+                  <include name="**/*.raml" />
                 </replace>
               </target>
             </configuration>
@@ -299,7 +299,7 @@
                   </manifestEntries>
                 </transformer>
               </transformers>
-              <artifactSet/>
+              <artifactSet />
               <outputFile>${project.build.directory}/${project.artifactId}-fat.jar</outputFile>
             </configuration>
           </execution>
@@ -350,7 +350,7 @@
     <url>https://github.com/folio-org/mod-permissions</url>
     <connection>scm:git:git://github.com:folio-org/mod-permissions.git</connection>
     <developerConnection>scm:git:git@github.com:folio-org/mod-permissions.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>v5.12.0</tag>
   </scm>
 
   <properties>
