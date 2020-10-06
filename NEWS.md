@@ -1,3 +1,11 @@
+## 2020-10-06 v5.12.0
+
+ * [MODPERMS-102](https://issues.folio.org/browse/MODPERMS-102) Upgrade to RMB 31.1.0 and JDK 11
+ * [MODPERMS-101](https://issues.folio.org/browse/MODPERMS-101) Disable/purge tenant and then re-enable failed
+ * [MODPERMS-94](https://issues.folio.org/browse/MODPERMS-94) function count_estimate(unknown) does not exist during second mod-permissions install
+ * [MODPERMS-85](https://issues.folio.org/browse/MODPERMS-85) Invalid CQL when encoding permission name value
+ * [MODPERMS-83](https://issues.folio.org/browse/MODPERMS-83) Increase code coverage and fix code smells
+
 ## 2020-06-21 v5.11.0
 
  * [MODPERMS-84](https://issues.folio.org/browse/MODPERMS-84) Creating permissions set in FOLIO Settings ignores provided UUID
