@@ -6,13 +6,22 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import org.folio.okapi.common.XOkapiHeaders;
+import org.folio.rest.jaxrs.model.OkapiPermissionSet;
+import org.folio.rest.jaxrs.model.Perm;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -210,4 +219,33 @@ public class PermsAPITest {
     }), null);
   }
 
+  @Test
+  public void testTenantPermissions(TestContext context) {
+    Map<String, String> headers = new HashMap<>();
+
+    headers.put(XOkapiHeaders.TENANT, "testlib");
+    TenantAPI tenantAPI = new TenantRefAPI();
+    TenantPermsAPI permissionsAPI = new TenantPermsAPI();
+    Context ctx = vertx.getOrCreateContext();
+
+    {
+      Async async = context.async();
+      tenantAPI.postTenant(new TenantAttributes(), headers, context.asyncAssertSuccess(x -> async.complete()), ctx);
+      async.await();
+    }
+
+    {
+      List<Perm> perms = new LinkedList<>();
+      OkapiPermissionSet okapiPermissionSet = new OkapiPermissionSet().withModuleId("mod-1.0.0").withPerms(perms);
+      Async async = context.async();
+      permissionsAPI.postTenantpermissions(okapiPermissionSet, headers, context.asyncAssertSuccess(x -> async.complete()), ctx);
+      async.await();
+    }
+
+    {
+      Async async = context.async();
+      tenantAPI.deleteTenant(headers, context.asyncAssertSuccess(x -> async.complete()), ctx);
+      async.await();
+    }
+  }
 }
