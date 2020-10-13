@@ -1,3 +1,8 @@
+## 2020-10-13 v5.12.1
+
+ * [MODPERMS-108](https://issues.folio.org/browse/MODPERMS-108) Upgrade to RMB 31.1.2 (due to RMB-732 fix)
+ * Update junit to 4.13.1 CVE-2020-15250
+
 ## 2020-10-06 v5.12.0
 
  * [MODPERMS-102](https://issues.folio.org/browse/MODPERMS-102) Upgrade to RMB 31.1.0 and JDK 11
