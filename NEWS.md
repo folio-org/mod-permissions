@@ -1,3 +1,7 @@
+## 2020-10-14 v5.11.4
+
+ * [MODPERMS-107](https://issues.folio.org/browse/MODPERMS-107) Update branch b5.11 to raml-module-builder (RMB) 30.2.8
+
 ## 2020-08-28 v5.11.3
 
  * [MODPERMS-96](https://issues.folio.org/browse/MODPERMS-96) Update to raml-module-builder (RMB) 30.2.6
