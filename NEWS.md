@@ -1,3 +1,12 @@
+## 2020-11-03 v5.12.2
+
+ * [RMB-750](https://issues.folio.org/browse/RMB-750) Change lock for "tuple concurrently updated" when upgrading Q2 to Q3 (REVOKE)
+ * [RMB-744](https://issues.folio.org/browse/RMB-744) fix "tuple concurrently updated" when upgrading Q2 to Q3 (REVOKE)
+ * [RMB-740](https://issues.folio.org/browse/RMB-740) Use FOLIO fork of vertx-sql-client and vertx-pg-client with the following two patches
+ * [RMB-739](https://issues.folio.org/browse/RMB-739) Make RMB's DB_CONNECTIONRELEASEDELAY work again, defaults to 60 seconds
+ * [FOLIO-2840](https://issues.folio.org/browse/FOLIO-2840) Fix duplicate names causing 'prepared statement "XYZ" already exists'
+ * [RMB-738](https://issues.folio.org/browse/) Upgrade to Vert.x 3.9.4, most notable fixed bug: RowStream fetch can close prematurely the stream https://github.com/eclipse-vertx/vertx-sql-client/issues/778
+
 ## 2020-10-13 v5.12.1
 
  * [MODPERMS-108](https://issues.folio.org/browse/MODPERMS-108) Upgrade to RMB 31.1.2 (due to RMB-732 fix)

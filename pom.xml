@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-permissions</artifactId>
-  <version>5.12.2-SNAPSHOT</version>
+  <version>5.12.3-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -21,6 +21,35 @@
     </repository>
   </repositories>
 
+  <properties>
+    <vertx.version>3.9.4</vertx.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
+    <generate_routing_context>/perms/users</generate_routing_context>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-stack-depchain</artifactId>
+        <version>${vertx.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-sql-client</artifactId>
+        <version>${vertx.version}-FOLIO</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-pg-client</artifactId>
+        <version>${vertx.version}-FOLIO</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
@@ -32,13 +61,12 @@
     <dependency>
       <groupId>org.folio</groupId>
       <artifactId>domain-models-runtime</artifactId>
-      <version>31.1.2</version>
+      <version>31.1.5</version>
     </dependency>
 
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-unit</artifactId>
-      <version>3.9.3</version>
       <scope>test</scope>
       <type>jar</type>
     </dependency>
@@ -49,13 +77,13 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.1</version>
+        <version>3.8.1</version>
         <configuration>
           <release>11</release>
           <encoding>UTF-8</encoding>
         </configuration>
       </plugin>
- 	  <plugin>
+      <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
         <version>3.0.0</version>
@@ -353,11 +381,4 @@
     <tag>v5.12.0</tag>
   </scm>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
-    <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
-    <generate_routing_context>/perms/users</generate_routing_context>
-  </properties>
 </project>
