@@ -4,8 +4,6 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
@@ -25,7 +23,6 @@ import static org.hamcrest.CoreMatchers.containsString;
 @RunWith(VertxUnitRunner.class)
 public class PermsAPITest {
 
-  private final Logger logger = LoggerFactory.getLogger(PermsAPITest.class);
   static Vertx vertx;
 
   @BeforeClass
@@ -96,7 +93,7 @@ public class PermsAPITest {
     postgresClient.startTx(s -> {
       Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
           new JsonArray().add("this"), new JsonArray().add("that"),
-          vertxContext, tenantId, logger);
+          vertxContext, tenantId);
       future.onComplete(context.asyncAssertFailure());
     });
   }
