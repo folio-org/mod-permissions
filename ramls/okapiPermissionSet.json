@@ -8,12 +8,28 @@
       "description": "The ID of the Okapi module that provides these permissions",
       "type": "string"
     },
-    "perms": {
-      "description": "A set of permissions",
+    "newPermissions": {
+      "description": "A set of permissions to be added",
       "type": "array",
       "items": {
         "type": "object",
         "$ref": "okapiPermission.json"
+      }
+    },
+    "modifiedPermissions": {
+      "description": "A set of permissions to be updated/modified",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "$ref": "okapiPermission2.json"
+      }
+    },
+    "removedPermissions": {
+      "description": "A set of permissions to be removed",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "$ref": "okapiPermission3.json"
       }
     }
   }

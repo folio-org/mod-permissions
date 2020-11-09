@@ -125,7 +125,7 @@ public class RestVerticleWithCacheTest {
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, boolean more) {
     Promise<WrappedResponse> promise = Promise.promise();
-    JsonObject permissionSet = new JsonObject().put("moduleId", "dummy").put("perms",
+    JsonObject permissionSet = new JsonObject().put("moduleId", "dummy").put("newPermissions",
         new JsonArray()
             .add(new JsonObject().put("permissionName", "dummy.read").put("displayName", "Dummy Read")
                 .put("description", "Read Dummy Entries").put("visible", true))
@@ -136,7 +136,7 @@ public class RestVerticleWithCacheTest {
                 .put("subPermissions", new JsonArray().add("dummy.read").add("dummy.write"))));
 
     if (more) {
-      permissionSet.getJsonArray("perms")
+      permissionSet.getJsonArray("newPermissions")
           .add(new JsonObject().put("permissionName", "dummy.delete").put("displayName", "Dummy Delete")
               .put("description", "Delete Dummy Entries"))
           .getJsonObject(2).getJsonArray("subPermissions").add("dummy.delete");
