@@ -20,7 +20,6 @@ import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.ModifiedPermission;
 import org.folio.rest.jaxrs.model.NewPermission;
 import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.model.RemovedPermission;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -375,7 +374,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                         }
                         PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
                             new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                            vertxContext, tenantId, logger).onComplete(updateSubsRes -> {
+                            vertxContext, tenantId).onComplete(updateSubsRes -> {
                           if (updateSubsRes.failed()) {
                             pgClient.rollbackTx(connection, rollback -> {
                               logger.debug(String.format("Error updating permission metadata: %s",

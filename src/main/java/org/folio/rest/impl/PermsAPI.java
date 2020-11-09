@@ -6,7 +6,6 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -100,7 +99,7 @@ public class PermsAPI implements Perms {
   private static final String ID_FIELD = "id";
   private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
-  private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
+  private static final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
 
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -195,7 +194,7 @@ public class PermsAPI implements Perms {
           final PermissionUser permUser = entity;
           updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
               new JsonArray(permUser.getPermissions()), vertxContext,
-              tenantId, logger).onComplete(updatePermsRes -> {
+              tenantId).onComplete(updatePermsRes -> {
             if (updatePermsRes.failed()) {
               postgresClient.rollbackTx(beginTx, rollbackTx -> {
                 logger.error("Error updating derived fields: " + updatePermsRes.cause());
@@ -337,7 +336,7 @@ public class PermsAPI implements Perms {
                 updateUserPermissions(connection, userid,
                     new JsonArray(originalUser.getPermissions()),
                     new JsonArray(entity.getPermissions()),
-                    vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
+                    vertxContext, tenantId).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, done -> {
                       if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
@@ -410,7 +409,7 @@ public class PermsAPI implements Perms {
               try {
                 updateUserPermissions(connection, userid,
                     new JsonArray(permUser.getPermissions()), new JsonArray(),
-                    vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
+                    vertxContext, tenantId).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, rollback -> {
                       String errStr = String.format("Error updating metadata: %s",
@@ -622,7 +621,7 @@ public class PermsAPI implements Perms {
                     //update metadata
                     updateUserPermissions(connection, actualId, originalPermissions,
                         new JsonArray(user.getPermissions()), vertxContext,
-                        tenantId, logger).onComplete(updateUserPermsRes -> {
+                        tenantId).onComplete(updateUserPermsRes -> {
                       if (updateUserPermsRes.failed()) {
                         //rollback
                         pgClient.rollbackTx(connection, rollback -> {
@@ -715,7 +714,7 @@ public class PermsAPI implements Perms {
                       }
                       updateUserPermissions(connection, user.getId(), originalPermissions,
                           new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, logger).onComplete(updateUserPermsRes -> {
+                          tenantId).onComplete(updateUserPermsRes -> {
                         if (updateUserPermsRes.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
                             String errStr = String.format(
@@ -811,7 +810,7 @@ public class PermsAPI implements Perms {
                   }
                   updateSubPermissions(connection, entity.getPermissionName(), new JsonArray(),
                       new JsonArray(entity.getSubPermissions()), vertxContext,
-                      tenantId, logger).onComplete(updateSubPermsRes -> {
+                      tenantId).onComplete(updateSubPermsRes -> {
                     if (updateSubPermsRes.failed()) {
                       postgresClient.rollbackTx(connection, done -> {
                         asyncResultHandler.handle(Future.succeededFuture(
@@ -919,7 +918,7 @@ public class PermsAPI implements Perms {
                       updateSubPermissions(connection, entity.getPermissionName(),
                           new JsonArray(perm.getSubPermissions()),
                           new JsonArray(entity.getSubPermissions()),
-                          vertxContext, tenantId, logger)
+                          vertxContext, tenantId)
                           .onComplete(updateSubPermsRes -> {
                             if (updateSubPermsRes.failed()) {
                               pgClient.rollbackTx(connection, done -> {
@@ -1497,7 +1496,7 @@ public class PermsAPI implements Perms {
    */
   protected static Future<Void> updateUserPermissions(AsyncResult<SQLConnection> connection, String permUserId,
                                                       JsonArray originalList, JsonArray newList, Context vertxContext,
-                                                      String tenantId, Logger logger) {
+                                                      String tenantId) {
     Promise<Void> promise = Promise.promise();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
@@ -1545,7 +1544,7 @@ public class PermsAPI implements Perms {
         promise.complete(); //Nuthin' to do
       } else {
         modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-            tenantId, logger).onComplete(res -> promise.handle(res.mapEmpty()));
+            tenantId).onComplete(res -> promise.handle(res.mapEmpty()));
       }
     });
     return promise.future();
@@ -1557,7 +1556,7 @@ public class PermsAPI implements Perms {
    */
   protected static Future<Void> updateSubPermissions(AsyncResult<SQLConnection> connection,
                                                      String permissionName, JsonArray originalList, JsonArray newList,
-                                                     Context vertxContext, String tenantId, Logger logger) {
+                                                     Context vertxContext, String tenantId) {
 
     Promise<Void> promise = Promise.promise();
     try {
@@ -1610,7 +1609,7 @@ public class PermsAPI implements Perms {
           promise.complete();
         } else {
           modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-              tenantId, logger).onComplete(res2 -> promise.handle(res2.mapEmpty()));
+              tenantId).onComplete(res2 -> promise.handle(res2.mapEmpty()));
         }
       });
     } catch (Exception e) {
@@ -1621,7 +1620,7 @@ public class PermsAPI implements Perms {
 
   protected static Future<Void> modifyPermissionArrayField(AsyncResult<SQLConnection> connection, String fieldValue,
                                                          String permissionName, PermissionField field, Operation operation,
-                                                         Context vertxContext, String tenantId, Logger logger) {
+                                                         Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     try {
       Criteria nameCrit = new Criteria()
@@ -1687,7 +1686,7 @@ public class PermsAPI implements Perms {
 
   private static Future<Void> modifyPermissionArrayFieldList(
       AsyncResult<SQLConnection> connection, List<FieldUpdateValues> fuvList, Context vertxContext,
-      String tenantId, Logger logger) {
+      String tenantId) {
 
     if (fuvList.isEmpty()) {
       return Future.succeededFuture();
@@ -1698,10 +1697,10 @@ public class PermsAPI implements Perms {
     fuvListCopy.remove(0); //pop
     Future<Void> modifyPermArrayFieldFuture = modifyPermissionArrayField(connection,
         fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
-        fuv.getOperation(), vertxContext, tenantId, logger);
+        fuv.getOperation(), vertxContext, tenantId);
     modifyPermArrayFieldFuture.onComplete(res -> promise.handle(res.mapEmpty()));
     return promise.future().compose(mapper -> modifyPermissionArrayFieldList(connection,
-        fuvListCopy, vertxContext, tenantId, logger));
+        fuvListCopy, vertxContext, tenantId));
   }
 
   private Future<Void> removePermissionFromUserList(
@@ -1721,68 +1720,80 @@ public class PermsAPI implements Perms {
         vertxContext, tenantId));
   }
 
-  protected Future<Void> renamePermissionForUser(AsyncResult<SQLConnection> connection,
-      String currentPermName, String newPermName, String userId, Context vertxContext,
-      String tenantId) {
-    Promise<Void> promise = Promise.promise();
-    Criterion criterion = getIdCriterion(userId);
-    CQLWrapper cqlFilter = new CQLWrapper(criterion);
+  private Future<PermissionUser> getPermissionUserByUserId(AsyncResult<SQLConnection> connection,
+      Criterion criterion, Context vertxContext, String tenantId) {
+    Promise<PermissionUser> promise = Promise.promise();
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class, criterion, true, false,
         getReply -> {
           if (getReply.failed()) {
             promise.fail(getReply.cause());
-          } else {
-            List<PermissionUser> permUserList = getReply.result().getResults();
-            if (permUserList.isEmpty()) {
-              promise.complete(); // No need to update non-existent user
-            } else {
-              PermissionUser user = permUserList.get(0);
-              user.getPermissions().remove(currentPermName);
-              user.getPermissions().add(newPermName);
-              pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true,
-                  updateReply -> {
-                    if (updateReply.failed()) {
-                      promise.fail(updateReply.cause());
-                    } else {
-                      promise.complete();
-                    }
-                  });
-            }
+            return;
           }
+          List<PermissionUser> permUserList = getReply.result().getResults();
+          if (permUserList.isEmpty()) {
+            promise.complete(); // No need to update non-existent user
+            return;
+          }
+          promise.complete(permUserList.get(0));          
         });
     return promise.future();
   }
+  
+  protected Future<Void> renamePermissionForUser(AsyncResult<SQLConnection> connection,
+      String currentPermName, String newPermName, String userId, Context vertxContext,
+      String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    try {
+      Criterion criterion = getIdCriterion(userId);
+      CQLWrapper cqlFilter = new CQLWrapper(criterion);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+      getPermissionUserByUserId(connection, criterion, vertxContext, tenantId)
+        .onComplete(ar -> {
+          if (ar.failed()) {
+            promise.fail(ar.cause());
+            return;
+          }
+          PermissionUser user = ar.result();
+          user.getPermissions().remove(currentPermName);
+          user.getPermissions().add(newPermName);
+          pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true, updateReply -> {
+            if (updateReply.failed()) {
+              promise.fail(updateReply.cause());
+              return;
+            }
+            promise.complete();            
+          });
+      });
+    } catch (Exception e) {
+      promise.fail(e);
+    }
+    return promise.future();
+  }
 
-  protected Future<Void> removePermissionFromUser(
-      AsyncResult<SQLConnection> connection, String permissionName,
-      String userId, Context vertxContext, String tenantId) {
+  protected Future<Void> removePermissionFromUser(AsyncResult<SQLConnection> connection,
+      String permissionName, String userId, Context vertxContext, String tenantId) {
 
     Promise<Void> promise = Promise.promise();
     try {
       Criterion criterion = getIdCriterion(userId);
       CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-      pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          criterion, true, false, getReply -> {
-            if (getReply.failed()) {
-              promise.fail(getReply.cause());
-            } else {
-              List<PermissionUser> permUserList = getReply.result().getResults();
-              if (permUserList.isEmpty()) {
-                promise.complete(); //No need to update non-existent user
-              } else {
-                PermissionUser user = permUserList.get(0);
-                if (!user.getPermissions().contains(permissionName)) {
-                  promise.complete(); //User already lacks the permissions
-                } else {
-                  user.getPermissions().remove(permissionName);
-                  pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter,
-                      true, updateReply -> promise.handle(updateReply.mapEmpty()));
-                }
-              }
-            }
-          });
+      getPermissionUserByUserId(connection, criterion, vertxContext, tenantId)
+        .onComplete(ar -> {
+          if (ar.failed()) {
+            promise.fail(ar.cause());
+            return;
+          }
+          PermissionUser user = ar.result();
+          if (!user.getPermissions().contains(permissionName)) {
+            promise.complete(); // User already lacks the permissions
+          } else {
+            user.getPermissions().remove(permissionName);
+            pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true,
+                updateReply -> promise.handle(updateReply.mapEmpty()));
+          }
+        });
     } catch (Exception e) {
       promise.fail(e);
     }
