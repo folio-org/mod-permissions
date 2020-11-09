@@ -17,11 +17,15 @@ import java.util.Map;
 import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
-import org.folio.rest.jaxrs.model.Perm;
+import org.folio.rest.jaxrs.model.ModifiedPermission;
+import org.folio.rest.jaxrs.model.NewPermission;
 import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.model.RemovedPermission;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.tools.utils.TenantTool;
@@ -44,10 +48,11 @@ public class TenantPermsAPI implements Tenantpermissions {
                                     Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      savePermList(entity.getPerms(), vertxContext, tenantId).onComplete(savePermsRes -> {
-        if (savePermsRes.failed()) {
-          String err = savePermsRes.cause().getMessage();
-          logger.error(err, savePermsRes.cause());
+      handlePermLists(entity.getNewPermissions(), entity.getModifiedPermissions(),
+          entity.getRemovedPermissions(), vertxContext, tenantId).onComplete(res -> {
+        if (res.failed()) {
+          String err = res.cause().getMessage();
+          logger.error(err, res.cause());
           asyncResultHandler.handle(Future.succeededFuture(
               PostTenantpermissionsResponse.respond400WithTextPlain(err)));
           return;
@@ -62,19 +67,91 @@ public class TenantPermsAPI implements Tenantpermissions {
     }
   }
 
-  private Future<Void> savePermList(List<Perm> permList, Context vertxContext, String tenantId) {
+  private Future<Void> handlePermLists(List<NewPermission> newPerms,
+      List<ModifiedPermission> modifiedPerms, List<RemovedPermission> removedPerms,
+      Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    savePermList(newPerms, vertxContext, tenantId)
+      .compose(v -> updatePermList(modifiedPerms, vertxContext, tenantId))
+      .compose(v -> deletePermList(removedPerms, vertxContext, tenantId))
+      .onComplete(ar -> {
+        if (ar.failed()) {
+          promise.fail(ar.cause());
+          return;
+        }
+        promise.complete();
+      });
+    return promise.future();
+  }
+
+  private Future<Void> deletePermList(List<RemovedPermission> permList, Context vertxContext,
+      String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList == null || permList.isEmpty()) {
       return Future.succeededFuture();
     }
-    List<Perm> permListCopy = new ArrayList<>(permList);
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    pgClient.startTx(connection ->
+      permList.forEach(perm ->
+        removePerm(connection, perm.getPermissionName(), vertxContext, tenantId)
+          .onComplete(ar -> {
+            if (ar.failed()) {
+              // rollback the transaction
+              pgClient.rollbackTx(connection, rollback -> {
+                logger.error(String.format("Error deleting deleting permission: %s",
+                    ar.cause().getLocalizedMessage()), ar.cause());
+                promise.fail(ar.cause());
+              });
+              return;
+            }
+            pgClient.endTx(connection, done -> promise.complete());
+          })));
+    return promise.future();
+  }
+
+  private Future<Void> updatePermList(List<ModifiedPermission> permList, Context vertxContext,
+      String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    if (permList == null || permList.isEmpty()) {
+      return Future.succeededFuture();
+    }
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    // we want to do these updates in a transaction so we can roll them back if something fails
+    pgClient.startTx(connection ->
+      permList.forEach(perm ->
+        perm.getRenamedFrom().forEach(from ->
+          renamePerm(connection, from, perm.getPermissionName(), vertxContext, tenantId)
+            .compose(v -> addSubPerms(connection, perm, vertxContext, tenantId))
+            .compose(v -> removeSubPerms(connection, perm, vertxContext, tenantId))
+            .onComplete(ar -> {
+              if (ar.failed()) {
+                // rollback the transaction
+                pgClient.rollbackTx(connection, rollback -> {
+                  logger.error(String.format("Error renaming or deleting user permissions: %s",
+                      ar.cause().getLocalizedMessage()));
+                  promise.fail(ar.cause());
+                });
+                return;
+              } else {
+                pgClient.endTx(connection, done -> promise.complete());
+              }
+            }))));
+    return promise.future();
+  }
+
+  private Future<Void> savePermList(List<NewPermission> permList, Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    if (permList == null || permList.isEmpty()) {
+      return Future.succeededFuture();
+    }
+    List<NewPermission> permListCopy = new ArrayList<>(permList);
     checkAnyPermsHaveAllSubs(permListCopy, vertxContext, tenantId)
         .onComplete(checkRes -> {
           if (checkRes.failed()) {
             promise.fail(checkRes.cause());
             return;
           }
-          Perm perm = permListCopy.get(0);
+          NewPermission perm = permListCopy.get(0);
           permListCopy.remove(0);
           if (Boolean.TRUE.equals(checkRes.result())) {
             findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId)
@@ -129,15 +206,15 @@ public class TenantPermsAPI implements Tenantpermissions {
     );
   }
 
-  private Future<Boolean> checkAnyPermsHaveAllSubs(List<Perm> permList, Context vertxContext,
+  private Future<Boolean> checkAnyPermsHaveAllSubs(List<NewPermission> permList, Context vertxContext,
                                                    String tenantId) {
 
     Promise<Boolean> promise = Promise.promise();
     if (permList.isEmpty()) {
       return Future.succeededFuture(false); //If we made it this far, we must not have found any
     }
-    List<Perm> permListCopy = new ArrayList<>(permList);
-    Perm perm = permListCopy.get(0);
+    List<NewPermission> permListCopy = new ArrayList<>(permList);
+    NewPermission perm = permListCopy.get(0);
     permListCopy.remove(0);
     findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId).onComplete(
         fmsRes -> {
@@ -210,7 +287,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> savePerm(Perm perm, String tenantId, Context vertxContext) {
+  private Future<Void> savePerm(NewPermission perm, String tenantId, Context vertxContext) {
     Promise<Void> promise = Promise.promise();
     if (perm.getPermissionName() == null) {
       return Future.succeededFuture();
@@ -337,17 +414,17 @@ public class TenantPermsAPI implements Tenantpermissions {
     them cannot be satisfied by other perms in the list. Create dummy permissions
     for these permissions. Return as list of permissionNames
    */
-  Future<List<String>> createDummies(List<Perm> permList, Context vertxContext,
+  Future<List<String>> createDummies(List<NewPermission> permList, Context vertxContext,
                                      String tenantId) {
 
     Promise<List<String>> promise = Promise.promise();
     //First determine which need dummies -- Assume all perms in list are currently
     //not satisfiable
     List<String> externalSubsNeeded = new ArrayList<>();
-    for (Perm perm : permList) {
+    for (NewPermission perm : permList) {
       for (String sub : perm.getSubPermissions()) {
         boolean externalNeeded = true;
-        for (Perm perm2 : permList) {
+        for (NewPermission perm2 : permList) {
           if (perm2.getPermissionName().equals(sub)) {
             externalNeeded = false;
             break;
@@ -419,6 +496,92 @@ public class TenantPermsAPI implements Tenantpermissions {
         tenantId);
     pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission,
         saveReply -> promise.handle(saveReply.mapEmpty()));
+    return promise.future();
+  }
+
+  private Future<List<Object>> getGrantedTo(String permName, Context vertxContext,
+      String tenantId) {
+    Promise<List<Object>> promise = Promise.promise();
+    try {
+      Criteria nameCrit =
+          new Criteria().addField(PERMISSION_NAME_FIELD).setOperation("=").setVal(permName);
+      Criterion criterion = new Criterion(nameCrit);
+      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+          Permission.class, criterion, true, false, getReply -> {
+            if (getReply.failed()) {
+              promise.fail(getReply.cause());
+              return;
+            }
+            List<Permission> permList = getReply.result().getResults();
+            if (permList.size() != 1) {
+              promise.fail("Expected one result for " + PERMISSION_NAME_FIELD + ": '" + permName
+                  + "', got " + permList.size() + " results");
+              return;
+            }
+            Permission permission = permList.get(0);
+            promise.complete(permission.getGrantedTo());
+          });
+    } catch (Exception e) {
+      promise.fail(e);
+    }
+    return promise.future();
+  }
+
+  private Future<Void> renamePerm(AsyncResult<SQLConnection> connection, String from, String to,
+      Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    PermsAPI permsApi = new PermsAPI();
+    getGrantedTo(from, vertxContext, tenantId)
+      .compose(userIds -> {
+        List<Future> futures = new ArrayList<>(userIds.size());
+        userIds.forEach(permUserId ->
+          futures.add(permsApi.renamePermissionForUser(connection, from, to, (String) permUserId,
+              vertxContext, tenantId)));
+        return CompositeFuture.all(futures);
+      })
+      .compose(v -> deletePerm(connection, from, vertxContext, tenantId))
+      .onComplete(ar -> {
+        if (ar.failed()) {
+          promise.fail(ar.cause());
+          return;
+        }
+        promise.complete();
+      });
+    return promise.future();
+  }
+
+  private Future<Void> addSubPerms(AsyncResult<SQLConnection> connection, ModifiedPermission perm,
+      Context vertxContext, String tenantId) {
+    //TODO implement this.
+    return Future.succeededFuture();
+  }
+
+  private Future<Void> removeSubPerms(AsyncResult<SQLConnection> connection, ModifiedPermission perm,
+      Context vertxContext, String tenantId) {
+    //TODO implement this.
+    return Future.succeededFuture();
+  }
+
+  private Future<Void> removePerm(AsyncResult<SQLConnection> connection, String permName,
+      Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    PermsAPI permsApi = new PermsAPI();
+    getGrantedTo(permName, vertxContext, tenantId)
+      .compose(userIds -> {
+        List<Future> futures = new ArrayList<>(userIds.size());
+        userIds.forEach(permUserId ->
+          futures.add(permsApi.removePermissionFromUser(connection, permName, (String) permUserId,
+              vertxContext, tenantId)));
+        return CompositeFuture.all(futures);
+      })
+      .compose(v -> deletePerm(connection, permName, vertxContext, tenantId))
+      .onComplete(ar -> {
+        if (ar.failed()) {
+          promise.fail(ar.cause());
+          return;
+        }
+        promise.complete();
+      });
     return promise.future();
   }
 

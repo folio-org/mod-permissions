@@ -6,6 +6,7 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -1618,7 +1619,7 @@ public class PermsAPI implements Perms {
     return promise.future();
   }
 
-  private static Future<Void> modifyPermissionArrayField(AsyncResult<SQLConnection> connection, String fieldValue,
+  protected static Future<Void> modifyPermissionArrayField(AsyncResult<SQLConnection> connection, String fieldValue,
                                                          String permissionName, PermissionField field, Operation operation,
                                                          Context vertxContext, String tenantId, Logger logger) {
     Promise<Void> promise = Promise.promise();
@@ -1691,7 +1692,7 @@ public class PermsAPI implements Perms {
     if (fuvList.isEmpty()) {
       return Future.succeededFuture();
     }
-    Promise promise = Promise.promise();
+    Promise<Void> promise = Promise.promise();
     FieldUpdateValues fuv = fuvList.get(0);
     List<FieldUpdateValues> fuvListCopy = new ArrayList<>(fuvList);
     fuvListCopy.remove(0); //pop
@@ -1711,7 +1712,7 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture();
     }
     List<String> userIdListCopy = new ArrayList<>(userIdList);
-    Promise promise = Promise.promise();
+    Promise<Void> promise = Promise.promise();
     String userId = userIdListCopy.get(0);
     userIdListCopy.remove(0);
     removePermissionFromUser(connection, permissionName, userId, vertxContext,
@@ -1720,11 +1721,44 @@ public class PermsAPI implements Perms {
         vertxContext, tenantId));
   }
 
-  private Future<Void> removePermissionFromUser(
+  protected Future<Void> renamePermissionForUser(AsyncResult<SQLConnection> connection,
+      String currentPermName, String newPermName, String userId, Context vertxContext,
+      String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    Criterion criterion = getIdCriterion(userId);
+    CQLWrapper cqlFilter = new CQLWrapper(criterion);
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class, criterion, true, false,
+        getReply -> {
+          if (getReply.failed()) {
+            promise.fail(getReply.cause());
+          } else {
+            List<PermissionUser> permUserList = getReply.result().getResults();
+            if (permUserList.isEmpty()) {
+              promise.complete(); // No need to update non-existent user
+            } else {
+              PermissionUser user = permUserList.get(0);
+              user.getPermissions().remove(currentPermName);
+              user.getPermissions().add(newPermName);
+              pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true,
+                  updateReply -> {
+                    if (updateReply.failed()) {
+                      promise.fail(updateReply.cause());
+                    } else {
+                      promise.complete();
+                    }
+                  });
+            }
+          }
+        });
+    return promise.future();
+  }
+
+  protected Future<Void> removePermissionFromUser(
       AsyncResult<SQLConnection> connection, String permissionName,
       String userId, Context vertxContext, String tenantId) {
 
-    Promise promise = Promise.promise();
+    Promise<Void> promise = Promise.promise();
     try {
       Criterion criterion = getIdCriterion(userId);
       CQLWrapper cqlFilter = new CQLWrapper(criterion);

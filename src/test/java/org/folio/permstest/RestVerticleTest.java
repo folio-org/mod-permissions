@@ -6,6 +6,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
@@ -18,10 +19,13 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
@@ -32,8 +36,9 @@ import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.Perm;
-import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.RemovedPermission;
+import org.folio.rest.jaxrs.model.ModifiedPermission;
+import org.folio.rest.jaxrs.model.NewPermission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -276,7 +281,7 @@ public class RestVerticleTest {
 
   @Test
   public void testTenantPermissionsNullPermList(TestContext context) {
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", "{\"perms\":null}", context);
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", "{\"newPermissions\":null}", context);
     context.assertEquals(201, response.code);
   }
 
@@ -290,7 +295,7 @@ public class RestVerticleTest {
     // adummy.perm not defined so it becomes dummy
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","amodule")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "adummy.all")
                 .put("displayName", "Dummy All")
@@ -323,7 +328,7 @@ public class RestVerticleTest {
     // adummy.perm becomes non-dummy
     permissionSet = new JsonObject()
         .put("moduleId","bmodule")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "adummy.perm")
                 .put("displayName", "Dummy perm")
@@ -450,7 +455,7 @@ public class RestVerticleTest {
     // adummy.perm not defined so it becomes dummy
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","amodule")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "adummy.all")
                 .put("displayName", "Dummy All")
@@ -564,7 +569,7 @@ public class RestVerticleTest {
     String dummyPerm = "dummy-" + UUID.randomUUID().toString();
 
     JsonObject permissionSet = new JsonObject()
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", normalPerm)
                 .put("subPermissions", new JsonArray()
@@ -719,9 +724,9 @@ public class RestVerticleTest {
 
   @Test
   public void testPostTenantPermissionsBadTenant(TestContext context) {
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm().withPermissionName("perm" + UUID.randomUUID().toString()));
-    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
+    List<NewPermission> perms = new LinkedList<>();
+    perms.add(new NewPermission().withPermissionName("perm" + UUID.randomUUID().toString()));
+    OkapiPermissionSet set = new OkapiPermissionSet().withNewPermissions(perms);
     Response response = send("badTenant", HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
   }
@@ -739,9 +744,9 @@ public class RestVerticleTest {
 
   @Test
   public void testPostTenantPermissionsNoPermissionName(TestContext context) {
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm());
-    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
+    List<NewPermission> perms = new LinkedList<>();
+    perms.add(new NewPermission());
+    OkapiPermissionSet set = new OkapiPermissionSet().withNewPermissions(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
   }
@@ -750,10 +755,10 @@ public class RestVerticleTest {
     public void testPostTenantPermissionsMutual1(TestContext context) {
     String permName1 = "perm" + UUID.randomUUID().toString();
     String permName2 = "perm" + UUID.randomUUID().toString();
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
-    perms.add(new Perm().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
-    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    List<NewPermission> perms = new LinkedList<>();
+    perms.add(new NewPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    perms.add(new NewPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withNewPermissions(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
     context.assertTrue(response.body.getString("text").contains("Unable to resolve permission dependencies for"));
@@ -764,9 +769,9 @@ public class RestVerticleTest {
     String permName1 = "perm" + UUID.randomUUID().toString();
     String permName2 = "perm" + UUID.randomUUID().toString();
 
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
-    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    List<NewPermission> perms = new LinkedList<>();
+    perms.add(new NewPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withNewPermissions(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
 
@@ -781,8 +786,8 @@ public class RestVerticleTest {
     String id2 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
 
     perms.clear();
-    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
-    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    perms.add(new NewPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withNewPermissions(perms);
     response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
 
@@ -791,6 +796,99 @@ public class RestVerticleTest {
     context.assertEquals(200, response.code);
     context.assertEquals(1, response.body.getInteger("totalRecords"));
     id1 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    response = send(HttpMethod.GET, "/perms/permissions/" + id1, null, context);
+    context.assertEquals(200, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + id1, null, context);
+    context.assertEquals(204, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions/" + id2, null, context);
+    context.assertEquals(200, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + id2, null, context);
+    context.assertEquals(204, response.code);
+  }
+
+  @Test
+  public void testPostTenantPermissionsNewUpdatedRemoved(TestContext context) {
+    String permName1 = "perm1_" + UUID.randomUUID().toString();
+    String permName2 = "perm2_" + UUID.randomUUID().toString();
+    String permName3 = "perm3_" + UUID.randomUUID().toString();
+    String permName4 = "perm4_" + UUID.randomUUID().toString();
+    String permName5 = "perm5_" + UUID.randomUUID().toString();
+    String permName5Renamed = "perm5'_" + UUID.randomUUID().toString();
+
+    List<NewPermission> newPerms = new LinkedList<>();
+    List<ModifiedPermission> modifiedPerms = new LinkedList<>();
+    List<RemovedPermission> removedPerms = new LinkedList<>();
+    newPerms.add(new NewPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    newPerms.add(new NewPermission().withPermissionName(permName3));
+    newPerms.add(new NewPermission().withPermissionName(permName5));
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withNewPermissions(newPerms);
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName%3D" + permName1, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String id1 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName2, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String id2 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName3, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+
+    JsonObject newUser = new JsonObject()
+        .put("userId", userId1)
+        .put("permissions", new JsonArray()
+            .add(permName3)
+            .add(permName5));
+    response = send(HttpMethod.POST, "/perms/users", Json.encode(newUser), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + userId1 + "/permissions?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(2, response.body.getInteger("totalRecords"));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains(permName3));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains(permName5));
+
+    newPerms.clear();
+    newPerms.add(new NewPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName4)));
+    modifiedPerms.add(new ModifiedPermission()
+        .withPermissionName(permName5Renamed)
+        .withRenamedFrom(Arrays.asList(new String[] {permName5})));
+    removedPerms.add(new RemovedPermission().withPermissionName(permName3));
+    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString())
+        .withNewPermissions(newPerms)
+        .withModifiedPermissions(modifiedPerms)
+        .withRemovedPermissions(removedPerms);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + userId1 + "/permissions?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    context.assertFalse(response.body.getJsonArray("permissionNames").contains(permName3));
+    context.assertTrue(response.body.getJsonArray("permissionNames").contains(permName5Renamed));
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName3, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(0, response.body.getInteger("totalRecords"));
+
+    // Need to get id for permName1 again .. It has changed.. Which appears to be an error
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName1, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    JsonObject permission1 = response.body.getJsonArray("permissions").getJsonObject(0);
+    JsonArray subPermissions1 = ((JsonArray)permission1.getJsonArray("subPermissions"));
+    context.assertEquals(permName4, subPermissions1.getValue(0));
+    context.assertEquals(1, subPermissions1.size());
+    id1 = permission1.getString("id");
 
     response = send(HttpMethod.GET, "/perms/permissions/" + id1, null, context);
     context.assertEquals(200, response.code);
@@ -1198,7 +1296,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","dummy")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "dummy.read")
                 .put("displayName", "Dummy Read")
@@ -1222,7 +1320,7 @@ public class RestVerticleTest {
         );
 
     if (more) {
-      permissionSet.getJsonArray("perms")
+      permissionSet.getJsonArray("newPermissions")
           .add(new JsonObject()
               .put("permissionName", "dummy.delete")
               .put("displayName", "Dummy Delete")
@@ -1291,7 +1389,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","silly")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "silly.all")
                 .put("displayName", "Dummy All")
@@ -1340,7 +1438,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","bad")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "bad.read")
                 .put("displayName", "Bad Read")
@@ -1404,7 +1502,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","otherbad")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "otherbad.read")
                 .put("displayName", "Bad Read")
@@ -1454,7 +1552,7 @@ public class RestVerticleTest {
     Future<WrappedResponse> future = Future.future();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","alien")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "alien.woo")
                 .put("displayName", "Alien Woo")
@@ -1836,7 +1934,7 @@ public class RestVerticleTest {
     Promise<WrappedResponse> promise = Promise.promise();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","dummy")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "test.a")
                 .put("subPermissions", new JsonArray()
@@ -1902,7 +2000,7 @@ public class RestVerticleTest {
     Promise<WrappedResponse> promise = Promise.promise();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","dummy")
-        .put("perms", new JsonArray()
+        .put("newPermissions", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "test.aa")
                 .put("subPermissions", new JsonArray()
