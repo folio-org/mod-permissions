@@ -120,7 +120,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     pgClient.startTx(connection ->
       permList.forEach(perm ->
         perm.getRenamedFrom().forEach(from ->
-          renamePerm(connection, from, perm.getPermissionName(), vertxContext, tenantId)
+          updatePerm(connection, from, perm.getPermissionName(), vertxContext, tenantId)
             .compose(v -> addSubPerms(connection, perm, vertxContext, tenantId))
             .compose(v -> removeSubPerms(connection, perm, vertxContext, tenantId))
             .onComplete(ar -> {
@@ -527,7 +527,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> renamePerm(AsyncResult<SQLConnection> connection, String from, String to,
+  private Future<Void> updatePerm(AsyncResult<SQLConnection> connection, String from, String to,
       Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     PermsAPI permsApi = new PermsAPI();
@@ -539,7 +539,7 @@ public class TenantPermsAPI implements Tenantpermissions {
               vertxContext, tenantId)));
         return CompositeFuture.all(futures);
       })
-      .compose(v -> deletePerm(connection, from, vertxContext, tenantId))
+      .compose(v -> renamePerm(connection, from, to, vertxContext, tenantId))
       .onComplete(ar -> {
         if (ar.failed()) {
           promise.fail(ar.cause());
@@ -547,6 +547,34 @@ public class TenantPermsAPI implements Tenantpermissions {
         }
         promise.complete();
       });
+    return promise.future();
+  }
+
+  private Future<Void> renamePerm(AsyncResult<SQLConnection> connection, String from, String to,
+      Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setOperation("=");
+    nameCrit.setVal(from);
+    Criterion criterion = new Criterion(nameCrit);
+    CQLWrapper cqlFilter = new CQLWrapper(criterion);
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    pgClient.get(connection, TABLE_NAME_PERMS, Permission.class, criterion, true, false,
+        getReply -> {
+          if (getReply.failed()) {
+            promise.fail(getReply.cause());
+            return;
+          }
+          if (getReply.result().getResults().isEmpty()) {
+            promise.complete();
+            return;
+          }
+          Permission permission = getReply.result().getResults().get(0);
+          permission.setPermissionName(to);
+          pgClient.update(connection, TABLE_NAME_PERMS, permission, cqlFilter, true,
+              updateReply -> promise.handle(updateReply.mapEmpty()));
+        });
     return promise.future();
   }
 
