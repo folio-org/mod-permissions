@@ -843,6 +843,10 @@ public class RestVerticleTest {
     context.assertEquals(200, response.code);
     context.assertEquals(1, response.body.getInteger("totalRecords"));
 
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName5, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+
     JsonObject newUser = new JsonObject()
         .put("userId", userId1)
         .put("permissions", new JsonArray()
@@ -890,6 +894,11 @@ public class RestVerticleTest {
     context.assertEquals(1, subPermissions1.size());
     id1 = permission1.getString("id");
 
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permName5Renamed, null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    String id5 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
+
     response = send(HttpMethod.GET, "/perms/permissions/" + id1, null, context);
     context.assertEquals(200, response.code);
 
@@ -901,6 +910,19 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.DELETE, "/perms/permissions/" + id2, null, context);
     context.assertEquals(204, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions/" + id5, null, context);
+    context.assertEquals(200, response.code);
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + id5, null, context);
+    context.assertEquals(204, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + userId1 + "?indexField=userId", null, context);
+    context.assertEquals(200,  response.code);
+    String permUserId = response.body.getString("id");
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + permUserId, null, context);
+    context.assertEquals(204,  response.code);
   }
 
   @Test
