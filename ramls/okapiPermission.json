@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-04/schema#",
   "title": "Okapi Permission Object",
   "type": "object",
+  "javaType": "org.folio.rest.jaxrs.model.OkapiPermission",
   "description": "An individual permission from an Okapi permission set",
   "properties": {
     "permissionName": {

@@ -1,5 +1,7 @@
 package org.folio.rest.impl;
 
+import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
+
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -17,10 +19,8 @@ import java.util.Map;
 import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
-import org.folio.rest.jaxrs.model.ModifiedPermission;
-import org.folio.rest.jaxrs.model.NewPermission;
+import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.RemovedPermission;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -28,8 +28,6 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.tools.utils.TenantTool;
-
-import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 
 /**
  *
@@ -66,8 +64,8 @@ public class TenantPermsAPI implements Tenantpermissions {
     }
   }
 
-  private Future<Void> handlePermLists(List<NewPermission> newPerms,
-      List<ModifiedPermission> modifiedPerms, List<RemovedPermission> removedPerms,
+  private Future<Void> handlePermLists(List<OkapiPermission> newPerms,
+      List<OkapiPermission> modifiedPerms, List<OkapiPermission> removedPerms,
       Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     savePermList(newPerms, vertxContext, tenantId)
@@ -83,7 +81,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> deletePermList(List<RemovedPermission> permList, Context vertxContext,
+  private Future<Void> deletePermList(List<OkapiPermission> permList, Context vertxContext,
       String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList == null || permList.isEmpty()) {
@@ -108,7 +106,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> updatePermList(List<ModifiedPermission> permList, Context vertxContext,
+  private Future<Void> updatePermList(List<OkapiPermission> permList, Context vertxContext,
       String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList == null || permList.isEmpty()) {
@@ -138,19 +136,19 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> savePermList(List<NewPermission> permList, Context vertxContext, String tenantId) {
+  private Future<Void> savePermList(List<OkapiPermission> permList, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList == null || permList.isEmpty()) {
       return Future.succeededFuture();
     }
-    List<NewPermission> permListCopy = new ArrayList<>(permList);
+    List<OkapiPermission> permListCopy = new ArrayList<>(permList);
     checkAnyPermsHaveAllSubs(permListCopy, vertxContext, tenantId)
         .onComplete(checkRes -> {
           if (checkRes.failed()) {
             promise.fail(checkRes.cause());
             return;
           }
-          NewPermission perm = permListCopy.get(0);
+          OkapiPermission perm = permListCopy.get(0);
           permListCopy.remove(0);
           if (Boolean.TRUE.equals(checkRes.result())) {
             findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId)
@@ -205,15 +203,15 @@ public class TenantPermsAPI implements Tenantpermissions {
     );
   }
 
-  private Future<Boolean> checkAnyPermsHaveAllSubs(List<NewPermission> permList, Context vertxContext,
+  private Future<Boolean> checkAnyPermsHaveAllSubs(List<OkapiPermission> permList, Context vertxContext,
                                                    String tenantId) {
 
     Promise<Boolean> promise = Promise.promise();
     if (permList.isEmpty()) {
       return Future.succeededFuture(false); //If we made it this far, we must not have found any
     }
-    List<NewPermission> permListCopy = new ArrayList<>(permList);
-    NewPermission perm = permListCopy.get(0);
+    List<OkapiPermission> permListCopy = new ArrayList<>(permList);
+    OkapiPermission perm = permListCopy.get(0);
     permListCopy.remove(0);
     findMissingSubs(perm.getSubPermissions(), vertxContext, tenantId).onComplete(
         fmsRes -> {
@@ -286,7 +284,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> savePerm(NewPermission perm, String tenantId, Context vertxContext) {
+  private Future<Void> savePerm(OkapiPermission perm, String tenantId, Context vertxContext) {
     Promise<Void> promise = Promise.promise();
     if (perm.getPermissionName() == null) {
       return Future.succeededFuture();
@@ -413,17 +411,17 @@ public class TenantPermsAPI implements Tenantpermissions {
     them cannot be satisfied by other perms in the list. Create dummy permissions
     for these permissions. Return as list of permissionNames
    */
-  Future<List<String>> createDummies(List<NewPermission> permList, Context vertxContext,
+  Future<List<String>> createDummies(List<OkapiPermission> permList, Context vertxContext,
                                      String tenantId) {
 
     Promise<List<String>> promise = Promise.promise();
     //First determine which need dummies -- Assume all perms in list are currently
     //not satisfiable
     List<String> externalSubsNeeded = new ArrayList<>();
-    for (NewPermission perm : permList) {
+    for (OkapiPermission perm : permList) {
       for (String sub : perm.getSubPermissions()) {
         boolean externalNeeded = true;
-        for (NewPermission perm2 : permList) {
+        for (OkapiPermission perm2 : permList) {
           if (perm2.getPermissionName().equals(sub)) {
             externalNeeded = false;
             break;
@@ -577,13 +575,13 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> addSubPerms(AsyncResult<SQLConnection> connection, ModifiedPermission perm,
+  private Future<Void> addSubPerms(AsyncResult<SQLConnection> connection, OkapiPermission perm,
       Context vertxContext, String tenantId) {
     //TODO implement this.
     return Future.succeededFuture();
   }
 
-  private Future<Void> removeSubPerms(AsyncResult<SQLConnection> connection, ModifiedPermission perm,
+  private Future<Void> removeSubPerms(AsyncResult<SQLConnection> connection, OkapiPermission perm,
       Context vertxContext, String tenantId) {
     //TODO implement this.
     return Future.succeededFuture();

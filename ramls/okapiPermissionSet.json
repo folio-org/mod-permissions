@@ -21,7 +21,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "$ref": "okapiPermission2.json"
+        "$ref": "okapiPermission.json"
       }
     },
     "removedPermissions": {
@@ -29,7 +29,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "$ref": "okapiPermission3.json"
+        "$ref": "okapiPermission.json"
       }
     }
   }

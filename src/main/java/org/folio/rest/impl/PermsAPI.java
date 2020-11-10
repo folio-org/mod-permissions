@@ -1721,8 +1721,9 @@ public class PermsAPI implements Perms {
   }
 
   private Future<PermissionUser> getPermissionUserByUserId(AsyncResult<SQLConnection> connection,
-      Criterion criterion, Context vertxContext, String tenantId) {
+      String userId, Context vertxContext, String tenantId) {
     Promise<PermissionUser> promise = Promise.promise();
+    Criterion criterion = getIdCriterion(userId);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class, criterion, true, false,
         getReply -> {
@@ -1745,10 +1746,7 @@ public class PermsAPI implements Perms {
       String tenantId) {
     Promise<Void> promise = Promise.promise();
     try {
-      Criterion criterion = getIdCriterion(userId);
-      CQLWrapper cqlFilter = new CQLWrapper(criterion);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-      getPermissionUserByUserId(connection, criterion, vertxContext, tenantId)
+      getPermissionUserByUserId(connection, userId, vertxContext, tenantId)
         .onComplete(ar -> {
           if (ar.failed()) {
             promise.fail(ar.cause());
@@ -1757,6 +1755,8 @@ public class PermsAPI implements Perms {
           PermissionUser user = ar.result();
           user.getPermissions().remove(currentPermName);
           user.getPermissions().add(newPermName);
+          PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+          CQLWrapper cqlFilter = new CQLWrapper(getIdCriterion(userId));
           pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true, updateReply -> {
             if (updateReply.failed()) {
               promise.fail(updateReply.cause());
@@ -1776,10 +1776,7 @@ public class PermsAPI implements Perms {
 
     Promise<Void> promise = Promise.promise();
     try {
-      Criterion criterion = getIdCriterion(userId);
-      CQLWrapper cqlFilter = new CQLWrapper(criterion);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-      getPermissionUserByUserId(connection, criterion, vertxContext, tenantId)
+      getPermissionUserByUserId(connection, userId, vertxContext, tenantId)
         .onComplete(ar -> {
           if (ar.failed()) {
             promise.fail(ar.cause());
@@ -1790,6 +1787,8 @@ public class PermsAPI implements Perms {
             promise.complete(); // User already lacks the permissions
           } else {
             user.getPermissions().remove(permissionName);
+            PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+            CQLWrapper cqlFilter = new CQLWrapper(getIdCriterion(userId));
             pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true,
                 updateReply -> promise.handle(updateReply.mapEmpty()));
           }
