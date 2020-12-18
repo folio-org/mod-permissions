@@ -32,7 +32,7 @@ import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.Perm;
+import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
@@ -719,8 +719,8 @@ public class RestVerticleTest {
 
   @Test
   public void testPostTenantPermissionsBadTenant(TestContext context) {
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm().withPermissionName("perm" + UUID.randomUUID().toString()));
+    List<OkapiPermission> perms = new LinkedList<>();
+    perms.add(new OkapiPermission().withPermissionName("perm" + UUID.randomUUID().toString()));
     OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
     Response response = send("badTenant", HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
@@ -739,8 +739,8 @@ public class RestVerticleTest {
 
   @Test
   public void testPostTenantPermissionsNoPermissionName(TestContext context) {
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm());
+    List<OkapiPermission> perms = new LinkedList<>();
+    perms.add(new OkapiPermission());
     OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
@@ -750,9 +750,9 @@ public class RestVerticleTest {
     public void testPostTenantPermissionsMutual1(TestContext context) {
     String permName1 = "perm" + UUID.randomUUID().toString();
     String permName2 = "perm" + UUID.randomUUID().toString();
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
-    perms.add(new Perm().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    List<OkapiPermission> perms = new LinkedList<>();
+    perms.add(new OkapiPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    perms.add(new OkapiPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
     OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
@@ -764,8 +764,8 @@ public class RestVerticleTest {
     String permName1 = "perm" + UUID.randomUUID().toString();
     String permName2 = "perm" + UUID.randomUUID().toString();
 
-    List<Perm> perms = new LinkedList<>();
-    perms.add(new Perm().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
+    List<OkapiPermission> perms = new LinkedList<>();
+    perms.add(new OkapiPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
     OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
@@ -781,7 +781,7 @@ public class RestVerticleTest {
     String id2 = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
 
     perms.clear();
-    perms.add(new Perm().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
+    perms.add(new OkapiPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
     set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
     response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
