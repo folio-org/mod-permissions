@@ -1,58 +1,68 @@
 {
-  "$schema": "http://json-schema.org/draft-04/schema#",
-  "title": "Permissions Definition Schema",
-  "type": "object",
-  "description": "A Folio permission",
-  "properties": {
-    "permissionName": {
-      "description": "The unique name of the permission",
-      "type": "string"
+  "$schema" : "http://json-schema.org/draft-04/schema#",
+  "title" : "Permissions Definition Schema",
+  "type" : "object",
+  "description" : "A Folio permission",
+  "properties" : {
+    "permissionName" : {
+      "description" : "The unique name of the permission",
+      "type" : "string"
     },
-    "displayName": {
-      "description": "The human-readable name of the permission",
-      "type": "string"
+    "displayName" : {
+      "description" : "The human-readable name of the permission",
+      "type" : "string"
     },
-    "id": {
-      "description": "The globally unique (UUID) identifier for the permission",
-      "type": "string"
+    "id" : {
+      "description" : "The globally unique (UUID) identifier for the permission",
+      "type" : "string"
     },
-    "description": {
-      "description": "A description of the permission",
-      "type": "string"
+    "description" : {
+      "description" : "A description of the permission",
+      "type" : "string"
     },
-    "tags": {
-      "description": "A list of tags for searching",
-      "type": "array",
-      "items": {
-        "type": "string"
+    "tags" : {
+      "description" : "A list of tags for searching",
+      "type" : "array",
+      "items" : {
+        "type" : "string"
       }
     },
-    "subPermissions": {
-      "description": "A list of child permissions granted by this permission",
-      "type": "array"
+    "subPermissions" : {
+      "description" : "A list of child permissions granted by this permission",
+      "type" : "array"
     },
-    "childOf": {
-      "description": "A list of permissions that 'own' this permission",
-      "type": "array"
+    "childOf" : {
+      "description" : "A list of permissions that 'own' this permission",
+      "type" : "array"
     },
-    "grantedTo": {
-      "description": "A list of permission users to whom this permission has been granted",
-      "type": "array"
+    "grantedTo" : {
+      "description" : "A list of permission users to whom this permission has been granted",
+      "type" : "array"
     },
-    "mutable": {
-      "description": "Whether or not this permission changes at runtime",
-      "type": "boolean"
+    "mutable" : {
+      "description" : "Whether or not this permission changes at runtime",
+      "type" : "boolean"
     },
     "visible" : {
-      "description": "Whether or not this permission is visible to users",
+      "description" : "Whether or not this permission is visible to users",
       "type" : "boolean"
     },
     "dummy" : {
-      "description": "Is this a temporary dummy permission",
+      "description" : "Is this a temporary dummy permission",
       "type" : "boolean"
     },
+    "inactive" : {
+      "description" : "Indicates whether this permissions has been marked for deletion (soft deleted)",
+      "type" : "boolean",
+      "default" : "false"
+    },
+    "definedBy" : {
+      "description" : "Provides permission definition context.  In the case of user-defined permissions, the record metadata provides additional information",
+      "type" : "object",
+      "$ref" : "definedByObject.json"
+    },
     "metadata" : {
-      "description": "System modification metadata",
+      "description" : "System modification metadata",
       "type" : "object",
       "$ref" : "raml-util/schemas/metadata.schema"
     }
