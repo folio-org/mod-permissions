@@ -16,5 +16,8 @@
         "$ref": "okapiPermission.json"
       }
     }
-  }
+  },
+  "required": [
+    "moduleId"
+  ]
 }

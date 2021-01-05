@@ -276,7 +276,7 @@ public class RestVerticleTest {
 
   @Test
   public void testTenantPermissionsNullPermList(TestContext context) {
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", "{\"perms\":null}", context);
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", "{\"moduleId\":\"module\",\"perms\":null}", context);
     context.assertEquals(201, response.code);
   }
 
@@ -564,6 +564,7 @@ public class RestVerticleTest {
     String dummyPerm = "dummy-" + UUID.randomUUID().toString();
 
     JsonObject permissionSet = new JsonObject()
+        .put("moduleId", "amodule")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", normalPerm)
@@ -721,7 +722,7 @@ public class RestVerticleTest {
   public void testPostTenantPermissionsBadTenant(TestContext context) {
     List<OkapiPermission> perms = new LinkedList<>();
     perms.add(new OkapiPermission().withPermissionName("perm" + UUID.randomUUID().toString()));
-    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
+    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms).withModuleId("amodule");
     Response response = send("badTenant", HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
   }
@@ -730,7 +731,7 @@ public class RestVerticleTest {
   public void testPostTenantPermissionsEmpty(TestContext context) {
     OkapiPermissionSet set = new OkapiPermissionSet();
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
-    context.assertEquals(201, response.code);
+    context.assertEquals(422, response.code);
 
     set = new OkapiPermissionSet().withModuleId("module");
     response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
@@ -741,7 +742,7 @@ public class RestVerticleTest {
   public void testPostTenantPermissionsNoPermissionName(TestContext context) {
     List<OkapiPermission> perms = new LinkedList<>();
     perms.add(new OkapiPermission());
-    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms);
+    OkapiPermissionSet set = new OkapiPermissionSet().withPerms(perms).withModuleId("module");
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
   }
@@ -753,7 +754,7 @@ public class RestVerticleTest {
     List<OkapiPermission> perms = new LinkedList<>();
     perms.add(new OkapiPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
     perms.add(new OkapiPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
-    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module-1.2.3").withPerms(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(400, response.code);
     context.assertTrue(response.body.getString("text").contains("Unable to resolve permission dependencies for"));
@@ -766,7 +767,7 @@ public class RestVerticleTest {
 
     List<OkapiPermission> perms = new LinkedList<>();
     perms.add(new OkapiPermission().withPermissionName(permName2).withSubPermissions(Arrays.asList(permName1)));
-    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    OkapiPermissionSet set = new OkapiPermissionSet().withModuleId("module-2.3.4").withPerms(perms);
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
 
@@ -782,7 +783,7 @@ public class RestVerticleTest {
 
     perms.clear();
     perms.add(new OkapiPermission().withPermissionName(permName1).withSubPermissions(Arrays.asList(permName2)));
-    set = new OkapiPermissionSet().withModuleId("module" + UUID.randomUUID().toString()).withPerms(perms);
+    set = new OkapiPermissionSet().withModuleId("module-3.4.5").withPerms(perms);
     response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
     context.assertEquals(201, response.code);
 

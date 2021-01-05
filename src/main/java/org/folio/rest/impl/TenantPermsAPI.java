@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.folio.okapi.common.ModuleId;
 import org.folio.rest.jaxrs.model.OkapiPermission;
@@ -27,7 +28,8 @@ import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.tools.utils.TenantTool;
-
+import org.hamcrest.core.IsNull;
+import org.mockito.internal.matchers.NotNull;
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 
 /**
@@ -37,7 +39,8 @@ import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 public class TenantPermsAPI implements Tenantpermissions {
 
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
-  private static final String DEFINED_BY_MODULE_NAME_FIELD = "'definedBy.moduleName'";
+  private static final String DEFINED_BY_FIELD = "'definedBy'";
+  private static final String MODULE_NAME_FIELD = "'moduleName'";
   private static final String TABLE_NAME_PERMS = "permissions";
 
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
@@ -73,7 +76,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return (a == null && b == null) || (a.equals(b));
   }
 
-  /* compare an OkapiPermission to a Permission, including defineBy */
+  /* compare an OkapiPermission to a Permission, including definedBy */
   private static boolean comparePerms(OkapiPermission okapiPerm, String moduleName, Permission perm) {
     return comparePerms(okapiPerm, perm)
         && perm.getDefinedBy() != null 
@@ -97,21 +100,26 @@ public class TenantPermsAPI implements Tenantpermissions {
       String tenantId) {
     Promise<Void> promise = Promise.promise();
 
-    getPermsForModule(permSet, vertxContext, tenantId).compose(existing -> {
-      Map<String, Permission> dbPerms = new HashMap<>(existing.size());
-      existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));
+    try {
+      getPermsForModule(permSet, vertxContext, tenantId).compose(existing -> {
+        Map<String, Permission> dbPerms = new HashMap<>(existing.size());
+        existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));
 
-      return CompositeFuture.all(
-          savePermList(getNewPerms(dbPerms, permSet), vertxContext, tenantId),
-          updatePermList(getModifiedPerms(dbPerms, permSet), vertxContext, tenantId),
-          deletePermList(getRemovedPerms(dbPerms, permSet), vertxContext, tenantId));
-    }).onComplete(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-        return;
-      }
-      promise.complete();
-    });
+        return CompositeFuture.all(
+            savePermList(getNewPerms(dbPerms, permSet), vertxContext, tenantId),
+            updatePermList(getModifiedPerms(dbPerms, permSet), vertxContext, tenantId),
+            deletePermList(getRemovedPerms(dbPerms, permSet), vertxContext, tenantId));
+      }).onComplete(ar -> {
+        if (ar.failed()) {
+          promise.fail(ar.cause());
+          return;
+        }
+        promise.complete();
+      });
+    } catch (Exception e) {
+      logger.error(e.getMessage(), e);
+      promise.fail(e);
+    }
 
     return promise.future();
   }
@@ -120,37 +128,52 @@ public class TenantPermsAPI implements Tenantpermissions {
       Context vertxContext, String tenantId) {
     Promise<List<Permission>> promise = Promise.promise();
     
-    getPermsByModule(permSet.getModuleId(), vertxContext, tenantId)
-      .compose(existing -> {
-        if (existing.isEmpty()) {
-          // this means either:
-          // A) the first time enabling this module, or 
-          // B) the permissions exist but don't yet have the definedBy field
-          List<OkapiPermission> perms = permSet.getPerms();
-          List<Permission> ret = new ArrayList<>();
+    try {
+      getPermsByModule(permSet.getModuleId(), vertxContext, tenantId)
+        .onComplete(getResult -> {
+          if (getResult.failed()) {
+            Throwable cause = getResult.cause();
+            logger.error(cause.getMessage(), cause);
+            promise.fail(cause);
+            return;
+          }
 
-          List<Future> futures = new ArrayList<>(perms.size());
-          perms.forEach(perm -> {
-            futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
-              .compose(dbPerm -> {                
-                if (dbPerm != null && comparePerms(perm, dbPerm)) {
-                  // (B) we have a match, but lack definedBy
-                  ret.add(dbPerm);
-                }
-                return Future.succeededFuture();
-              }));
-          });
-          CompositeFuture.all(futures).onComplete(ar -> {
-            if(ar.failed()) {
-              promise.fail(ar.cause());
-            }
-            promise.complete(ret);
-          });
-        } else {
-          promise.complete(existing); // Happy path.
-        }
-        return Future.succeededFuture();
-      });
+          List<Permission> existing = getResult.result();
+          if (existing.isEmpty() && permSet.getPerms() != null) {
+            // this means either:
+            // A) the first time enabling this module, or
+            // B) the permissions exist but don't yet have the definedBy field
+            List<OkapiPermission> perms = permSet.getPerms().stream()
+                .filter(p -> p.getPermissionName() != null)
+                .collect(Collectors.toList());
+            List<Permission> ret = new ArrayList<>();
+
+            List<Future> futures = new ArrayList<>(perms.size());
+            perms.forEach(perm -> {
+              futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
+                .compose(dbPerm -> {
+                  if (dbPerm != null && comparePerms(perm, dbPerm)) {
+                    // (B) we have a match, but lack definedBy
+                    ret.add(dbPerm);
+                  }
+                  return Future.succeededFuture();
+                }));
+            });
+            CompositeFuture.all(futures).onComplete(ar -> {
+              if(ar.failed()) {
+                promise.fail(ar.cause());
+                return;
+              }
+              promise.complete(ret);
+            });
+          } else {
+            promise.complete(existing); // Happy path.
+          }
+        });
+    } catch (Exception e) {
+      logger.error(e.getMessage(), e);
+      promise.fail(e);
+    }
     
     return promise.future();
   }
@@ -160,9 +183,12 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<OkapiPermission> newPerms = new ArrayList<>();
     List<OkapiPermission> perms = permSet.getPerms();
     
-    perms.stream()
-      .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
-      .forEach(newPerms::add);
+    if(perms != null) {
+      perms.stream()
+        .filter(perm -> perm.getPermissionName() != null)
+        .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
+        .forEach(newPerms::add);
+    }
 
     return newPerms;
   }
@@ -170,27 +196,37 @@ public class TenantPermsAPI implements Tenantpermissions {
   private List<OkapiPermission> getModifiedPerms(Map<String, Permission> dbPerms,
       OkapiPermissionSet permSet) {
     List<OkapiPermission> modifiedPerms = new ArrayList<>();    
+    List<OkapiPermission> perms = permSet.getPerms();
     
-    permSet.getPerms().stream()
-      .filter(perm -> {
-        String name = perm.getPermissionName();
-        for (String oldName : perm.getRenamedFrom()) {
-          if(dbPerms.containsKey(oldName)) {
-            return true;
+    if(perms != null) {
+      perms.stream()
+        .filter(perm -> perm.getPermissionName() != null)
+        .filter(perm -> {
+          String name = perm.getPermissionName();
+          for (String oldName : perm.getRenamedFrom()) {
+            if(dbPerms.containsKey(oldName)) {
+              return true;
+            }
           }
-        } 
-        return dbPerms.containsKey(name)
-            && !comparePerms(perm, permSet.getModuleId(), dbPerms.get(name));
-      }).forEach(modifiedPerms::add);
-    
+          return dbPerms.containsKey(name)
+              && !comparePerms(perm, permSet.getModuleId(), dbPerms.get(name));
+        }).forEach(modifiedPerms::add);
+    }
+
     return modifiedPerms;
   }
 
   private List<Permission> getRemovedPerms(Map<String, Permission> dbPerms,
       OkapiPermissionSet permSet) {
     List<Permission> removedPerms = new ArrayList<>();
-    List<String> permNames = new ArrayList<>(permSet.getPerms().size());
-    permSet.getPerms().forEach(perm -> permNames.add(perm.getPermissionName()));
+    List<String> permNames = new ArrayList<>();
+    List<OkapiPermission> perms = permSet.getPerms();
+
+    if (perms != null) {
+      perms.stream()
+        .filter(perm -> perm.getPermissionName() != null)
+        .forEach(perm -> permNames.add(perm.getPermissionName()));
+    }
 
     dbPerms.values().stream()
       .filter(dbPerm -> !permNames.contains(dbPerm.getPermissionName()))
@@ -202,12 +238,14 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<Void> updatePermList(List<OkapiPermission> permList, Context vertxContext,
       String tenantId) {
     Promise<Void> promise = Promise.promise();
+    promise.complete();
     return promise.future();
   }
 
   private Future<Void> deletePermList(List<Permission> permList, Context vertxContext,
       String tenantId) {
     Promise<Void> promise = Promise.promise();
+    promise.complete();
     return promise.future();
   }
 
@@ -369,7 +407,8 @@ public class TenantPermsAPI implements Tenantpermissions {
     if (moduleId != null) {
       String moduleName = new ModuleId(moduleId).getProduct();      
       Criteria modCrit = new Criteria();
-      modCrit.addField(DEFINED_BY_MODULE_NAME_FIELD);
+      modCrit.addField(DEFINED_BY_FIELD);
+      modCrit.addField(MODULE_NAME_FIELD);
       modCrit.setOperation("=");
       modCrit.setVal(moduleName);
       crit.addCriterion(modCrit);
@@ -396,22 +435,28 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<List<Permission>> getPermsByModule(String moduleId, Context vertxContext, String tenantId) {
     Promise<List<Permission>> promise = Promise.promise();
 
-    String moduleName = new ModuleId(moduleId).getProduct();      
-    Criteria modCrit = new Criteria();
-    modCrit.addField(DEFINED_BY_MODULE_NAME_FIELD);
-    modCrit.setOperation("=");
-    modCrit.setVal(moduleName);
+    try {
+      String moduleName = new ModuleId(moduleId).getProduct();
+      Criteria modCrit = new Criteria();
+      modCrit.addField(DEFINED_BY_FIELD);
+      modCrit.addField(MODULE_NAME_FIELD);
+      modCrit.setOperation("=");
+      modCrit.setVal(moduleName);
 
-    PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-        Permission.class, new Criterion(modCrit), true, false, getReply -> {
-          if (getReply.failed()) {
-            String err = getReply.cause().getLocalizedMessage();
-            logger.error(err, getReply.cause());
-            promise.fail(getReply.cause());
-            return;
-          }
-          promise.complete(getReply.result().getResults());
-        });
+      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+          Permission.class, new Criterion(modCrit), true, false, getReply -> {
+            if (getReply.failed()) {
+              Throwable cause = getReply.cause();
+              logger.error(cause.getLocalizedMessage(), cause);
+              promise.fail(cause);
+              return;
+            }
+            promise.complete(getReply.result().getResults());
+          });
+    } catch (Exception e) {
+      logger.error(e.getMessage(), e);
+      promise.fail(e);
+    }
     return promise.future();
   }
 
