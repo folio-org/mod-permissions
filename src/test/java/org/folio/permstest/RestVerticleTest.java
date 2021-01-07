@@ -1,6 +1,7 @@
 package org.folio.permstest;
 
 import io.vertx.core.Future;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
@@ -120,15 +121,19 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context).compose(w -> {
+      return postPermUser(context, userId1);
+    }).compose(w -> {
       return sendPermissionSetUpdates(context);
     }).compose(w -> {
       return testSoftDeleteOfRemovedPermission(context);
+    }).compose(w -> {
+      return testPermissionRename(context);
     }).compose(w -> {
       return testUpdateParentPermission(context);
     }).compose(w -> {
       return testUpdateChildPermission(context);
     }).compose(w -> {
-      return postPermUser(context, userId1);
+      return postPermUser(context, userId2);
     }).compose(w -> {
       return testUserPerms(context, w.getJson().getString("id"));
     }).compose(w -> {
@@ -1219,6 +1224,11 @@ public class RestVerticleTest {
                 .put("description", "Update Dummy Entries")
             )
             .add(new JsonObject()
+                .put("permissionName", "dummy.collection.get")
+                .put("displayName", "Dummy Collection Get")
+                .put("description", "Get Dummy Entry Collection")
+            )
+            .add(new JsonObject()
                 .put("permissionName", "dummy.all")
                 .put("displayName", "Dummy All")
                 .put("description", "All Dummy Permissions")
@@ -1226,6 +1236,7 @@ public class RestVerticleTest {
                     .add("dummy.read")
                     .add("dummy.write")
                     .add("dummy.update")
+                    .add("dummy.collection.get")
                 )
             )
         );
@@ -1267,12 +1278,19 @@ public class RestVerticleTest {
                 .put("description", "Delete Dummy Entries")
             )
             .add(new JsonObject()
+                .put("permissionName", "dummy.collection.read")
+                .put("displayName", "Dummy Collection Read")
+                .put("description", "Read Dummy Entry Collection")
+                .put("renamedFrom", new JsonArray().add("dummy.collection.get"))
+            )
+            .add(new JsonObject()
                 .put("permissionName", "dummy.all")
                 .put("displayName", "Dummy All")
                 .put("description", "All Dummy Permissions")
                 .put("subPermissions", new JsonArray()
                     .add("dummy.read")
                     .add("dummy.write")
+                    .add("dummy.collection.read")
                     .add("dummy.delete")
                 )
             )
@@ -1312,6 +1330,31 @@ public class RestVerticleTest {
     return future;
   }
 
+  // test permission rename
+  private Future<WrappedResponse> testPermissionRename(TestContext context) {
+    Future<WrappedResponse> future = Future.future();
+    testPermissionExists(context, "dummy.collection.read").onComplete(collectionReadRes -> {
+      if (collectionReadRes.failed()) {
+        future.fail(collectionReadRes.cause());
+      } else {
+        testPermissionExists(context, "dummy.collection.get", false, false).onComplete(collectionGetRes -> {
+          if (!collectionGetRes.failed()) {
+            future.fail("dummy.collection.get should have been renamed but still exists");
+            return;
+          }
+          if (collectionGetRes.cause().getMessage()
+              .equals("permission dummy.collection.get not found")) {
+            //TODO check that assignments were updated too
+            future.complete(null);
+            return;
+          }
+          future.fail(collectionGetRes.cause());
+        });
+      }
+    });
+    return future;
+  }
+
   // test update for parent permission
   private Future<WrappedResponse> testUpdateParentPermission(TestContext context) {
     Future<WrappedResponse> future = Future.future();
@@ -1323,7 +1366,7 @@ public class RestVerticleTest {
         JsonObject json = new JsonObject(wr.getBody());
         JsonArray subPermissions = json.getJsonArray("permissions").getJsonObject(0)
             .getJsonArray("subPermissions");
-        if (subPermissions.size() != 3 || !subPermissions.contains("dummy.delete")) {
+        if (subPermissions.size() != 4 || !subPermissions.contains("dummy.delete")) {
           future.fail("dummy.all should contain three " + subPermissions.toString() +
               " subPermissions including dummy.delete");
         } else {
