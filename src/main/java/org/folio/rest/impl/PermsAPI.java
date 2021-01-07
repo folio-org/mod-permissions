@@ -106,7 +106,7 @@ public class PermsAPI implements Perms {
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
 
-  private static CQLWrapper getCQL(String query, String tableName) throws FieldException {
+  protected static CQLWrapper getCQL(String query, String tableName) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
     return new CQLWrapper(cql2pgJson, query);
   }
@@ -1080,7 +1080,7 @@ public class PermsAPI implements Perms {
   @SuppressWarnings("java:S3776")
   @Validate
   @Override
-  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
+  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy, String includeInactive,
                                   int length, int start, String sortBy, String query, String memberOf,
                                   String ownedBy, Map<String, String> okapiHeaders,
                                   Handler<AsyncResult<Response>> asyncResultHandler,
@@ -1088,17 +1088,25 @@ public class PermsAPI implements Perms {
 
     try {
       boolean includeDummyPerms = "true".equals(includeDummy);
-      String[] queryArr = new String[]{""};
+      boolean includeInactivePerms = "true".equals(includeInactive);
+      String[] queryArr = new String[]{query};
       if (!includeDummyPerms) {
         //filter out all dummy perms from query
-        if (query == null || query.isEmpty()) {
+        if (queryArr[0] == null || queryArr[0].isEmpty()) {
           queryArr[0] = "(dummy == false)";
         } else {
-          queryArr[0] = String.format("(%s) AND (dummy==false)", query);
+          queryArr[0] = String.format("(%s) AND (dummy==false)", queryArr[0]);
         }
-      } else {
-        queryArr[0] = query;
       }
+      if (!includeInactivePerms) {
+        //filter out all dummy perms from query
+        if (queryArr[0] == null || queryArr[0].isEmpty()) {
+          queryArr[0] = "(inactive == false)";
+        } else {
+          queryArr[0] = String.format("(%s) AND (inactive==false)", queryArr[0]);
+        }
+      }
+
       CQLWrapper cql;
       logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
           TABLE_NAME_PERMS, queryArr[0]));
@@ -1863,7 +1871,7 @@ public class PermsAPI implements Perms {
     });
   }
 
-  private static Criterion getIdCriterion(String id) {
+  protected static Criterion getIdCriterion(String id) {
     Criteria idCrit = new Criteria();
     idCrit.addField(ID_FIELD);
     idCrit.setJSONB(false);
