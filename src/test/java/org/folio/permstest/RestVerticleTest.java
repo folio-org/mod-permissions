@@ -48,7 +48,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
-
+import com.sun.el.stream.Stream;
 import static org.folio.permstest.TestUtil.*;
 import static org.hamcrest.CoreMatchers.containsString;
 
@@ -59,6 +59,8 @@ public class RestVerticleTest {
   private static final String userId1 = "35d05a6a-d61e-4e81-9708-fc44daadbec5";
   private static final String userId2 = "176bc0cc-b785-4cf9-9e8a-5fafe8178332";
   private static final String userId3 = "f36400e5-ec5e-4e6c-abac-25fc42e1ec47";
+
+  private static final String permUserId1 = UUID.randomUUID().toString();
 
   private static final String userUserId = "93cb7ed4-313e-4f06-bd4b-d44b1308c3f3";
   private static Vertx vertx;
@@ -121,23 +123,38 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context).compose(w -> {
-      return postPermUser(context, userId1);
+      return postPermUser(context, userId1, permUserId1,
+          new String[] {"dummy.all", "dummy.collection.get"});
     }).compose(w -> {
-      return sendPermissionSetUpdates(context);
+      return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.get", "dummy.update"});
+    }).compose(w -> {
+      return testPermissionExists(context, "dummy.collection.get");
+    }).compose(w -> {
+      return testGrantedTo(context, w, permUserId1);
+    }).compose(w -> {
+      return sendPermissionSetUpdates(context); // simulate upgrade
     }).compose(w -> {
       return testSoftDeleteOfRemovedPermission(context);
     }).compose(w -> {
       return testPermissionRename(context);
     }).compose(w -> {
+      return testUserPerms(context, permUserId1, new String[] {"dummy.collection.read"});
+    }).compose(w -> {
+      return testPermissionExists(context, "dummy.collection.read");
+    }).compose(w -> {
+      return testGrantedTo(context, w, permUserId1);
+    }).compose(w -> {
       return testUpdateParentPermission(context);
     }).compose(w -> {
       return testUpdateChildPermission(context);
     }).compose(w -> {
-      return postPermUser(context, userId2);
+      return postPermUser(context, userId2, new String[] {"dummy.all"});
     }).compose(w -> {
-      return testUserPerms(context, w.getJson().getString("id"));
+      return testUserPerms(context, w.getJson().getString("id"),
+          new String[] {"dummy.write", "dummy.read"});
     }).compose(w -> {
-      return postPermUser(context, userId3);
+      return postPermUser(context, userId3, new String[] {"dummy.all"});
     }).compose(w -> {
       return putPermUserBad(context, w.getJson().getString("id"));
     }).compose(w -> {
@@ -1312,47 +1329,53 @@ public class RestVerticleTest {
 
   // test soft delete of removed permission
   private Future<WrappedResponse> testSoftDeleteOfRemovedPermission(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    testInactivePermissionExists(context, "dummy.update").onComplete( testRes -> {
-      if(testRes.failed()) {
-        future.fail(testRes.cause());
+    Promise<WrappedResponse> promise = Promise.promise();
+    testPermissionExists(context, "dummy.update", true, true).onComplete(testRes -> {
+      if (testRes.failed()) {
+        promise.fail(testRes.cause());
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject json = new JsonObject(wr.getBody());
-        if (!json.getJsonArray("permissions").getJsonObject(0)
-            .getBoolean("inactive")) {
-          future.fail("dummy.update should be inactive");
+        if (!json.getJsonArray("permissions").getJsonObject(0).getBoolean("inactive")) {
+          promise.fail("dummy.update should be inactive");
         } else {
-          future.complete(wr);
+          promise.complete(wr);
         }
       }
     });
-    return future;
+    return promise.future();
   }
 
   // test permission rename
   private Future<WrappedResponse> testPermissionRename(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    testPermissionExists(context, "dummy.collection.read").onComplete(collectionReadRes -> {
-      if (collectionReadRes.failed()) {
-        future.fail(collectionReadRes.cause());
-      } else {
-        testPermissionExists(context, "dummy.collection.get", false, false).onComplete(collectionGetRes -> {
+    Promise<WrappedResponse> promise = Promise.promise();
+    testPermissionExists(context, "dummy.collection.read")
+        .compose(resp -> testPermissionExists(context, "dummy.collection.get", false, false))
+        .onComplete(collectionGetRes -> {
           if (!collectionGetRes.failed()) {
-            future.fail("dummy.collection.get should have been renamed but still exists");
+            promise.fail("dummy.collection.get should have been renamed but still exists");
             return;
           }
           if (collectionGetRes.cause().getMessage()
               .equals("permission dummy.collection.get not found")) {
-            //TODO check that assignments were updated too
-            future.complete(null);
+            // TODO check that assignments were updated too
+            promise.complete(null);
             return;
           }
-          future.fail(collectionGetRes.cause());
+          promise.fail(collectionGetRes.cause());
         });
-      }
-    });
-    return future;
+
+    return promise.future();
+  }
+
+  private Future<WrappedResponse> testGrantedTo(TestContext context, WrappedResponse perm, String permUserId) {
+    Promise<WrappedResponse> promise = Promise.promise();
+    if(!perm.getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("grantedTo").contains(permUserId)) {
+      promise.fail("permission not granted to " + permUserId);
+    } else {
+      promise.complete(perm);
+    }
+    return promise.future();
   }
 
   // test update for parent permission
@@ -1618,11 +1641,17 @@ public class RestVerticleTest {
     return future;
   }
 
+  private Future<WrappedResponse> postPermUser(TestContext context, String userId, String[] permsToAdd) {
+    return postPermUser(context, userId, UUID.randomUUID().toString(), permsToAdd);
+  }
 
-  private Future<WrappedResponse> postPermUser(TestContext context, String userId) {
+  private Future<WrappedResponse> postPermUser(TestContext context, String userId, String permUserId, String[] permsToAdd) {
+    JsonArray perms = new JsonArray();
+    Arrays.stream(permsToAdd).forEach(perms::add);
     JsonObject newUser = new JsonObject()
+        .put("id", permUserId)
         .put("userId", userId)
-        .put("permissions", new JsonArray().add("dummy.all"));
+        .put("permissions", perms);
     Future<WrappedResponse> future = Future.future();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users",
         HttpMethod.POST, null, newUser.encode(), 201).onComplete(res -> {
@@ -1652,7 +1681,7 @@ public class RestVerticleTest {
     return future;
   }
 
-  private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId) {
+  private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId, String[] expected) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
     Future<WrappedResponse> future = Future.future();
@@ -1666,11 +1695,14 @@ public class RestVerticleTest {
           if(nameList == null) {
             future.fail("Could not find 'permissionNames' in " + res.result().getBody());
           } else {
-            if(nameList.contains("dummy.read") && nameList.contains("dummy.write")) {
-              future.complete(res.result());
-            } else {
-              future.fail("Namelist does not contain 'dummy.read' and 'dummy.write' " + "( " + res.result().getBody() + " )");
-            }
+            Arrays.stream(expected).forEach(exp -> {
+              if (!nameList.contains(exp)) {
+                future.fail("Namelist does not contain '" + exp + "' " + "( "
+                    + res.result().getBody() + " )");
+                return;
+              }
+            });
+            future.complete(res.result());
           }
         }
       } catch(Exception e) {
@@ -1860,19 +1892,13 @@ public class RestVerticleTest {
     return future;
   }
 
-  private Future<WrappedResponse> testInactivePermissionExists(TestContext context,
-      String permissionName) {
-    return testPermissionExists(context, permissionName, true, true);
-  }
-
   private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName,
       boolean includeDummies) {
     return testPermissionExists(context, permissionName, includeDummies, false);
   }
 
-  private Future<WrappedResponse> testPermissionExists(TestContext context,
-                                                       String permissionName) {
-    return testPermissionExists(context, permissionName, false);
+  private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName) {
+    return testPermissionExists(context, permissionName, false, false);
   }
 
   private Future<WrappedResponse> testPermUserMetadata(TestContext context) {

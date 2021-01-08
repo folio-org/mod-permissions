@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
+import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.DefinedBy;
@@ -410,6 +411,64 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
+  private Future<Void> updatedGrantedTo(AsyncResult<SQLConnection> connection,
+      String permissionName, String permUserId, Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setOperation("=");
+    nameCrit.setVal(permissionName);
+    Criterion crit = new Criterion(nameCrit);
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    pgClient.get(TABLE_NAME_PERMS, Permission.class, crit, true, false, getReply -> {
+      if (getReply.failed()) {
+        String errStr =
+            "Error getting permission " + permissionName + ": " + getReply.cause().getMessage();
+        logger.error(errStr, getReply.cause());
+        promise.fail(getReply.cause());
+        return;
+      }
+      List<Permission> permList = getReply.result().getResults();
+      if (permList.isEmpty()) {
+        promise.fail("Permission with name " + permissionName + " does not exist");
+        return;
+      }
+      // now we can actually add it
+      Permission perm = permList.get(0);
+      if (perm.getGrantedTo().contains(permUserId)) {
+        promise.fail("Permission " + permissionName + " already granted to " + permUserId);
+        return;
+      }
+      try {
+        if (perm.getGrantedTo().contains(permUserId)) {
+          logger
+              .debug("Permission '" + permissionName + "' already grantedTo '" + permUserId + "'");
+          promise.complete();
+          return;
+        }
+
+        perm.getGrantedTo().add(permUserId);
+        String query = String.format("permissionName==%s", permissionName);
+        CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
+        pgClient.update(connection, TABLE_NAME_PERMS, perm, cqlFilter, true, putReply -> {
+          if (putReply.failed()) {
+            promise.fail(putReply.cause());
+            logger.error(putReply.cause().getMessage(), putReply.cause());
+            return;
+          }
+          promise.complete();
+        });
+      } catch (Exception e) {
+        logger.error(e.getMessage(), e);
+        promise.fail(e);
+      }
+    });
+
+    return promise.future();
+  }
+
   private Future<Void> renamePermList(AsyncResult<SQLConnection> connection, ModuleId moduleId,
       Map<OkapiPermission, Permission> permList, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
@@ -423,8 +482,11 @@ public class TenantPermsAPI implements Tenantpermissions {
           List<Future> futures = new ArrayList<>(permList.size());
           permList.keySet().forEach(okapiPerm -> {
             permList.get(okapiPerm).getGrantedTo().forEach(permUser -> {
-              futures.add(addPermissionToUser(connection, permUser.toString(),
-                  okapiPerm.getPermissionName(), vertxContext, tenantId));
+              String permissionName = okapiPerm.getPermissionName();
+              futures.add(addPermissionToUser(connection, permUser.toString(), permissionName,
+                  vertxContext, tenantId));
+              futures.add(updatedGrantedTo(connection, permissionName, permUser.toString(),
+                  vertxContext, tenantId));
             });
           });
 
