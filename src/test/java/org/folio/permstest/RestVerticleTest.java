@@ -122,7 +122,7 @@ public class RestVerticleTest {
   public void testPermsSeq(TestContext context) {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
-    startFuture = sendPermissionSet(context).compose(w -> {
+    startFuture = sendInitialPermissionSet(context).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
           new String[] {"dummy.all", "dummy.collection.get"});
     }).compose(w -> {
@@ -133,7 +133,7 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testGrantedTo(context, w, permUserId1);
     }).compose(w -> {
-      return sendPermissionSetUpdates(context); // simulate upgrade
+      return sendUpdatedPermissionSet(context); // simulate upgrade
     }).compose(w -> {
       return testSoftDeleteOfRemovedPermission(context);
     }).compose(w -> {
@@ -1194,7 +1194,6 @@ public class RestVerticleTest {
   }
 
   class HTTPNoBodyResponseHandler implements Handler<HttpClientResponse> {
-
     CompletableFuture<Response> event;
     public HTTPNoBodyResponseHandler(CompletableFuture<Response> cf){
       event = cf;
@@ -1212,15 +1211,23 @@ public class RestVerticleTest {
     JsonObject body;
   }
 
-  private boolean isSizeMatch(Response r, int size){
-    if(r.body.getInteger("totalRecords") == size){
-      return true;
-    }
-    return false;
+  private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet) {
+    Future<WrappedResponse> future = Future.future();
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
+    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
+        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
+      if(res.failed()) {
+        future.fail(res.cause());
+      } else {
+        future.complete(res.result());
+      }
+    });
+
+    return future;
   }
 
-  private Future<WrappedResponse> sendPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+  private Future<WrappedResponse> sendInitialPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","dummy-1.0.0")
         .put("perms", new JsonArray()
@@ -1257,24 +1264,10 @@ public class RestVerticleTest {
                 )
             )
         );
-
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
-      if(res.failed()) {
-        future.fail(res.cause());
-      } else {
-        future.complete(res.result());
-      }
-    });
-
-    return future;
+    return sendPermissionSet(context, permissionSet);
   }
 
-  //TODO Refactor this and sendPermissionSet to reduce code duplication
-  private Future<WrappedResponse> sendPermissionSetUpdates(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+  private Future<WrappedResponse> sendUpdatedPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","dummy-2.0.0")
         .put("perms", new JsonArray()
@@ -1312,19 +1305,154 @@ public class RestVerticleTest {
                 )
             )
         );
+    return sendPermissionSet(context, permissionSet);
+  }
 
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
-      if(res.failed()) {
-        future.fail(res.cause());
+  private Future<WrappedResponse> sendOtherPermissionSet(TestContext context) {
+    Future<WrappedResponse> future = Future.future();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","silly")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "silly.all")
+                .put("displayName", "Dummy All")
+                .put("description", "All Dummy Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("silly.some")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "silly.some")
+                .put("displayName", "Silly Some")
+                .put("description", "Some Silly Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("silly.write")
+                    .add("silly.read")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "silly.read")
+                .put("displayName", "Dummy Read")
+                .put("description", "Read Dummy Entries")
+                .put("visible", true)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "silly.write")
+                .put("displayName", "Dummy Write")
+                .put("description", "Write Dummy Entries")
+            )
+        );
+
+    return sendPermissionSet(context, permissionSet);
+  }
+
+  private Future<WrappedResponse> sendBadPermissionSet(TestContext context) {
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","bad")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "bad.read")
+                .put("displayName", "Bad Read")
+                .put("description", "Read Bad Entries")
+                .put("visible", true)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "bad.write")
+                .put("displayName", "Bad Write")
+                .put("description", "Write Bad Entries")
+            )
+            .add(new JsonObject()
+                .put("permissionName", "bad.all")
+                .put("displayName", "Bad All")
+                .put("description", "All Bad Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("bad.read")
+                    .add("bad.write")
+                    .add("bad.delete")
+                )
+            )
+        );
+    return sendPermissionSet(context, permissionSet);
+  }
+
+  //need test to find bad.delete and verify that it is a dummy perm
+  private Future<WrappedResponse> testBadPermissionSet(TestContext context) {
+    Future<WrappedResponse> future = Future.future();
+    testPermissionExists(context, "bad.delete", true).onComplete( testRes -> {
+      if(testRes.failed()) {
+        future.fail(testRes.cause());
       } else {
-        future.complete(res.result());
+        WrappedResponse wr = testRes.result();
+        JsonObject json = new JsonObject(wr.getBody());
+        boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
+            .getBoolean("dummy");
+        if(!dummy) {
+          future.fail("bad.delete is not flagged as a dummy perm");
+        } else {
+          future.complete(wr);
+        }
       }
     });
-
     return future;
+  }
+
+  private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","otherbad")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "otherbad.read")
+                .put("displayName", "Bad Read")
+                .put("description", "Read Bad Entries")
+                .put("visible", true)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "otherbad.write")
+                .put("displayName", "Bad Write")
+                .put("description", "Write Bad Entries")
+            )
+            .add(new JsonObject()
+                .put("permissionName", "otherbad.some")
+                .put("displayName", "Bad Some")
+                .put("description", "Some bad perms")
+                .put("subPermissions", new JsonArray()
+                    .add("alien.woo")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "otherbad.all")
+                .put("displayName", "Bad All")
+                .put("description", "All Bad Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("otherbad.read")
+                    .add("otherbad.write")
+                    .add("otherbad.delete")
+                )
+            )
+        );
+    return sendPermissionSet(context, permissionSet);
+  }
+
+  private Future<WrappedResponse> sendAlienPermissionSet(TestContext context) {
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","alien")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "alien.woo")
+                .put("displayName", "Alien Woo")
+                .put("description", "Woo an Alien (wtf?)")
+                .put("visible", true)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "alien.all")
+                .put("displayName", "Alien All")
+                .put("description", "All Alien Permissions")
+                .put("subPermissions", new JsonArray()
+                    .add("alien.woo")
+                )
+            )
+        );
+    return sendPermissionSet(context, permissionSet);
   }
 
   // test soft delete of removed permission
@@ -1418,204 +1546,6 @@ public class RestVerticleTest {
         }
       }
     });
-    return future;
-  }
-
-  private Future<WrappedResponse> sendOtherPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    JsonObject permissionSet = new JsonObject()
-        .put("moduleId","silly")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "silly.all")
-                .put("displayName", "Dummy All")
-                .put("description", "All Dummy Permissions")
-                .put("subPermissions", new JsonArray()
-                    .add("silly.some")
-                )
-            )
-            .add(new JsonObject()
-                .put("permissionName", "silly.some")
-                .put("displayName", "Silly Some")
-                .put("description", "Some Silly Permissions")
-                .put("subPermissions", new JsonArray()
-                    .add("silly.write")
-                    .add("silly.read")
-                )
-            )
-            .add(new JsonObject()
-                .put("permissionName", "silly.read")
-                .put("displayName", "Dummy Read")
-                .put("description", "Read Dummy Entries")
-                .put("visible", true)
-            )
-            .add(new JsonObject()
-                .put("permissionName", "silly.write")
-                .put("displayName", "Dummy Write")
-                .put("description", "Write Dummy Entries")
-            )
-        );
-
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
-      if(res.failed()) {
-        future.fail(res.cause());
-      } else {
-        future.complete(res.result());
-      }
-    });
-
-    return future;
-  }
-
-  private Future<WrappedResponse> sendBadPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    JsonObject permissionSet = new JsonObject()
-        .put("moduleId","bad")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "bad.read")
-                .put("displayName", "Bad Read")
-                .put("description", "Read Bad Entries")
-                .put("visible", true)
-            )
-            .add(new JsonObject()
-                .put("permissionName", "bad.write")
-                .put("displayName", "Bad Write")
-                .put("description", "Write Bad Entries")
-            )
-            .add(new JsonObject()
-                .put("permissionName", "bad.all")
-                .put("displayName", "Bad All")
-                .put("description", "All Bad Permissions")
-                .put("subPermissions", new JsonArray()
-                    .add("bad.read")
-                    .add("bad.write")
-                    .add("bad.delete")
-                )
-            )
-        );
-
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
-      if(res.failed()) {
-        future.fail(new Exception(res.cause()));
-      } else {
-        future.complete(res.result());
-      }
-    });
-
-    return future;
-  }
-
-  //need test to find bad.delete and verify that it is a dummy perm
-
-  private Future<WrappedResponse> testBadPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    testPermissionExists(context, "bad.delete", true).onComplete( testRes -> {
-      if(testRes.failed()) {
-        future.fail(testRes.cause());
-      } else {
-        WrappedResponse wr = testRes.result();
-        JsonObject json = new JsonObject(wr.getBody());
-        boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
-            .getBoolean("dummy");
-        if(!dummy) {
-          future.fail("bad.delete is not flagged as a dummy perm");
-        } else {
-          future.complete(wr);
-        }
-      }
-    });
-    return future;
-  }
-
-  private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    JsonObject permissionSet = new JsonObject()
-        .put("moduleId","otherbad")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "otherbad.read")
-                .put("displayName", "Bad Read")
-                .put("description", "Read Bad Entries")
-                .put("visible", true)
-            )
-            .add(new JsonObject()
-                .put("permissionName", "otherbad.write")
-                .put("displayName", "Bad Write")
-                .put("description", "Write Bad Entries")
-            )
-            .add(new JsonObject()
-                .put("permissionName", "otherbad.some")
-                .put("displayName", "Bad Some")
-                .put("description", "Some bad perms")
-                .put("subPermissions", new JsonArray()
-                    .add("alien.woo")
-                )
-            )
-            .add(new JsonObject()
-                .put("permissionName", "otherbad.all")
-                .put("displayName", "Bad All")
-                .put("description", "All Bad Permissions")
-                .put("subPermissions", new JsonArray()
-                    .add("otherbad.read")
-                    .add("otherbad.write")
-                    .add("otherbad.delete")
-                )
-            )
-        );
-
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", CONTENT_TYPE_TEXT_JSON);
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
-      if(res.failed()) {
-        future.fail(new Exception(res.cause()));
-      } else {
-        future.complete(res.result());
-      }
-    });
-
-    return future;
-  }
-
-  private Future<WrappedResponse> sendAlienPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
-    JsonObject permissionSet = new JsonObject()
-        .put("moduleId","alien")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "alien.woo")
-                .put("displayName", "Alien Woo")
-                .put("description", "Woo an Alien (wtf?)")
-                .put("visible", true)
-            )
-            .add(new JsonObject()
-                .put("permissionName", "alien.all")
-                .put("displayName", "Alien All")
-                .put("description", "All Alien Permissions")
-                .put("subPermissions", new JsonArray()
-                    .add("alien.woo")
-                )
-            )
-        );
-
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("accept", "application/json,text/plain");
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201).onComplete(res -> {
-      if(res.failed()) {
-        future.fail(new Exception(res.cause()));
-      } else {
-        future.complete(res.result());
-      }
-    });
-
     return future;
   }
 

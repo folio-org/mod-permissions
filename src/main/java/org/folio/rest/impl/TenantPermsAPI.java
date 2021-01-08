@@ -313,12 +313,12 @@ public class TenantPermsAPI implements Tenantpermissions {
     Promise<Void> promise = Promise.promise();
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.startTx(connection -> renamePermList(connection, moduleId, permList,
-        vertxContext, tenantId).onComplete(softDeleteResult -> {
-          if (softDeleteResult.failed()) {
+        vertxContext, tenantId).onComplete(renameResult -> {
+          if (renameResult.failed()) {
             pgClient.rollbackTx(connection, rollback -> {
               logger.info(String.format("Error renaming permissions: %s",
-                  softDeleteResult.cause().getLocalizedMessage()));
-              promise.fail(softDeleteResult.cause());
+                  renameResult.cause().getLocalizedMessage()));
+              promise.fail(renameResult.cause());
             });
             return;
           }
@@ -452,10 +452,10 @@ public class TenantPermsAPI implements Tenantpermissions {
         perm.getGrantedTo().add(permUserId);
         String query = String.format("permissionName==%s", permissionName);
         CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
-        pgClient.update(connection, TABLE_NAME_PERMS, perm, cqlFilter, true, putReply -> {
-          if (putReply.failed()) {
-            promise.fail(putReply.cause());
-            logger.error(putReply.cause().getMessage(), putReply.cause());
+        pgClient.update(connection, TABLE_NAME_PERMS, perm, cqlFilter, true, updateReply -> {
+          if (updateReply.failed()) {
+            promise.fail(updateReply.cause());
+            logger.error(updateReply.cause().getMessage(), updateReply.cause());
             return;
           }
           promise.complete();
