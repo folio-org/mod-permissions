@@ -20,11 +20,13 @@ import java.util.stream.Collectors;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.rest.annotations.Validate;
+import org.folio.rest.jaxrs.model.DefinedBy;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionListObject;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
 import org.folio.rest.jaxrs.model.PermissionNameObject;
 import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.model.DefinedBy.Defined;
 import org.folio.rest.jaxrs.model.PermissionUpload;
 import org.folio.rest.jaxrs.resource.Perms;
 import org.folio.rest.persist.PgUtil;
@@ -796,6 +798,9 @@ public class PermsAPI implements Perms {
               }
               Permission realPerm = getRealPermObject(entity);
               realPerm.setDummy(false);
+              DefinedBy definedBy = new DefinedBy();
+              definedBy.setDefined(Defined.USER);
+              realPerm.setDefinedBy(definedBy);
               try {
                 postgresClient.save(connection, TABLE_NAME_PERMS, newId, realPerm, postReply -> {
                   if (postReply.failed()) {

@@ -51,6 +51,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private static final String TABLE_NAME_PERMS = "permissions";
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   private static final String ID_FIELD = "id";
+  public static final String DEPRECATED_PREFIX = "(deprecated) ";
 
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
 
@@ -394,6 +395,7 @@ public class TenantPermsAPI implements Tenantpermissions {
 
     permList.forEach(perm -> {
       perm.setInactive(true);
+      perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
       entities.add(perm);
     });
 
@@ -813,6 +815,12 @@ public class TenantPermsAPI implements Tenantpermissions {
             Permission foundPerm = null;
             if (!returnList.isEmpty()) {
               foundPerm = returnList.get(0);
+              if (foundPerm.getDefinedBy() != null && Defined.USER.equals(foundPerm.getDefinedBy().getDefined())) {
+                pgClient.rollbackTx(connection, rollback -> {
+                  promise.fail("PermissionName collision with user-defined permission: " + perm.getPermissionName());
+                });
+                return;
+              }
               // leverage dummy permission to handle permission update
               if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
