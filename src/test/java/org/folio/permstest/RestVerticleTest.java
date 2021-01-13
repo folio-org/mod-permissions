@@ -1,26 +1,29 @@
 package org.folio.permstest;
 
-import io.vertx.core.Future;
-import io.vertx.core.CompositeFuture;
+import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
+import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
+import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
+import static org.hamcrest.CoreMatchers.containsString;
+
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
@@ -29,18 +32,19 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.permstest.TestUtil.WrappedResponse;
-import org.folio.rest.jaxrs.model.OkapiPermissionSet;
-import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.OkapiPermission;
-import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.PermsCache;
 import org.folio.rest.impl.TenantPermsAPI;
+import org.folio.rest.jaxrs.model.OkapiPermission;
+import org.folio.rest.jaxrs.model.OkapiPermissionSet;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
@@ -50,9 +54,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
-import com.sun.el.stream.Stream;
-import static org.folio.permstest.TestUtil.*;
-import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -68,7 +69,7 @@ public class RestVerticleTest {
 
   private static final String userUserId = "93cb7ed4-313e-4f06-bd4b-d44b1308c3f3";
   private static Vertx vertx;
-  private static HttpClient client;
+  private static WebClient client;
   static int port;
 
   @Rule
@@ -80,7 +81,7 @@ public class RestVerticleTest {
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku",  null);
     vertx = Vertx.vertx();
-    client = vertx.createHttpClient();
+    client = WebClient.create(vertx);
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
         .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(true);
     try {
@@ -1171,15 +1172,21 @@ public class RestVerticleTest {
 
   private void send(String tenant, String url, TestContext context, HttpMethod method, String content,
                     String contentType, Handler<HttpClientResponse> handler) {
-    HttpClientRequest request = client.requestAbs(method, url);
-    request.exceptionHandler(error -> context.fail(error.getMessage())).handler(handler);
-    request.putHeader("x-okapi-tenant", tenant);
-    request.putHeader("Accept", CONTENT_TYPE_TEXT_JSON);
-    request.putHeader("Content-type", contentType);
+    HttpRequest<Buffer> request = client.requestAbs(method, url)
+      .putHeader("x-okapi-tenant", tenant)
+      .putHeader("Accept", CONTENT_TYPE_TEXT_JSON)
+      .putHeader("Content-type", contentType);
+
     if (content == null) {
-      request.end();
+      request.send(res -> {
+        res.map(handler)
+          .otherwise((HttpClientResponse error) -> context.fail(error.statusMessage()));
+      });
     } else {
-      request.end(content);
+      request.sendBuffer(Buffer.buffer(content), res -> {
+        res.map(handler)
+          .otherwise((HttpClientResponse error) -> context.fail(error.statusMessage()));
+      });
     }
     logger.debug("Sending " + method.toString() + " request to " +
         url + " with content '" + content + "'");
@@ -1383,7 +1390,7 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> sendOtherPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","silly")
         .put("perms", new JsonArray()
@@ -1451,23 +1458,23 @@ public class RestVerticleTest {
 
   //need test to find bad.delete and verify that it is a dummy perm
   private Future<WrappedResponse> testBadPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     testPermissionExists(context, "bad.delete", true).onComplete( testRes -> {
       if(testRes.failed()) {
-        future.fail(testRes.cause());
+        promise.fail(testRes.cause());
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject json = new JsonObject(wr.getBody());
         boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
             .getBoolean("dummy");
         if(!dummy) {
-          future.fail("bad.delete is not flagged as a dummy perm");
+          promise.fail("bad.delete is not flagged as a dummy perm");
         } else {
-          future.complete(wr);
+          promise.complete(wr);
         }
       }
     });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
@@ -1611,67 +1618,67 @@ public class RestVerticleTest {
 
   // test update for parent permission
   private Future<WrappedResponse> testUpdateParentPermission(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     testPermissionExists(context, "dummy.all", true).onComplete( testRes -> {
       if(testRes.failed()) {
-        future.fail(testRes.cause());
+        promise.fail(testRes.cause());
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject json = new JsonObject(wr.getBody());
         JsonArray subPermissions = json.getJsonArray("permissions").getJsonObject(0)
             .getJsonArray("subPermissions");
         if (subPermissions.size() != 4 || !subPermissions.contains("dummy.delete")) {
-          future.fail("dummy.all should contain three " + subPermissions.toString() +
+          promise.fail("dummy.all should contain three " + subPermissions.toString() +
               " subPermissions including dummy.delete");
         } else {
-          future.complete(wr);
+          promise.complete(wr);
         }
       }
     });
-    return future;
+    return promise.future();
   }
 
   // test update for child permission
   private Future<WrappedResponse> testUpdateChildPermission(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     testPermissionExists(context, "dummy.delete", true).onComplete( testRes -> {
       if(testRes.failed()) {
-        future.fail(testRes.cause());
+        promise.fail(testRes.cause());
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject json = new JsonObject(wr.getBody());
         JsonArray childOf = json.getJsonArray("permissions").getJsonObject(0)
             .getJsonArray("childOf");
         if (childOf.size() != 1 || !childOf.contains("dummy.all")) {
-          future.fail("dummy.delete should be child of dummy.all");
+          promise.fail("dummy.delete should be child of dummy.all");
         } else {
-          future.complete(wr);
+          promise.complete(wr);
         }
       }
     });
-    return future;
+    return promise.future();
   }
 
   //load a permission set that includes alien.woo
   //test that alien.woo is a real permission
   private Future<WrappedResponse> testAlienPermissionSet(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     testPermissionExists(context, "alien.woo").onComplete( testRes -> {
       if(testRes.failed()) {
-        future.fail(testRes.cause());
+        promise.fail(testRes.cause());
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject json = new JsonObject(wr.getBody());
         boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
             .getBoolean("dummy");
         if(dummy) {
-          future.fail("alien.woo is flagged as a dummy perm");
+          promise.fail("alien.woo is flagged as a dummy perm");
         } else {
-          future.complete(wr);
+          promise.complete(wr);
         }
       }
     });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> postPermUser(TestContext context, String userId, String[] permsToAdd) {
@@ -1685,15 +1692,15 @@ public class RestVerticleTest {
         .put("id", permUserId)
         .put("userId", userId)
         .put("permissions", perms);
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users",
         HttpMethod.POST, null, newUser.encode(), 201).onComplete(res -> {
-      if(res.failed()) { future.fail(res.cause()); } else {
-        future.complete(res.result());
+      if(res.failed()) { promise.fail(res.cause()); } else {
+        promise.complete(res.result());
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> putPermUserBad(TestContext context,
@@ -1702,52 +1709,52 @@ public class RestVerticleTest {
         .put("id", permsUserId)
         .put("userId", userId1)
         .put("permissions", new JsonArray().add("spurious.all"));
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/123",
         HttpMethod.PUT, null, modifiedUser.encode(), 404).onComplete(res -> {
       if(res.failed()) {
-        future.fail(res.cause());
+        promise.fail(res.cause());
       } else {
-        future.complete(res.result());
+        promise.complete(res.result());
       }
     });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId, String[] expected) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/users/" + permsUserId +
         "/permissions?expanded=true", HttpMethod.GET, headers, null, 200).onComplete(res -> {
       try {
         if(res.failed()) {
-          future.fail(res.cause());
+          promise.fail(res.cause());
         } else {
           JsonArray nameList = res.result().getJson().getJsonArray("permissionNames");
           if(nameList == null) {
-            future.fail("Could not find 'permissionNames' in " + res.result().getBody());
+            promise.fail("Could not find 'permissionNames' in " + res.result().getBody());
           } else {
             Arrays.stream(expected).forEach(exp -> {
               if (!nameList.contains(exp)) {
-                future.fail("Namelist does not contain '" + exp + "' " + "( "
+                promise.fail("Namelist does not contain '" + exp + "' " + "( "
                     + res.result().getBody() + " )");
                 return;
               }
             });
-            future.complete(res.result());
+            promise.complete(res.result());
           }
         }
       } catch(Exception e) {
-        future.fail(e);
+        promise.fail(e);
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testUserPermsQuery(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String url;
     try {
@@ -1755,12 +1762,12 @@ public class RestVerticleTest {
       url = "http://localhost:" + port + "/perms/users?query=" +
           URLEncoder.encode("permissions=dummy*", "UTF-8");
     } catch(Exception e) {
-      future.fail(e);
-      return future;
+      promise.fail(e);
+      return promise.future();
     }
     TestUtil.doRequest(vertx, url, HttpMethod.GET, headers, null, 200).onComplete(res -> {
       if(res.failed()) {
-        future.fail(res.cause());
+        promise.fail(res.cause());
       } else {
         try {
           JsonArray userList = res.result().getJson().getJsonArray("permissionUsers");
@@ -1773,34 +1780,34 @@ public class RestVerticleTest {
             }
           }
           if (userObject == null) {
-            future.fail("Permissions record for userId matching "
+            promise.fail("Permissions record for userId matching "
                 + userId1 + " not found in permissionUsers listing");
             return;
           } else {
-            future.complete(res.result());
+            promise.complete(res.result());
           }
         } catch(Exception e) {
-          future.fail(e);
+          promise.fail(e);
         }
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testTenantPermissionVisible(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String url;
     try {
       headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
       url = "http://localhost:"+port+ "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", "UTF-8");
     } catch(Exception e) {
-      future.fail(e);
-      return future;
+      promise.fail(e);
+      return promise.future();
     }
     TestUtil.doRequest(vertx, url, HttpMethod.GET, headers, null, 200).onComplete(res -> {
-      if(res.failed()) { future.fail(res.cause()); } else {
+      if(res.failed()) { promise.fail(res.cause()); } else {
         try {
           JsonArray permList = res.result().getJson().getJsonArray("permissions");
           boolean dummyReadFound = false;
@@ -1811,30 +1818,30 @@ public class RestVerticleTest {
               dummyReadFound = true;
               boolean visible = permJson.getBoolean("visible");
               if (visible != true) {
-                future.fail("visible field of dummy.read should be true. Value is " + visible);
+                promise.fail("visible field of dummy.read should be true. Value is " + visible);
                 return;
               }
             } else if (permJson.getString("permissionName").equals("dummy.write")) {
               dummyWriteFound = true;
               boolean visible = permJson.getBoolean("visible");
               if (visible != false) {
-                future.fail("visible field of dummy.write should be true. Value is " + visible);
+                promise.fail("visible field of dummy.write should be true. Value is " + visible);
                 return;
               }
             }
           }
           if (dummyReadFound && dummyWriteFound) {
-            future.complete(res.result());
+            promise.complete(res.result());
           } else {
-            future.fail(new Exception("Resultset does not contain 'dummy.read' and 'dummy.write'"));
+            promise.fail(new Exception("Resultset does not contain 'dummy.read' and 'dummy.write'"));
           }
         } catch(Exception e) {
-          future.fail(e);
+          promise.fail(e);
         }
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> resolvePermNameConflict(TestContext context) {
@@ -1876,7 +1883,7 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> testPostBadPermission(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject badPermission = new JsonObject()
         .put("permissionName", "setOne")
         .put("subPermissions", new JsonArray()
@@ -1889,30 +1896,30 @@ public class RestVerticleTest {
         );
     TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", HttpMethod.POST,
         null, badPermission.encode(), 400).onComplete(res -> {
-      if(res.failed()) { future.fail(res.cause()); } else {
-        future.complete(res.result());
+      if(res.failed()) { promise.fail(res.cause()); } else {
+        promise.complete(res.result());
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testPostNullPermissionName(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject nullPermission = new JsonObject()
         .put("displayName", "nullPermName");
     TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", HttpMethod.POST,
         null, nullPermission.encode(), 201).onComplete(res -> {
-      if(res.failed()) { future.fail(res.cause()); } else {
-        future.complete(res.result());
+      if(res.failed()) { promise.fail(res.cause()); } else {
+        promise.complete(res.result());
       }
     });
 
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testNonAsciiUser(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     String url = "http://localhost:" + port + "/perms/users";
     String url2;
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
@@ -1923,24 +1930,24 @@ public class RestVerticleTest {
       headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
       url2 = "http://localhost:"+port+"/perms/users" + URLEncoder.encode("sschönberger", "UTF-8");
     } catch(Exception e) {
-      future.fail(e);
-      return future;
+      promise.fail(e);
+      return promise.future();
     }
     TestUtil.doRequest(vertx, url, HttpMethod.POST, null, newUser.encode(), 201).onComplete(res -> {
-      if(res.failed()) { future.fail(res.cause()); } else {
+      if(res.failed()) { promise.fail(res.cause()); } else {
         TestUtil.doRequest(vertx, url2, HttpMethod.GET, headers, null, 200 ).onComplete(res2 -> {
-          if(res2.failed()) { future.fail(res2.cause()); } else {
-            future.complete(res2.result());
+          if(res2.failed()) { promise.fail(res2.cause()); } else {
+            promise.complete(res2.result());
           }
         });
       }
     });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName,
       boolean includeDummies, boolean includeInactive) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     String dummyFlag = includeDummies ? "includeDummy=true&" : "";
     String inactiveFlag = includeInactive ? "includeInactive=true&" : "";
 
@@ -1948,18 +1955,18 @@ public class RestVerticleTest {
         + "query=permissionName==" + permissionName;
     TestUtil.doRequest(vertx, url, HttpMethod.GET, null, null, 200).onComplete(res -> {
       if(res.failed()) {
-        future.fail(res.cause());
+        promise.fail(res.cause());
       } else {
         WrappedResponse wr = res.result();
         JsonObject json = new JsonObject(wr.getBody());
         if(json.getInteger("totalRecords") < 1) {
-          future.fail("permission " + permissionName + " not found");
+          promise.fail("permission " + permissionName + " not found");
         } else {
-          future.complete(wr);
+          promise.complete(wr);
         }
       }
     });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName,
@@ -1972,7 +1979,7 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> testPermUserMetadata(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     String url = "http://localhost:" + port + "/perms/users";
     JsonObject newUser = new JsonObject()
         .put("userId", UUID.randomUUID().toString())
@@ -1983,7 +1990,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-User-Id", fakeUserId);
     TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newUser.encode(), 201).onComplete(
         res -> {
-          if(res.failed()) { future.fail(res.cause()); } else {
+          if(res.failed()) { promise.fail(res.cause()); } else {
             try {
               String newUserId = res.result().getJson().getString("id");
               String url2 = String.format("http://localhost:%s/perms/users/%s", port,
@@ -1992,24 +1999,24 @@ public class RestVerticleTest {
                 try {
                   JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
                   if(metadata == null) {
-                    future.fail("No metadata found in result: " + res2.result().getJson().encode());
+                    promise.fail("No metadata found in result: " + res2.result().getJson().encode());
                   } else {
-                    future.complete(res2.result());
+                    promise.complete(res2.result());
                   }
                 } catch(Exception e) {
-                  future.fail(e);
+                  promise.fail(e);
                 }
               });
             } catch(Exception e) {
-              future.fail(e);
+              promise.fail(e);
             }
           }
         });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> testPermMetadata(TestContext context) {
-    Future<WrappedResponse> future = Future.future();
+    Promise<WrappedResponse> promise = Promise.promise();
     String url = "http://localhost:" + port + "/perms/permissions";
     JsonObject newPerm = new JsonObject()
         .put("permissionName", "testmeta.test")
@@ -2021,7 +2028,7 @@ public class RestVerticleTest {
     headers.add("X-Okapi-User-Id", fakeUserId);
     TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newPerm.encode(), 201).onComplete(
         res -> {
-          if(res.failed()) { future.fail(res.cause()); } else {
+          if(res.failed()) { promise.fail(res.cause()); } else {
             try {
               String newPermId = res.result().getJson().getString("id");
               String url2 = String.format("http://localhost:%s/perms/permissions/%s", port,
@@ -2030,20 +2037,20 @@ public class RestVerticleTest {
                 try {
                   JsonObject metadata = res2.result().getJson().getJsonObject("metadata");
                   if(metadata == null) {
-                    future.fail("No metadata found in result: "  + res2.result().getJson().encode());
+                    promise.fail("No metadata found in result: "  + res2.result().getJson().encode());
                   } else {
-                    future.complete(res2.result());
+                    promise.complete(res2.result());
                   }
                 } catch(Exception e) {
-                  future.fail(e);
+                  promise.fail(e);
                 }
               });
             } catch(Exception e) {
-              future.fail(e);
+              promise.fail(e);
             }
           }
         });
-    return future;
+    return promise.future();
   }
 
   private Future<WrappedResponse> sendNestedSubPerms(TestContext context) {
