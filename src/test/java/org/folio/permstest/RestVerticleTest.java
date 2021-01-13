@@ -145,11 +145,12 @@ public class RestVerticleTest {
     }).compose(w -> {
       return sendUpdatedPermissionSet(context); // simulate upgrade
     }).compose(w -> {
-      return testSoftDeleteOfRemovedPermission(context);
+      return testSoftDeleteOfRemovedPermission(context, "dummy.update");
     }).compose(w -> {
       return testPermissionRename(context);
     }).compose(w -> {
-      return testUserPerms(context, permUserId1, new String[] {"dummy.collection.read"});
+      return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.read", "dummy.delete"});
     }).compose(w -> {
       return testPermissionExists(context, "dummy.collection.read");
     }).compose(w -> {
@@ -201,6 +202,21 @@ public class RestVerticleTest {
       return sendNestedSubPermsWithException(context);
     }).compose(w -> {
       return testNestedSubPermExpansionWithExceptions(context);
+    }).compose(w -> {
+      return sendInitialPermissionSet(context); // simulate downgrade
+    }).compose(w -> {
+      return testDowngradeRestoredPermission(context);
+    }).compose(w -> {
+      return testPermissionExists(context, "dummy.collection.get");
+    }).compose(w -> {
+      return testGrantedTo(context, w, permUserId1);
+    }).compose(w -> {
+      return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.get", "dummy.update"});
+    }).compose(w -> {
+      return testSoftDeleteOfRemovedPermission(context, "dummy.collection.read");
+    }).compose(w -> {
+      return testSoftDeleteOfRemovedPermission(context, "dummy.delete");
     });
 
     startFuture.onComplete(res -> {
@@ -1514,7 +1530,31 @@ public class RestVerticleTest {
   }
 
   // test soft delete of removed permission
-  private Future<WrappedResponse> testSoftDeleteOfRemovedPermission(TestContext context) {
+  private Future<WrappedResponse> testSoftDeleteOfRemovedPermission(TestContext context, String permName) {
+    Promise<WrappedResponse> promise = Promise.promise();
+    testPermissionExists(context, permName, true, true).onComplete(testRes -> {
+      if (testRes.failed()) {
+        promise.fail(testRes.cause());
+      } else {
+        WrappedResponse wr = testRes.result();
+        JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
+        if (!perm.getBoolean("inactive")) {
+          promise.fail(permName + " should be inactive");
+          return;
+        }
+        if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
+          promise.fail("the displayName of inactive permission " + permName
+              + " was not updated to indicate it was deprecated");
+          return;
+        }
+        promise.complete(wr);
+      }
+    });
+    return promise.future();
+  }
+
+  // test soft delete of removed permission
+  private Future<WrappedResponse> testDowngradeRestoredPermission(TestContext context) {
     Promise<WrappedResponse> promise = Promise.promise();
     testPermissionExists(context, "dummy.update", true, true).onComplete(testRes -> {
       if (testRes.failed()) {
@@ -1522,13 +1562,13 @@ public class RestVerticleTest {
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (!perm.getBoolean("inactive")) {
-          promise.fail("dummy.update should be inactive");
+        if (perm.getBoolean("inactive")) {
+          promise.fail("dummy.update should no longer be inactive");
           return;
         }
-        if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
+        if (perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
           promise.fail(
-              "the displayName of inactive permission dummy.update was not updated to indicate it was deprecated");
+              "downgrade should have removed the deprecated prefix from the displayName of dummy.update");
           return;
         }
         promise.complete(wr);
