@@ -7,8 +7,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.json.Json;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +15,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.DefinedBy;
@@ -52,7 +52,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
 
-  private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
+  private final Logger logger = LogManager.getLogger(TenantPermsAPI.class);
 
   @Override
   public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders,
@@ -80,7 +80,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<List<Permission>> getPermsForModule(ModuleId moduleId, List<OkapiPermission> permSet,
       Context vertxContext, String tenantId) {
     Promise<List<Permission>> promise = Promise.promise();
-    
+
     try {
       getPermsByModule(moduleId, vertxContext, tenantId)
         .onComplete(getResult -> {
@@ -127,14 +127,14 @@ public class TenantPermsAPI implements Tenantpermissions {
       logger.error(e.getMessage(), e);
       promise.fail(e);
     }
-    
+
     return promise.future();
   }
 
   private List<OkapiPermission> getNewPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
     List<OkapiPermission> newPerms = new ArrayList<>();
-    
+
     if(perms != null) {
       perms.stream()
         .filter(perm -> perm.getPermissionName() != null)
@@ -157,7 +157,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Map<OkapiPermission, Permission> getRenamedPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
     Map<OkapiPermission, Permission> renamedPerms = new HashMap<>();
-    
+
     if(perms != null) {
       perms.stream()
         .filter(perm -> perm.getPermissionName() != null)
@@ -654,14 +654,14 @@ public class TenantPermsAPI implements Tenantpermissions {
     Criterion crit = new Criterion(nameCrit);
 
     if (moduleId != null) {
-      String moduleName = new ModuleId(moduleId).getProduct();      
+      String moduleName = new ModuleId(moduleId).getProduct();
       Criteria modCrit = new Criteria();
       modCrit.addField(DEFINED_BY_FIELD);
       modCrit.addField(MODULE_NAME_FIELD);
       modCrit.setOperation("=");
       modCrit.setVal(moduleName);
       crit.addCriterion(modCrit);
-    }  
+    }
 
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
         Permission.class, crit.setLimit(new Limit(1)), true, false, getReply -> {

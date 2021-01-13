@@ -7,8 +7,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +15,8 @@ import java.util.UUID;
 import javax.ws.rs.core.Response;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
 import org.folio.rest.annotations.Validate;
@@ -101,7 +101,7 @@ public class PermsAPI implements Perms {
   private static final String ID_FIELD = "id";
   private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
-  private final Logger logger = LoggerFactory.getLogger(PermsAPI.class);
+  private final Logger logger = LogManager.getLogger(PermsAPI.class);
 
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -1186,7 +1186,7 @@ public class PermsAPI implements Perms {
   protected static Future<Boolean> checkPermissionExists(AsyncResult<SQLConnection> connection,
                                                          String permissionName, Context vertxContext, String tenantId) {
 
-    Logger logger = LoggerFactory.getLogger(PermsAPI.class);
+    Logger logger = LogManager.getLogger(PermsAPI.class);
     Promise<Boolean> promise = Promise.promise();
     try {
       Criteria nameCrit = new Criteria();

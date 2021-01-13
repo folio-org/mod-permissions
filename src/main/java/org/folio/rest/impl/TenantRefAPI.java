@@ -5,16 +5,17 @@ import io.vertx.core.Context;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import java.util.Map;
 import javax.ws.rs.core.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.rest.jaxrs.model.TenantAttributes;
+import org.folio.rest.jaxrs.model.TenantJob;
 import org.folio.rest.tools.utils.TenantLoading;
 
 public class TenantRefAPI extends TenantAPI {
 
-  private static final Logger log = LoggerFactory.getLogger(TenantRefAPI.class);
+  private static final Logger log = LogManager.getLogger(TenantRefAPI.class);
 
   private String filter(String content) {
     JsonObject jInput = new JsonObject(content);
@@ -46,7 +47,7 @@ public class TenantRefAPI extends TenantAPI {
             return;
           }
           hndlr.handle(io.vertx.core.Future.succeededFuture(PostTenantResponse
-            .respond201WithApplicationJson("")));
+            .respond201WithApplicationJson(new TenantJob(), PostTenantResponse.headersFor201())));
         });
     }, cntxt);
   }

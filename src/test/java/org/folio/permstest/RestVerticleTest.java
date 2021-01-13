@@ -15,8 +15,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
@@ -31,6 +29,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
@@ -56,7 +56,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
-  private static final Logger logger = LoggerFactory.getLogger(RestVerticleTest.class);
+  private static final Logger logger = LogManager.getLogger(RestVerticleTest.class);
 
   private static final String userId1 = "35d05a6a-d61e-4e81-9708-fc44daadbec5";
   private static final String userId2 = "176bc0cc-b785-4cf9-9e8a-5fafe8178332";

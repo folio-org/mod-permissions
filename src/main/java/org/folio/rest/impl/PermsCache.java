@@ -2,8 +2,6 @@ package org.folio.rest.impl;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.Promise;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,6 +12,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -26,7 +26,7 @@ import org.folio.rest.persist.Criteria.Criterion;
  */
 public class PermsCache {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(PermsCache.class);
+  private static final Logger LOGGER = LogManager.getLogger(PermsCache.class);
 
   public static final String CACHE_HEADER = "use.perms.cache";
 
