@@ -50,7 +50,6 @@ public class TenantPermsAPI implements Tenantpermissions {
   private static final String MODULE_NAME_FIELD = "'moduleName'";
   private static final String TABLE_NAME_PERMS = "permissions";
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
-  private static final String ID_FIELD = "id";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
 
   private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
@@ -173,8 +172,15 @@ public class TenantPermsAPI implements Tenantpermissions {
           }
         });
     }
-
     return renamedPerms;
+  }
+
+  private List<OkapiPermission> getNewAndModifiedPerms(ModuleId moduleId, Map<String, Permission> dbPerms,
+      List<OkapiPermission> okapiPerms) {
+    List<OkapiPermission> newPerms = getNewPerms(dbPerms, okapiPerms);
+    List<OkapiPermission> modifiedPerms = getModifiedPerms(moduleId, dbPerms, okapiPerms);
+    newPerms.addAll(modifiedPerms);
+    return newPerms;
   }
 
   private List<OkapiPermission> getModifiedPerms(ModuleId moduleId, Map<String, Permission> dbPerms,
@@ -182,12 +188,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<OkapiPermission> modifiedPerms = new ArrayList<>();
 
     if(okapiPerms != null) {
-      DefinedBy definedBy = new DefinedBy();
-      definedBy.setDefined(Defined.SYSTEM);
-      definedBy.setModuleName(moduleId.getProduct());
-      SemVer semver = moduleId.getSemVer();
-      definedBy.setModuleVersion(semver != null ? semver.toString() : null);
-
       okapiPerms.stream()
         .filter(okapiPerm -> okapiPerm.getPermissionName() != null)
         .filter(okapiPerm -> {
@@ -230,12 +230,12 @@ public class TenantPermsAPI implements Tenantpermissions {
         Map<String, Permission> dbPerms = new HashMap<>(existing.size());
         existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));
 
-        return CompositeFuture.all(
-            handleNewPerms(moduleId, getNewPerms(dbPerms, perms), vertxContext, tenantId),
-            handleRenamedPerms(moduleId, getRenamedPerms(dbPerms, perms), vertxContext, tenantId),
-            handleModifiedPerms(moduleId, getModifiedPerms(moduleId, dbPerms, perms), vertxContext,
-                tenantId),
-            handleRemovedPerms(getRemovedPerms(dbPerms, perms), vertxContext, tenantId));
+        return handleNewAndModifiedPerms(moduleId, getNewAndModifiedPerms(moduleId, dbPerms, perms),
+            vertxContext, tenantId)
+                .compose(v -> handleRenamedPerms(moduleId, getRenamedPerms(dbPerms, perms),
+                    vertxContext, tenantId))
+                .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), vertxContext,
+                    tenantId));
       }).onComplete(ar -> {
         if (ar.failed()) {
           promise.fail(ar.cause());
@@ -251,7 +251,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> handleNewPerms(ModuleId moduleId, List<OkapiPermission> permList,
+  private Future<Void> handleNewAndModifiedPerms(ModuleId moduleId, List<OkapiPermission> permList,
       Context vertxContext, String tenantId) {
     if (permList.isEmpty()) {
       return Future.succeededFuture();
@@ -326,31 +326,6 @@ public class TenantPermsAPI implements Tenantpermissions {
           });
         }));
 
-    return promise.future();
-  }
-
-  private Future<Void> handleModifiedPerms(ModuleId moduleId, List<OkapiPermission> permList,
-      Context vertxContext, String tenantId) {
-    if (permList.isEmpty()) {
-      return Future.succeededFuture();
-    }
-
-    Promise<Void> promise = Promise.promise();
-    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    pgClient.startTx(connection -> savePermList(moduleId, permList, vertxContext, tenantId)
-        .onComplete(saveReply -> {
-          if (saveReply.failed()) {
-            // rollback the transaction
-            pgClient.rollbackTx(connection, rollback -> {
-              logger.error(String.format("Error updating permissions: %s",
-                  saveReply.cause().getLocalizedMessage()));
-              promise.fail(saveReply.cause());
-            });
-            return;
-          } else {
-            pgClient.endTx(connection, done -> promise.complete());
-          }
-        }));
     return promise.future();
   }
 
