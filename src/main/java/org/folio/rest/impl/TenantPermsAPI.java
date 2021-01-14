@@ -103,7 +103,7 @@ public class TenantPermsAPI implements Tenantpermissions {
 
             List<Future> futures = new ArrayList<>(perms.size());
             perms.forEach(perm -> {
-                futures.add(getModulePermByName(perm.getPermissionName(), moduleId.getProduct(),
+                futures.add(getModulePermByName(perm.getPermissionName(), null,
                     vertxContext, tenantId).compose(dbPerm -> {
                   if (dbPerm != null && comparePerms(perm, dbPerm)) {
                     // (B) we have a match, but lack definedBy
@@ -766,7 +766,9 @@ public class TenantPermsAPI implements Tenantpermissions {
               if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
-                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))) {
+                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
+                  || (foundPerm.getDefinedBy() == null)
+                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getDefinedBy().getModuleVersion()))) {
                 foundPerm.setDummy(true);
               }
             }

@@ -24,6 +24,7 @@ import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
@@ -34,14 +35,16 @@ import java.util.UUID;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.PermsCache;
 import org.folio.rest.impl.TenantPermsAPI;
 import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -127,6 +130,13 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendInitialPermissionSet(context).compose(w -> {
+      return removeModuleContext(context, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.get", "dummy.update"});
+    }).compose(w -> {
+      return sendInitialPermissionSet(context); // simulate perm refresh
+    }).compose(w -> {
+      return testModuleContextWasAdded(context, "dummy.read");
+    }).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
           new String[] {"dummy.all", "dummy.collection.get"});
     }).compose(w -> {
@@ -139,7 +149,7 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testPostPermission(context); // add user-defined perm to cause collision
     }).compose(w -> {
-      return sendUpdatedPermissionSetAndFail(context); // simulate upgrade but fail due to perm collision
+      return sendUpdatedPermissionSetAndFail(context); // fail upgrade due to perm collision
     }).compose(w -> {
       return resolvePermNameConflict(context); // remove the user-defined perm dummy.delete
     }).compose(w -> {
@@ -1237,6 +1247,52 @@ public class RestVerticleTest {
     JsonObject body;
   }
 
+  private Future<Void> removeModuleContext(TestContext context, String[] permNames) {
+    Promise<Void> promise = Promise.promise();
+    List<Future> futures = new ArrayList<>();
+    Arrays.stream(permNames).forEach(permName -> {
+      futures.add(testPermissionExists(context, permName).compose(wr -> {
+        Promise<WrappedResponse> p = Promise.promise();
+        JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
+        perm.remove("definedBy");
+
+        PostgresClient.getInstance(vertx, "diku").update("permissions", perm, perm.getString("id"),
+            updateReply -> {
+              if (updateReply.failed()) {
+                p.fail(updateReply.cause());
+                return;
+              }
+              p.complete(wr);
+            });
+        return p.future();
+      }));
+    });
+
+    CompositeFuture.all(futures).onComplete(ar -> {
+      if (ar.failed()) {
+        promise.fail(ar.cause());
+        return;
+      }
+      promise.complete(null);
+    });
+
+    return promise.future();
+  }
+
+  private Future<WrappedResponse> testModuleContextWasAdded(TestContext context, String permName) {
+    Promise<WrappedResponse> promise = Promise.promise();
+
+    testPermissionExists(context, permName).onComplete(wr -> {
+      JsonObject perm = wr.result().getJson().getJsonArray("permissions").getJsonObject(0);
+      if (perm.getJsonObject("definedBy") == null) {
+        promise.fail("Module context was not added to " + permName + " during upgrade");
+      }
+      promise.complete(wr.result());
+    });
+
+    return promise.future();
+  }
+
   private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet) {
     return sendPermissionSet(context, permissionSet, 201);
   }
@@ -1532,7 +1588,7 @@ public class RestVerticleTest {
   // test soft delete of removed permission
   private Future<WrappedResponse> testSoftDeleteOfRemovedPermission(TestContext context, String permName) {
     Promise<WrappedResponse> promise = Promise.promise();
-    testPermissionExists(context, permName, true, true).onComplete(testRes -> {
+    testPermissionExists(context, permName, true).onComplete(testRes -> {
       if (testRes.failed()) {
         promise.fail(testRes.cause());
       } else {
@@ -1556,7 +1612,7 @@ public class RestVerticleTest {
   // test soft delete of removed permission
   private Future<WrappedResponse> testDowngradeRestoredPermission(TestContext context) {
     Promise<WrappedResponse> promise = Promise.promise();
-    testPermissionExists(context, "dummy.update", true, true).onComplete(testRes -> {
+    testPermissionExists(context, "dummy.update", true).onComplete(testRes -> {
       if (testRes.failed()) {
         promise.fail(testRes.cause());
       } else {
@@ -1581,19 +1637,18 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testPermissionRename(TestContext context) {
     Promise<WrappedResponse> promise = Promise.promise();
     testPermissionExists(context, "dummy.collection.read")
-        .compose(resp -> testPermissionExists(context, "dummy.collection.get", false, false))
+        .compose(resp -> testPermissionExists(context, "dummy.collection.get"))
         .onComplete(collectionGetRes -> {
-          if (!collectionGetRes.failed()) {
-            promise.fail("dummy.collection.get should have been renamed but still exists");
+          if (collectionGetRes.failed()) {
+            promise.fail(collectionGetRes.cause());
             return;
           }
-          if (collectionGetRes.cause().getMessage()
-              .equals("permission dummy.collection.get not found")) {
-            // TODO check that assignments were updated too
-            promise.complete(null);
+          if (!collectionGetRes.result().getJson().getJsonArray("permissions").getJsonObject(0)
+              .getBoolean("inactive")) {
+            promise.fail("permission dummy.collection.get should be inactive due to being renamed");
             return;
           }
-          promise.fail(collectionGetRes.cause());
+          promise.complete(collectionGetRes.result());
         });
 
     return promise.future();
@@ -1939,12 +1994,11 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName,
-      boolean includeDummies, boolean includeInactive) {
+      boolean includeDummies) {
     Future<WrappedResponse> future = Future.future();
     String dummyFlag = includeDummies ? "includeDummy=true&" : "";
-    String inactiveFlag = includeInactive ? "includeInactive=true&" : "";
 
-    String url = "http://localhost:" + port + "/perms/permissions?" + dummyFlag + inactiveFlag
+    String url = "http://localhost:" + port + "/perms/permissions?" + dummyFlag
         + "query=permissionName==" + permissionName;
     TestUtil.doRequest(vertx, url, HttpMethod.GET, null, null, 200).onComplete(res -> {
       if(res.failed()) {
@@ -1962,13 +2016,8 @@ public class RestVerticleTest {
     return future;
   }
 
-  private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName,
-      boolean includeDummies) {
-    return testPermissionExists(context, permissionName, includeDummies, false);
-  }
-
   private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName) {
-    return testPermissionExists(context, permissionName, false, false);
+    return testPermissionExists(context, permissionName, false);
   }
 
   private Future<WrappedResponse> testPermUserMetadata(TestContext context) {

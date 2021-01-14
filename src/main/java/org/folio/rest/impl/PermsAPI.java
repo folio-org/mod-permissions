@@ -1085,37 +1085,28 @@ public class PermsAPI implements Perms {
   @SuppressWarnings("java:S3776")
   @Validate
   @Override
-  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy, String includeInactive,
-                                  int length, int start, String sortBy, String query, String memberOf,
+  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
+                                  int length, int start, String sortBy, String query0, String memberOf,
                                   String ownedBy, Map<String, String> okapiHeaders,
                                   Handler<AsyncResult<Response>> asyncResultHandler,
                                   Context vertxContext) {
 
     try {
       boolean includeDummyPerms = "true".equals(includeDummy);
-      boolean includeInactivePerms = "true".equals(includeInactive);
-      String[] queryArr = new String[]{query};
+      String query = query0 == null ? "" : query0;
       if (!includeDummyPerms) {
         //filter out all dummy perms from query
-        if (queryArr[0] == null || queryArr[0].isEmpty()) {
-          queryArr[0] = "(dummy == false)";
+        if (query.isEmpty()) {
+          query = "(dummy == false)";
         } else {
-          queryArr[0] = String.format("(%s) AND (dummy==false)", queryArr[0]);
-        }
-      }
-      if (!includeInactivePerms) {
-        //filter out all dummy perms from query
-        if (queryArr[0] == null || queryArr[0].isEmpty()) {
-          queryArr[0] = "(inactive == false)";
-        } else {
-          queryArr[0] = String.format("(%s) AND (inactive==false)", queryArr[0]);
+          query = String.format("(%s) AND (dummy==false)", query);
         }
       }
 
       CQLWrapper cql;
       logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
-          TABLE_NAME_PERMS, queryArr[0]));
-      cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start - 1);
+          TABLE_NAME_PERMS, query));
+      cql = getCQL(query, TABLE_NAME_PERMS, length, start - 1);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
