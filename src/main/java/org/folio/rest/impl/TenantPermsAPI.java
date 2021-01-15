@@ -336,11 +336,13 @@ public class TenantPermsAPI implements Tenantpermissions {
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     List<Permission> entities = new ArrayList<>();
 
-    permList.forEach(perm -> {
-      perm.setInactive(true);
-      perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
-      entities.add(perm);
-    });
+    permList.stream()
+      .filter(perm -> !perm.getInactive()) //skip perms which are already deprecated
+      .forEach(perm -> {
+        perm.setInactive(true);
+        perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
+        entities.add(perm);
+      });
 
     pgClient.upsertBatch(connection, TABLE_NAME_PERMS, entities, updateReply -> {
       if (updateReply.failed()) {
