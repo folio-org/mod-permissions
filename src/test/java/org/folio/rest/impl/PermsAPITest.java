@@ -204,7 +204,7 @@ public class PermsAPITest {
   public void testGetPermsPermissionsNullPointer(TestContext context) {
     PermsAPI api = new PermsAPI();
 
-    api.getPermsPermissions(null, null, null, null, 1, 1, null, null,
+    api.getPermsPermissions(null, null, null, 1, 1, null, null,
         null, null, null, context.asyncAssertSuccess(res -> {
       context.assertEquals(500, res.getStatus());
     }), null);

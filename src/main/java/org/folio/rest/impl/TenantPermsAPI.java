@@ -103,7 +103,7 @@ public class TenantPermsAPI implements Tenantpermissions {
 
             List<Future> futures = new ArrayList<>(perms.size());
             perms.forEach(perm -> {
-                futures.add(getModulePermByName(perm.getPermissionName(), moduleId.getProduct(),
+                futures.add(getModulePermByName(perm.getPermissionName(), null,
                     vertxContext, tenantId).compose(dbPerm -> {
                   if (dbPerm != null && comparePerms(perm, dbPerm)) {
                     // (B) we have a match, but lack definedBy
@@ -141,7 +141,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .filter(perm -> {
           // filter out renamed perms, we'll deal with them separately
-          for (String oldName : perm.getRenamedFrom()) {
+          for (String oldName : perm.getReplaces()) {
             if (dbPerms.containsKey(oldName)) {
               return false;
             }
@@ -163,7 +163,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         .filter(perm -> perm.getPermissionName() != null)
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .forEach(perm -> {
-          for (String oldName : perm.getRenamedFrom()) {
+          for (String oldName : perm.getReplaces()) {
             Permission dbPerm = dbPerms.get(oldName);
             if (dbPerm != null) {
               renamedPerms.put(perm, dbPerm);
@@ -336,11 +336,13 @@ public class TenantPermsAPI implements Tenantpermissions {
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     List<Permission> entities = new ArrayList<>();
 
-    permList.forEach(perm -> {
-      perm.setInactive(true);
-      perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
-      entities.add(perm);
-    });
+    permList.stream()
+      .filter(perm -> !perm.getInactive()) //skip perms which are already deprecated
+      .forEach(perm -> {
+        perm.setInactive(true);
+        perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
+        entities.add(perm);
+      });
 
     pgClient.upsertBatch(connection, TABLE_NAME_PERMS, entities, updateReply -> {
       if (updateReply.failed()) {
@@ -766,7 +768,9 @@ public class TenantPermsAPI implements Tenantpermissions {
               if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
-                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))) {
+                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
+                  || (foundPerm.getDefinedBy() == null)
+                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getDefinedBy().getModuleVersion()))) {
                 foundPerm.setDummy(true);
               }
             }
