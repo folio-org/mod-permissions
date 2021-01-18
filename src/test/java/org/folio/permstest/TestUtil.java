@@ -1,9 +1,7 @@
 package org.folio.permstest;
 
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpMethod;
@@ -59,7 +57,6 @@ public class TestUtil {
   public static Future<WrappedResponse> doRequest(Vertx vertx, String url,
     HttpMethod method, MultiMap headers, String payload,
     Integer expectedCode) {
-    Promise<WrappedResponse> promise = Promise.promise();
     WebClient client = WebClient.create(vertx);
     HttpRequest<Buffer> request = client.requestAbs(method, url);
     //Add standard headers
@@ -80,27 +77,19 @@ public class TestUtil {
     } else {
       return request.send().compose(httpResponse -> handler(httpResponse, expectedCode, method, url));
     }
-    return promise.future();
   }
 
-  public static Future<WrappedResponse> handler(HttpResponse<Buffer> res,
+  public static Future<WrappedResponse> handler(HttpResponse<Buffer> req,
     Integer expectedCode, HttpMethod method, String url) {
-    if (res.failed()) {
-      promise.fail(res.cause());
+    Buffer buf = req.bodyAsBuffer();
+    if (expectedCode != null && expectedCode != req.statusCode()) {
+      return Future.failedFuture(String.format("%s request to %s failed. Expected status code"
+          + " '%s' but got status code '%s': %s", method, url,
+        expectedCode, req.statusCode(), buf));
     } else {
-      HttpResponse<Buffer> req = res.result();
-      Buffer buf = req.bodyAsBuffer();
-      if (expectedCode != null && expectedCode != req.statusCode()) {
-        promise.fail(String.format("%s request to %s failed. Expected status code"
-            + " '%s' but got status code '%s': %s", method, url,
-          expectedCode, req.statusCode(), buf));
-      } else {
-        System.out
-          .println("Got status code " + req.statusCode() + " with payload of " + buf.toString());
-        WrappedResponse wr = new WrappedResponse(req.statusCode(), buf.toString(), req);
-        promise.complete(wr);
-      }
+      System.out
+        .println("Got status code " + req.statusCode() + " with payload of " + buf.toString());
+      return Future.succeededFuture(new WrappedResponse(req.statusCode(), buf.toString(), req));
     }
   }
-
 }

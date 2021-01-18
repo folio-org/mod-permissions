@@ -141,7 +141,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .filter(perm -> {
           // filter out renamed perms, we'll deal with them separately
-          for (String oldName : perm.getReplaces()) {
+          for (String oldName : perm.getRenamedFrom()) {
             if (dbPerms.containsKey(oldName)) {
               return false;
             }
@@ -163,7 +163,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         .filter(perm -> perm.getPermissionName() != null)
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .forEach(perm -> {
-          for (String oldName : perm.getReplaces()) {
+          for (String oldName : perm.getRenamedFrom()) {
             Permission dbPerm = dbPerms.get(oldName);
             if (dbPerm != null) {
               renamedPerms.put(perm, dbPerm);
