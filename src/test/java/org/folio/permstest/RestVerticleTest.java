@@ -23,6 +23,7 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -1165,7 +1166,7 @@ public class RestVerticleTest {
       CompletableFuture<Response> futureResponse = new CompletableFuture();
       send(tenant, "http://localhost:" + port + path, context, method, content,
           CONTENT_TYPE_JSON, new HTTPResponseHandler(futureResponse));
-      return futureResponse.get(5, TimeUnit.SECONDS);
+      return futureResponse.get(10000, TimeUnit.SECONDS);
     } catch (Exception e) {
       context.fail(e);
       return null;
@@ -1173,7 +1174,7 @@ public class RestVerticleTest {
   }
 
   private void send(String tenant, String url, TestContext context, HttpMethod method, String content,
-                    String contentType, Handler<HttpClientResponse> handler) {
+                    String contentType, Handler<HttpResponse<Buffer>> handler) {
     HttpRequest<Buffer> request = client.requestAbs(method, url)
       .putHeader("x-okapi-tenant", tenant)
       .putHeader("Accept", CONTENT_TYPE_TEXT_JSON)
@@ -1181,50 +1182,52 @@ public class RestVerticleTest {
 
     if (content == null) {
       request.send(res -> {
-        res.map(handler)
-          .otherwise((HttpClientResponse error) -> context.fail(error.statusMessage()));
+        if(res.failed()) {
+          context.fail(res.cause());
+        }
+        handler.handle(res.result());
       });
     } else {
       request.sendBuffer(Buffer.buffer(content), res -> {
-        res.map(handler)
-          .otherwise((HttpClientResponse error) -> context.fail(error.statusMessage()));
+        if(res.failed()) {
+          context.fail(res.cause());
+        }
+        handler.handle(res.result());
       });
     }
     logger.debug("Sending " + method.toString() + " request to " +
         url + " with content '" + content + "'");
   }
 
-  class HTTPResponseHandler implements Handler<HttpClientResponse> {
+  class HTTPResponseHandler implements Handler<HttpResponse<Buffer>> {
 
     CompletableFuture<Response> event;
     public HTTPResponseHandler(CompletableFuture<Response> cf){
       event = cf;
     }
     @Override
-    public void handle(HttpClientResponse hcr) {
-      hcr.bodyHandler( bh -> {
+    public void handle(HttpResponse hcr) {
         try {
           Response r = new Response();
           r.code = hcr.statusCode();
           try {
             if (CONTENT_TYPE_JSON.equals(hcr.getHeader("Content-Type"))) {
-              r.body = bh.toJsonObject();
+              r.body = hcr.bodyAsJsonObject();
             } else if (CONTENT_TYPE_TEXT.equals(hcr.getHeader("Content-Type"))) {
-              r.body = new JsonObject().put("text", bh.toString());
+              r.body = new JsonObject().put("text", hcr.bodyAsString());
             } else {
               r.body = null;
             }
           } catch (Exception e) {
-            logger.warn("Warning: '" + bh.toString() + "' cannot be parsed as JSON");
+            logger.warn("Warning: '" + hcr.toString() + "' cannot be parsed as JSON");
             r.body = new JsonObject(); //Or should it be null?
           }
           logger.debug("Got code '" + hcr.statusCode() + "' and body '" +
-              bh.toString() + "'");
+              hcr.toString() + "'");
           event.complete(r);
         } catch(Exception e) {
           event.completeExceptionally(e);
         }
-      });
     }
   }
 
