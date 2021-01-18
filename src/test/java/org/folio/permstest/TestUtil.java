@@ -75,8 +75,8 @@ public class TestUtil {
     System.out.println("Sending " + method.toString() + " request to url '" +
       url + " with payload: " + payload + "'\n");
     if (method == HttpMethod.PUT || method == HttpMethod.POST) {
-      request.sendBuffer(Buffer.buffer(payload),
-        res -> handler(res, promise, expectedCode, method, url));
+      return request.sendBuffer(Buffer.buffer(payload))
+          .compose(httpResponse -> handler(httpResponse, expectedCode, method, url));
     } else {
       request.send(res -> handler(res, promise, expectedCode, method, url));
     }
