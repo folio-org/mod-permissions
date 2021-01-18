@@ -58,14 +58,7 @@ public class RestVerticleWithCacheTest {
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
         .setWorker(true);
-    try {
-      PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
-    } catch (Exception e) {
-      e.printStackTrace();
-      context.fail(e);
-      return;
-    }
+  
     vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
       try {
         TenantAttributes ta = new TenantAttributes();
