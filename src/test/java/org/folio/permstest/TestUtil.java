@@ -83,8 +83,8 @@ public class TestUtil {
     return promise.future();
   }
 
-  public static void handler(AsyncResult<HttpResponse<Buffer>> res,
-    Promise<WrappedResponse> promise, Integer expectedCode, HttpMethod method, String url) {
+  public static Future<WrappedResponse> handler(HttpResponse<Buffer> res,
+    Integer expectedCode, HttpMethod method, String url) {
     if (res.failed()) {
       promise.fail(res.cause());
     } else {
