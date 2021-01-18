@@ -78,7 +78,7 @@ public class TestUtil {
       return request.sendBuffer(Buffer.buffer(payload))
           .compose(httpResponse -> handler(httpResponse, expectedCode, method, url));
     } else {
-      request.send(res -> handler(res, promise, expectedCode, method, url));
+      return request.send().compose(httpResponse -> handler(httpResponse, expectedCode, method, url));
     }
     return promise.future();
   }
