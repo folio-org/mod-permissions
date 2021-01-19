@@ -1085,7 +1085,7 @@ public class PermsAPI implements Perms {
   @SuppressWarnings("java:S3776")
   @Validate
   @Override
-  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy, String includeInactive,
+  public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
                                   int length, int start, String sortBy, String query0, String memberOf,
                                   String ownedBy, Map<String, String> okapiHeaders,
                                   Handler<AsyncResult<Response>> asyncResultHandler,
