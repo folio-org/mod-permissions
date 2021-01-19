@@ -337,9 +337,9 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<Permission> entities = new ArrayList<>();
 
     permList.stream()
-      .filter(perm -> !perm.getInactive()) //skip perms which are already deprecated
+      .filter(perm -> !perm.getDeprecated()) //skip perms which are already deprecated
       .forEach(perm -> {
-        perm.setInactive(true);
+        perm.setDeprecated(true);
         perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
         entities.add(perm);
       });

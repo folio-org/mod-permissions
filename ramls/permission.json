@@ -51,7 +51,7 @@
       "description" : "Is this a temporary dummy permission",
       "type" : "boolean"
     },
-    "inactive" : {
+    "deprecated" : {
       "description" : "Indicates whether this permissions has been marked for deletion (soft deleted)",
       "type" : "boolean",
       "default" : "false"

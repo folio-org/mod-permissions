@@ -1594,12 +1594,12 @@ public class RestVerticleTest {
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (!perm.getBoolean("inactive")) {
-          promise.fail(permName + " should be inactive");
+        if (!perm.getBoolean("deprecated")) {
+          promise.fail(permName + " should be deprecated");
           return;
         }
         if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
-          promise.fail("the displayName of inactive permission " + permName
+          promise.fail("the displayName of deprecated permission " + permName
               + " was not updated to indicate it was deprecated");
           return;
         }
@@ -1618,8 +1618,8 @@ public class RestVerticleTest {
       } else {
         WrappedResponse wr = testRes.result();
         JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (perm.getBoolean("inactive")) {
-          promise.fail("dummy.update should no longer be inactive");
+        if (perm.getBoolean("deprecated")) {
+          promise.fail("dummy.update should no longer be deprecated");
           return;
         }
         if (perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
@@ -1644,8 +1644,8 @@ public class RestVerticleTest {
             return;
           }
           if (!collectionGetRes.result().getJson().getJsonArray("permissions").getJsonObject(0)
-              .getBoolean("inactive")) {
-            promise.fail("permission dummy.collection.get should be inactive due to being renamed");
+              .getBoolean("deprecated")) {
+            promise.fail("permission dummy.collection.get should be deprecated due to being renamed");
             return;
           }
           promise.complete(collectionGetRes.result());
