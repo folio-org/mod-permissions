@@ -37,7 +37,7 @@ import org.folio.rest.tools.utils.TenantTool;
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 import static org.folio.rest.impl.PermsAPI.getCQL;
 import static org.folio.rest.impl.PermsAPI.getIdCriterion;
-import static org.folio.rest.impl.PermissionUtils.comparePerms;
+import static org.folio.rest.impl.PermissionUtils.equals;
 
 /**
  *
@@ -105,7 +105,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             perms.forEach(perm -> {
                 futures.add(getModulePermByName(perm.getPermissionName(), null,
                     vertxContext, tenantId).compose(dbPerm -> {
-                  if (dbPerm != null && comparePerms(perm, dbPerm)) {
+                  if (dbPerm != null && PermissionUtils.equals(perm, dbPerm)) {
                     // (B) we have a match, but lack definedBy
                     ret.add(dbPerm);
                   }
@@ -175,8 +175,8 @@ public class TenantPermsAPI implements Tenantpermissions {
     return renamedPerms;
   }
 
-  private List<OkapiPermission> getNewAndModifiedPerms(ModuleId moduleId, Map<String, Permission> dbPerms,
-      List<OkapiPermission> okapiPerms) {
+  private List<OkapiPermission> getNewAndModifiedPerms(ModuleId moduleId,
+      Map<String, Permission> dbPerms, List<OkapiPermission> okapiPerms) {
     List<OkapiPermission> newPerms = getNewPerms(dbPerms, okapiPerms);
     List<OkapiPermission> modifiedPerms = getModifiedPerms(moduleId, dbPerms, okapiPerms);
     newPerms.addAll(modifiedPerms);
@@ -193,7 +193,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         .filter(okapiPerm -> {
             String name = okapiPerm.getPermissionName();
             return dbPerms.containsKey(name)
-                && !comparePerms(okapiPerm, moduleId.getProduct(), dbPerms.get(name));
+                && !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name));
           })
         .forEach(modifiedPerms::add);
     }
