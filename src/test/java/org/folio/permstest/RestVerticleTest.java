@@ -1580,11 +1580,11 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testSoftDeleteOfRemovedPermission(TestContext context, String permName) {
     return testPermissionExists(context, permName, true).compose(wr -> {
         JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (!perm.getBoolean("inactive")) {
-          return Future.failedFuture(permName + " should be inactive");
+        if (!perm.getBoolean("deprecated")) {
+          return Future.failedFuture(permName + " should be deprecated");
         }
         if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
-            return Future.failedFuture("the displayName of inactive permission " + permName
+            return Future.failedFuture("the displayName of deprecated permission " + permName
               + " was not updated to indicate it was deprecated");
         }
        return Future.succeededFuture(wr);
@@ -1595,8 +1595,8 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testDowngradeRestoredPermission(TestContext context) {
     return testPermissionExists(context, "dummy.update", true).compose(wr -> {
         JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (perm.getBoolean("inactive")) {
-          return Future.failedFuture("dummy.update should no longer be inactive");
+        if (perm.getBoolean("deprecated")) {
+          return Future.failedFuture("dummy.update should no longer be deprecated");
         }
         if (perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
           return Future.failedFuture(
@@ -1612,8 +1612,8 @@ public class RestVerticleTest {
         .compose(resp -> testPermissionExists(context, "dummy.collection.get"))
         .compose(collectionGetRes -> {
           if (!collectionGetRes.getJson().getJsonArray("permissions").getJsonObject(0)
-              .getBoolean("inactive")) {
-            return Future.failedFuture("permission dummy.collection.get should be inactive due to being renamed");
+              .getBoolean("deprecated")) {
+            return Future.failedFuture("permission dummy.collection.get should be deprecated due to being renamed");
           }
          return Future.succeededFuture(collectionGetRes);
         });
