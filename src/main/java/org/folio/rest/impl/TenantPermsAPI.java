@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
@@ -37,7 +36,6 @@ import org.folio.rest.tools.utils.TenantTool;
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 import static org.folio.rest.impl.PermsAPI.getCQL;
 import static org.folio.rest.impl.PermsAPI.getIdCriterion;
-import static org.folio.rest.impl.PermissionUtils.equals;
 
 /**
  *
@@ -56,20 +54,17 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   @Override
   public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders,
-                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      handlePermLists(entity, vertxContext, tenantId).onComplete(ar -> {
-        if (ar.failed()) {
-          String err = ar.cause().getMessage();
-          logger.error(err, ar.cause());
-          asyncResultHandler.handle(Future.succeededFuture(
-              PostTenantpermissionsResponse.respond400WithTextPlain(err)));
-          return;
-        }
-        asyncResultHandler.handle(Future.succeededFuture(
-            PostTenantpermissionsResponse.respond201WithApplicationJson(entity)));
-      });
+      handlePermLists(entity, vertxContext, tenantId)
+          .onSuccess(v -> asyncResultHandler.handle(Future.succeededFuture(
+              PostTenantpermissionsResponse.respond201WithApplicationJson(entity))))
+          .onFailure(t -> {
+            logger.error(t.getMessage(), t);
+            asyncResultHandler.handle(Future.succeededFuture(
+                PostTenantpermissionsResponse.respond400WithTextPlain(t.getMessage())));
+          });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
@@ -77,58 +72,30 @@ public class TenantPermsAPI implements Tenantpermissions {
     }
   }
 
-  private Future<List<Permission>> getPermsForModule(ModuleId moduleId, List<OkapiPermission> permSet,
+  private Future<List<Permission>> getPermsForModule(ModuleId moduleId, List<OkapiPermission> perms,
       Context vertxContext, String tenantId) {
-    Promise<List<Permission>> promise = Promise.promise();
-    
-    try {
-      getPermsByModule(moduleId, vertxContext, tenantId)
-        .onComplete(getResult -> {
-          if (getResult.failed()) {
-            Throwable cause = getResult.cause();
-            logger.error(cause.getMessage(), cause);
-            promise.fail(cause);
-            return;
-          }
-
-          List<Permission> existing = getResult.result();
-          if (existing.isEmpty() && permSet != null) {
+    return getPermsByModule(moduleId, vertxContext, tenantId)
+        .compose(existing -> {
+          if (existing.isEmpty() && perms != null) {
             // this means either:
             // A) the first time enabling this module, or
             // B) the permissions exist but don't yet have the definedBy field
-            List<OkapiPermission> perms = permSet.stream()
-                .filter(p -> p.getPermissionName() != null)
-                .collect(Collectors.toList());
             List<Permission> ret = new ArrayList<>();
-
             List<Future> futures = new ArrayList<>(perms.size());
-            perms.forEach(perm -> {
-                futures.add(getModulePermByName(perm.getPermissionName(), null,
-                    vertxContext, tenantId).compose(dbPerm -> {
-                  if (dbPerm != null && PermissionUtils.equals(perm, dbPerm)) {
-                    // (B) we have a match, but lack definedBy
-                    ret.add(dbPerm);
-                  }
-                  return Future.succeededFuture();
-                }));
-            });
-            CompositeFuture.all(futures).onComplete(ar -> {
-              if(ar.failed()) {
-                promise.fail(ar.cause());
-                return;
-              }
-              promise.complete(ret);
-            });
-          } else {
-            promise.complete(existing); // Happy path.
+            perms.forEach(perm ->
+              futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
+                  .compose(dbPerm -> {
+                    if (dbPerm != null && PermissionUtils.equals(perm, dbPerm)) {
+                      // (B) we have a match, but lack definedBy
+                      ret.add(dbPerm);
+                    }
+                    return Future.succeededFuture();
+                  })));
+            return CompositeFuture.all(futures).map(ret);
           }
-        });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      promise.fail(e);
-    }
-    
-    return promise.future();
+          return Future.succeededFuture(existing); // Happy path.
+        })
+        .onFailure(t -> logger.error(t.getMessage(), t));
   }
 
   private List<OkapiPermission> getNewPerms(Map<String, Permission> dbPerms,
@@ -137,7 +104,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     
     if(perms != null) {
       perms.stream()
-        .filter(perm -> perm.getPermissionName() != null)
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .filter(perm -> {
           // filter out renamed perms, we'll deal with them separately
@@ -160,7 +126,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     
     if(perms != null) {
       perms.stream()
-        .filter(perm -> perm.getPermissionName() != null)
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .forEach(perm -> {
           for (String oldName : perm.getReplaces()) {
@@ -189,7 +154,6 @@ public class TenantPermsAPI implements Tenantpermissions {
 
     if(okapiPerms != null) {
       okapiPerms.stream()
-        .filter(okapiPerm -> okapiPerm.getPermissionName() != null)
         .filter(okapiPerm -> {
             String name = okapiPerm.getPermissionName();
             return dbPerms.containsKey(name)
@@ -205,11 +169,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<Permission> removedPerms = new ArrayList<>();
     List<String> permNames = new ArrayList<>();
 
-    if (perms != null) {
-      perms.stream()
-        .filter(perm -> perm.getPermissionName() != null)
-        .forEach(perm -> permNames.add(perm.getPermissionName()));
-    }
+    perms.stream().forEach(perm -> permNames.add(perm.getPermissionName()));
 
     dbPerms.values().stream()
       .filter(dbPerm -> !permNames.contains(dbPerm.getPermissionName()))
@@ -220,35 +180,27 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private Future<Void> handlePermLists(OkapiPermissionSet permSet, Context vertxContext,
       String tenantId) {
-    Promise<Void> promise = Promise.promise();
 
-    try {
-      ModuleId moduleId = new ModuleId(permSet.getModuleId());
-      List<OkapiPermission> perms = permSet.getPerms();
-
-      getPermsForModule(moduleId, perms, vertxContext, tenantId).compose(existing -> {
-        Map<String, Permission> dbPerms = new HashMap<>(existing.size());
-        existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));
-
-        return handleNewAndModifiedPerms(moduleId, getNewAndModifiedPerms(moduleId, dbPerms, perms),
-            vertxContext, tenantId)
-                .compose(v -> handleRenamedPerms(moduleId, getRenamedPerms(dbPerms, perms),
-                    vertxContext, tenantId))
-                .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), vertxContext,
-                    tenantId));
-      }).onComplete(ar -> {
-        if (ar.failed()) {
-          promise.fail(ar.cause());
-          return;
-        }
-        promise.complete();
-      });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      promise.fail(e);
+    ModuleId moduleId = new ModuleId(permSet.getModuleId());
+    List<OkapiPermission> perms = new ArrayList<>();
+    if (permSet.getPerms() != null) {
+      permSet.getPerms().stream()
+          .filter(p -> p != null && p.getPermissionName() != null)
+          .forEach(perms::add);
     }
 
-    return promise.future();
+    return getPermsForModule(moduleId, perms, vertxContext, tenantId)
+        .compose(existing -> {
+          Map<String, Permission> dbPerms = new HashMap<>(existing.size());
+          existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));
+
+          return handleNewAndModifiedPerms(moduleId,
+              getNewAndModifiedPerms(moduleId, dbPerms, perms), vertxContext, tenantId)
+                  .compose(v -> handleRenamedPerms(moduleId, getRenamedPerms(dbPerms, perms),
+                      vertxContext, tenantId))
+                  .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), vertxContext,
+                      tenantId));
+        });
   }
 
   private Future<Void> handleNewAndModifiedPerms(ModuleId moduleId, List<OkapiPermission> permList,
@@ -260,18 +212,11 @@ public class TenantPermsAPI implements Tenantpermissions {
     Promise<Void> promise = Promise.promise();
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.startTx(connection -> savePermList(moduleId, permList, vertxContext, tenantId)
-        .onComplete(saveReply -> {
-          if (saveReply.failed()) {
-            // rollback the transaction
-            pgClient.rollbackTx(connection, rollback -> {
-              logger.error(String.format("Error saving permissions: %s",
-                  saveReply.cause().getLocalizedMessage()));
-              promise.fail(saveReply.cause());
-            });
-            return;
-          }
-          pgClient.endTx(connection, done -> promise.complete());
-        }));
+        .onSuccess(v -> pgClient.endTx(connection, done -> promise.complete()))
+        .onFailure(t -> pgClient.rollbackTx(connection, rollback -> {
+          logger.error("Error saving permissions: {}", t.getLocalizedMessage());
+          promise.fail(t);
+        })));
     return promise.future();
   }
 
@@ -283,22 +228,16 @@ public class TenantPermsAPI implements Tenantpermissions {
 
     Promise<Void> promise = Promise.promise();
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    pgClient.startTx(connection -> renamePermList(connection, moduleId, permList,
-        vertxContext, tenantId).onComplete(renameResult -> {
-          if (renameResult.failed()) {
-            pgClient.rollbackTx(connection, rollback -> {
-              logger.info(String.format("Error renaming permissions: %s",
-                  renameResult.cause().getLocalizedMessage()));
-              promise.fail(renameResult.cause());
-            });
-            return;
-          }
-          pgClient.endTx(connection, done -> {
-            logger.info(String.format("Renamed %s permissions", permList.size()));
-            promise.complete();
-          });
-        }));
-
+    pgClient.startTx(
+        connection -> renamePermList(connection, moduleId, permList, vertxContext, tenantId)
+            .onSuccess(v -> pgClient.endTx(connection, done -> {
+              logger.info("Renamed {} permissions", permList.size());
+              promise.complete();
+            }))
+            .onFailure(t -> pgClient.rollbackTx(connection, rollback -> {
+              logger.info("Error renaming permissions: {}", t.getLocalizedMessage());
+              promise.fail(t);
+            })));
     return promise.future();
   }
 
@@ -311,21 +250,14 @@ public class TenantPermsAPI implements Tenantpermissions {
     Promise<Void> promise = Promise.promise();
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.startTx(connection -> softDeletePermList(connection, permList, vertxContext, tenantId)
-        .onComplete(softDeleteResult -> {
-          if (softDeleteResult.failed()) {
-            pgClient.rollbackTx(connection, rollback -> {
-              logger.info(String.format("Error soft deleting permissions: %s",
-                  softDeleteResult.cause().getLocalizedMessage()));
-              promise.fail(softDeleteResult.cause());
-            });
-            return;
-          }
-          pgClient.endTx(connection, done -> {
-            logger.info(String.format("Soft deleted %s permissions", permList.size()));
-            promise.complete();
-          });
-        }));
-
+        .onSuccess(v -> pgClient.endTx(connection, done -> {
+          logger.info("Soft deleted {} permissions", permList.size());
+          promise.complete();
+        }))
+        .onFailure(t -> pgClient.rollbackTx(connection, rollback -> {
+          logger.info("Error soft deleting permissions: {}", t.getLocalizedMessage());
+          promise.fail(t);
+        })));
     return promise.future();
   }
 
@@ -418,14 +350,8 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private Future<Void> renamePermList(AsyncResult<SQLConnection> connection, ModuleId moduleId,
       Map<OkapiPermission, Permission> permList, Context vertxContext, String tenantId) {
-    Promise<Void> promise = Promise.promise();
-    savePermList(moduleId, new ArrayList<>(permList.keySet()), vertxContext, tenantId)
-        .onComplete(saveReply -> {
-          if (saveReply.failed()) {
-            promise.fail(saveReply.cause());
-            return;
-          }
-
+    return savePermList(moduleId, new ArrayList<>(permList.keySet()), vertxContext, tenantId)
+        .compose(v -> {
           List<Future> futures = new ArrayList<>(permList.size());
           permList.keySet().forEach(okapiPerm -> {
             permList.get(okapiPerm).getGrantedTo().forEach(permUser -> {
@@ -436,23 +362,10 @@ public class TenantPermsAPI implements Tenantpermissions {
                   vertxContext, tenantId));
             });
           });
-
-          CompositeFuture.all(futures).onComplete(assignmentsReply -> {
-            if (assignmentsReply.failed()) {
-              promise.fail(assignmentsReply.cause());
-              return;
-            }
-            softDeletePermList(connection, new ArrayList<>(permList.values()), vertxContext,
-                tenantId).onComplete(softDeleteReply -> {
-                  if (softDeleteReply.failed()) {
-                    promise.fail(softDeleteReply.cause());
-                    return;
-                  }
-                  promise.complete();
-                });
-          });
-        });
-    return promise.future();
+          return CompositeFuture.all(futures);
+        })
+        .compose(cf -> softDeletePermList(connection, new ArrayList<>(permList.values()),
+            vertxContext, tenantId));
   }
 
   private Future<Void> savePermList(ModuleId moduleId, List<OkapiPermission> permList, Context vertxContext,
@@ -628,22 +541,19 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<Boolean> checkPermExists(String permName, Context vertxContext, String tenantId) {
     Promise<Boolean> promise = Promise.promise();
     getModulePermByName(permName, null, vertxContext, tenantId)
-      .onComplete(getReply -> {
-          if (getReply.failed()) {
-            String err = getReply.cause().getLocalizedMessage();
-            logger.error(err, getReply.cause());
-            promise.fail(getReply.cause());
-            return;
-          }
-          Permission returnPerm = getReply.result();
-          if (returnPerm != null) {
-            logger.info(String.format("Permission with name '%s' exists", permName));
-            promise.complete(true); //OkapiPermission already exists, no need to re-add
-          } else {
-            logger.info(String.format("Permission with name '%s' does not exist", permName));
-            promise.complete(false);
-          }
-        });
+      .onFailure(t -> {
+        logger.error(t.getLocalizedMessage(), t);
+        promise.fail(t);
+      })
+      .onSuccess(returnPerm -> {
+        if (returnPerm != null) {
+          logger.info("Permission with name '{}' exists", permName);
+          promise.complete(true); // OkapiPermission already exists, no need to re-add
+        } else {
+          logger.info("Permission with name '{}' does not exist", permName);
+          promise.complete(false);
+        }
+      });
     return promise.future();
   }
 
