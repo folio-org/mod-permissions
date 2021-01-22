@@ -20,8 +20,7 @@ public class PermissionUtils {
    * @return true if equal, false otherwise
    */
   public static boolean equals(OkapiPermission okapiPerm, String moduleName, Permission perm) {
-    String otherModuleName =
-        (perm == null || perm.getDefinedBy() == null) ? null : perm.getDefinedBy().getModuleName();
+    String otherModuleName = perm == null ? null : perm.getModuleName();
     return equals(okapiPerm, perm) && Objects.equals(moduleName, otherModuleName);
   }
   

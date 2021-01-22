@@ -18,12 +18,11 @@ import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
-import org.folio.rest.jaxrs.model.DefinedBy;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.Permission.Defined;
 import org.folio.rest.jaxrs.model.PermissionUser;
-import org.folio.rest.jaxrs.model.DefinedBy.Defined;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
@@ -44,8 +43,8 @@ import static org.folio.rest.impl.PermsAPI.getIdCriterion;
 public class TenantPermsAPI implements Tenantpermissions {
 
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
-  private static final String DEFINED_BY_FIELD = "'definedBy'";
   private static final String MODULE_NAME_FIELD = "'moduleName'";
+  private static final String DEFINED_FIELD = "'defined'";
   private static final String TABLE_NAME_PERMS = "permissions";
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
@@ -58,6 +57,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
       handlePermLists(entity, vertxContext, tenantId)
+          .compose(v -> addMissingDefinedContext(vertxContext, tenantId))
           .onSuccess(v -> asyncResultHandler.handle(Future.succeededFuture(
               PostTenantpermissionsResponse.respond201WithApplicationJson(entity))))
           .onFailure(t -> {
@@ -70,6 +70,46 @@ public class TenantPermsAPI implements Tenantpermissions {
       asyncResultHandler.handle(Future.succeededFuture(
           PostTenantpermissionsResponse.respond500WithTextPlain(e.getMessage())));
     }
+  }
+
+  /*
+   * Add permission.defined: "User" for any permission lacking the defined property. At this point
+   * all system-defined permissions should already have defined set.
+   */
+  private Future<Void> addMissingDefinedContext(Context vertxContext, String tenantId) {
+    Promise<Void> promise = Promise.promise();
+    Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    pgClient.startTx(connection -> pgClient.get(TABLE_NAME_PERMS, Permission.class,
+        new Criterion(crit), true, false, getReply -> {
+          if (getReply.failed()) {
+            pgClient.rollbackTx(connection, done -> {
+              Throwable cause = getReply.cause();
+              logger.error(cause.getLocalizedMessage(), cause);
+              promise.fail(cause);
+            });
+            return;
+          }
+          List<Permission> userDefined = getReply.result().getResults();
+          userDefined.forEach(perm -> perm.setDefined(Defined.USER));
+          pgClient.upsertBatch(connection, TABLE_NAME_PERMS, userDefined, upsertReply -> {
+            if (upsertReply.failed()) {
+              pgClient.rollbackTx(connection, done -> {
+                Throwable cause = upsertReply.cause();
+                logger.error(cause.getLocalizedMessage(), cause);
+                promise.fail(cause);
+              });
+              return;
+            }
+            pgClient.endTx(connection, done -> {
+              logger.info(String.format("Added defined context to %s user-defined permissions",
+                  userDefined.size()));
+              promise.complete();
+            });
+          });
+        }));
+    return promise.future();
   }
 
   private Future<List<Permission>> getPermsForModule(ModuleId moduleId, List<OkapiPermission> perms,
@@ -407,7 +447,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           } else {
             //No valid perms, we need to create some dummies
             permListCopy.add(perm); //Push our initial perm back on the list
-            createDummies(permListCopy, vertxContext, tenantId).onComplete(
+            createDummies(permListCopy, moduleId, vertxContext, tenantId).onComplete(
                 createDummiesRes -> {
                   if (createDummiesRes.failed()) {
                     promise.fail(createDummiesRes.cause());
@@ -568,7 +608,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     if (moduleId != null) {
       String moduleName = new ModuleId(moduleId).getProduct();      
       Criteria modCrit = new Criteria();
-      modCrit.addField(DEFINED_BY_FIELD);
       modCrit.addField(MODULE_NAME_FIELD);
       modCrit.setOperation("=");
       modCrit.setVal(moduleName);
@@ -599,7 +638,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     try {
       String moduleName = moduleId.getProduct();
       Criteria modCrit = new Criteria();
-      modCrit.addField(DEFINED_BY_FIELD);
       modCrit.addField(MODULE_NAME_FIELD);
       modCrit.setOperation("=");
       modCrit.setVal(moduleName);
@@ -632,12 +670,10 @@ public class TenantPermsAPI implements Tenantpermissions {
       permission.setPermissionName(perm.getPermissionName());
       permission.setDisplayName(perm.getDisplayName());
       permission.setDescription(perm.getDescription());
-      DefinedBy definedBy = new DefinedBy();
-      definedBy.setModuleName(moduleId.getProduct());
+      permission.setModuleName(moduleId.getProduct());
       SemVer semver = moduleId.getSemVer();
-      definedBy.setModuleVersion(semver != null ? semver.toString() : null);
-      definedBy.setDefined(Defined.SYSTEM);
-      permission.setDefinedBy(definedBy);
+      permission.setModuleVersion(semver != null ? semver.toString() : null);
+      permission.setDefined(Defined.SYSTEM);
 
       if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
         List<Object> subPerms = new ArrayList<>();
@@ -668,7 +704,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             Permission foundPerm = null;
             if (!returnList.isEmpty()) {
               foundPerm = returnList.get(0);
-              if (foundPerm.getDefinedBy() != null && Defined.USER.equals(foundPerm.getDefinedBy().getDefined())) {
+              if (Defined.USER.equals(foundPerm.getDefined())) {
                 pgClient.rollbackTx(connection, rollback -> {
                   promise.fail("PermissionName collision with user-defined permission: " + perm.getPermissionName());
                 });
@@ -679,8 +715,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
                   || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
-                  || (foundPerm.getDefinedBy() == null)
-                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getDefinedBy().getModuleVersion()))) {
+                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getModuleVersion()))) {
                 foundPerm.setDummy(true);
               }
             }
@@ -768,8 +803,8 @@ public class TenantPermsAPI implements Tenantpermissions {
     them cannot be satisfied by other perms in the list. Create dummy permissions
     for these permissions. Return as list of permissionNames
    */
-  Future<List<String>> createDummies(List<OkapiPermission> permList, Context vertxContext,
-                                     String tenantId) {
+  Future<List<String>> createDummies(List<OkapiPermission> permList, ModuleId moduleId,
+      Context vertxContext, String tenantId) {
 
     Promise<List<String>> promise = Promise.promise();
     //First determine which need dummies -- Assume all perms in list are currently
@@ -792,7 +827,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
         tenantId);
     pgClient.startTx(connection -> {
-      makeDummyPermList(connection, externalSubsNeeded, vertxContext, tenantId)
+      makeDummyPermList(connection, externalSubsNeeded, moduleId, vertxContext, tenantId)
           .onComplete(makeDummyRes -> {
             if (makeDummyRes.failed()) {
               pgClient.rollbackTx(connection, rollback -> {
@@ -810,7 +845,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<Void> makeDummyPermList(AsyncResult<SQLConnection> connection, List<String> permList,
-    Context vertxContext, String tenantId) {
+    ModuleId moduleId, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList.isEmpty()) {
       return Future.succeededFuture();
@@ -827,15 +862,16 @@ public class TenantPermsAPI implements Tenantpermissions {
             //permission already exists
             promise.complete();
           } else {
-            makeDummyPerm(connection, perm, vertxContext, tenantId).onComplete(
+            makeDummyPerm(connection, perm, moduleId, vertxContext, tenantId).onComplete(
                 makeDummyRes -> promise.handle(makeDummyRes.mapEmpty()));
           }
         }
       });
-    return promise.future().compose(next -> makeDummyPermList(connection, permListCopy, vertxContext, tenantId));
+    return promise.future().compose(
+        next -> makeDummyPermList(connection, permListCopy, moduleId, vertxContext, tenantId));
   }
 
-  private Future<Void> makeDummyPerm(AsyncResult<SQLConnection> connection, String perm,
+  private Future<Void> makeDummyPerm(AsyncResult<SQLConnection> connection, String perm, ModuleId moduleId,
                                      Context vertxContext, String tenantId) {
 
     Promise<Void> promise = Promise.promise();
@@ -846,8 +882,12 @@ public class TenantPermsAPI implements Tenantpermissions {
     dummyPermission.setDummy(true);
     dummyPermission.setVisible(false);
     dummyPermission.setMutable(false);
-    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-        tenantId);
+    dummyPermission.setModuleName(moduleId.getProduct());
+    SemVer semver = moduleId.getSemVer();
+    dummyPermission.setModuleVersion(semver != null ? semver.toString() : null);
+    dummyPermission.setDefined(Defined.SYSTEM);
+
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission,
         saveReply -> promise.handle(saveReply.mapEmpty()));
     return promise.future();

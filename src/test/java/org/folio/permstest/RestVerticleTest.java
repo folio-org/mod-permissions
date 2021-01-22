@@ -38,6 +38,7 @@ import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
+import org.folio.rest.jaxrs.model.Permission.Defined;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.PermsCache;
@@ -130,12 +131,15 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendInitialPermissionSet(context).compose(w -> {
+      return testPostPermission(context); // add user-defined perm to cause collision later
+    }).compose(w -> {
       return removeModuleContext(context, new String[] {"dummy.all", "dummy.write",
-          "dummy.read", "dummy.collection.get", "dummy.update"});
+          "dummy.read", "dummy.collection.get", "dummy.update", "dummy.delete"});
     }).compose(w -> {
       return sendInitialPermissionSet(context); // simulate perm refresh
     }).compose(w -> {
-      return testModuleContextWasAdded(context, "dummy.read");
+      return testDefinedContextWasAdded(context, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.get", "dummy.update", "dummy.delete"});
     }).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
           new String[] {"dummy.all", "dummy.collection.get"});
@@ -146,8 +150,6 @@ public class RestVerticleTest {
       return testPermissionExists(context, "dummy.collection.get");
     }).compose(w -> {
       return testGrantedTo(context, w, permUserId1);
-    }).compose(w -> {
-      return testPostPermission(context); // add user-defined perm to cause collision
     }).compose(w -> {
       return sendUpdatedPermissionSetAndFail(context); // fail upgrade due to perm collision
     }).compose(w -> {
@@ -1254,7 +1256,9 @@ public class RestVerticleTest {
           .compose(wr -> {
             Promise<WrappedResponse> p = Promise.promise();
             JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
-            perm.remove("definedBy");
+            perm.remove("defined");
+            perm.remove("moduleName");
+            perm.remove("moduleVersion");
             PostgresClient.getInstance(vertx, "diku").update("permissions", perm, perm.getString("id"),
                 updateReply -> {
                   if (updateReply.failed()) {
@@ -1269,20 +1273,26 @@ public class RestVerticleTest {
     return CompositeFuture.all(futures).mapEmpty();
   }
 
-  private Future<WrappedResponse> testModuleContextWasAdded(TestContext context, String permName) {
-    Promise<WrappedResponse> promise = Promise.promise();
-
-    testPermissionExists(context, permName)
-        .onSuccess(wr -> {
-          JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
-          if (perm.getJsonObject("definedBy") == null) {
-            promise.fail("Module context was not added to " + permName + " during upgrade");
-          }
-          promise.complete(wr);
-        })
-        .onFailure(promise::fail);
-
-    return promise.future();
+  private Future<Void> testDefinedContextWasAdded(TestContext context, String[] permNames) {
+    List<Future> futures = new ArrayList<>();
+    Arrays.stream(permNames).forEach(permName -> {
+      futures.add(testPermissionExists(context, permName)
+          .compose(wr -> {
+            JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
+            String defined = perm.getString("defined");
+            if (defined == null) {
+              return Future
+                  .failedFuture("Defined context wasn't added to " + permName + " during upgrade");
+            }
+            if (Defined.fromValue(defined) == Defined.SYSTEM
+                && perm.getString("moduleName") == null) {
+              return Future
+                  .failedFuture("Module context wasn't added to " + permName + " during upgrade");
+            }
+            return Future.succeededFuture(wr);
+          }));
+    });
+    return CompositeFuture.all(futures).mapEmpty();
   }
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet) {
