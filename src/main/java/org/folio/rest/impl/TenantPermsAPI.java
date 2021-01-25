@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
@@ -160,19 +161,23 @@ public class TenantPermsAPI implements Tenantpermissions {
     return newPerms;
   }
 
-  private Map<OkapiPermission, Permission> getRenamedPerms(Map<String, Permission> dbPerms,
+  private Map<OkapiPermission, List<Permission>> getRenamedPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
-    Map<OkapiPermission, Permission> renamedPerms = new HashMap<>();
+    Map<OkapiPermission, List<Permission>> renamedPerms = new HashMap<>();
     
     if(perms != null) {
       perms.stream()
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .forEach(perm -> {
+          List<Permission> replaced = null;
           for (String oldName : perm.getReplaces()) {
             Permission dbPerm = dbPerms.get(oldName);
             if (dbPerm != null) {
-              renamedPerms.put(perm, dbPerm);
-              break;
+              if (replaced == null) {
+                replaced = new ArrayList<>();
+              }
+              replaced.add(dbPerm);
+              renamedPerms.put(perm, replaced);
             }
           }
         });
@@ -260,7 +265,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> handleRenamedPerms(ModuleId moduleId, Map<OkapiPermission, Permission> permList,
+  private Future<Void> handleRenamedPerms(ModuleId moduleId, Map<OkapiPermission, List<Permission>> permList,
       Context vertxContext, String tenantId) {
     if (permList.isEmpty()) {
       return Future.succeededFuture();
@@ -389,22 +394,28 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<Void> renamePermList(AsyncResult<SQLConnection> connection, ModuleId moduleId,
-      Map<OkapiPermission, Permission> permList, Context vertxContext, String tenantId) {
+      Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
     return savePermList(moduleId, new ArrayList<>(permList.keySet()), vertxContext, tenantId)
         .compose(v -> {
           List<Future> futures = new ArrayList<>(permList.size());
           permList.keySet().forEach(okapiPerm -> {
-            permList.get(okapiPerm).getGrantedTo().forEach(permUser -> {
-              String permissionName = okapiPerm.getPermissionName();
-              futures.add(addPermissionToUser(connection, permUser.toString(), permissionName,
-                  vertxContext, tenantId));
-              futures.add(updatedGrantedTo(connection, permissionName, permUser.toString(),
-                  vertxContext, tenantId));
+            permList.get(okapiPerm).forEach(replaced -> {
+              replaced.getGrantedTo().forEach(permUser -> {            
+                String permissionName = okapiPerm.getPermissionName();
+                futures.add(addPermissionToUser(connection, permUser.toString(), permissionName,
+                    vertxContext, tenantId));
+                futures.add(updatedGrantedTo(connection, permissionName, permUser.toString(),
+                    vertxContext, tenantId));
+              });
             });
           });
           return CompositeFuture.all(futures);
         })
-        .compose(cf -> softDeletePermList(connection, new ArrayList<>(permList.values()),
+        .compose(cf -> softDeletePermList(connection,
+            permList.values()
+                .stream()
+                .flatMap(List::stream)
+                .collect(Collectors.toList()),
             vertxContext, tenantId));
   }
 

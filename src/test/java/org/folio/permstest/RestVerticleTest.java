@@ -134,28 +134,30 @@ public class RestVerticleTest {
       return testPostPermission(context); // add user-defined perm to cause collision later
     }).compose(w -> {
       return removeModuleContext(context, new String[] {"dummy.all", "dummy.write",
-          "dummy.read", "dummy.collection.get", "dummy.update", "dummy.delete"});
+          "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update",
+          "dummy.delete"});
     }).compose(w -> {
       return sendInitialPermissionSet(context); // simulate perm refresh
     }).compose(w -> {
       return testDefinedContextWasAdded(context, new String[] {"dummy.all", "dummy.write",
-          "dummy.read", "dummy.collection.get", "dummy.update", "dummy.delete"});
+          "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update",
+          "dummy.delete"});
     }).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
-          new String[] {"dummy.all", "dummy.collection.get"});
+          new String[] {"dummy.all", "dummy.collection.get", "dummy.collection.item.get"});
     }).compose(w -> {
       return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
-          "dummy.read", "dummy.collection.get", "dummy.update"});
+          "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update"});
     }).compose(w -> {
       return testPermissionExists(context, "dummy.collection.get");
     }).compose(w -> {
       return testGrantedTo(context, w, permUserId1);
     }).compose(w -> {
-      return sendUpdatedPermissionSetAndFail(context); // fail upgrade due to perm collision
+      return sendUpdatedPermissionSet(context, true); // fail upgrade due to perm collision
     }).compose(w -> {
       return resolvePermNameConflict(context); // remove the user-defined perm dummy.delete
     }).compose(w -> {
-      return sendUpdatedPermissionSet(context); // simulate upgrade
+      return sendUpdatedPermissionSet(context, false); // simulate upgrade
     }).compose(w -> {
       return testSoftDeleteOfRemovedPermission(context, "dummy.update");
     }).compose(w -> {
@@ -1333,6 +1335,11 @@ public class RestVerticleTest {
                 .put("description", "Get Dummy Entry Collection")
             )
             .add(new JsonObject()
+                .put("permissionName", "dummy.collection.item.get")
+                .put("displayName", "Dummy Collection Item Get")
+                .put("description", "Get Dummy Entry Collection Item")
+            )
+            .add(new JsonObject()
                 .put("permissionName", "dummy.all")
                 .put("displayName", "Dummy All")
                 .put("description", "All Dummy Permissions")
@@ -1341,15 +1348,16 @@ public class RestVerticleTest {
                     .add("dummy.write")
                     .add("dummy.update")
                     .add("dummy.collection.get")
+                    .add("dummy.collection.item.get")
                 )
             )
         );
     return sendPermissionSet(context, permissionSet);
   }
 
-  private Future<WrappedResponse> sendUpdatedPermissionSet(TestContext context) {
+  private Future<WrappedResponse> sendUpdatedPermissionSet(TestContext context, boolean shouldFail) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","dummy-2.0.0")
+        .put("moduleId", "dummy-2.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "dummy.read")
@@ -1373,6 +1381,7 @@ public class RestVerticleTest {
                 .put("description", "Read Dummy Entry Collection")
                 .put("replaces", new JsonArray()
                     .add("dummy.collection.get")
+                    .add("dummy.collection.item.get")
                 )
             )
             .add(new JsonObject()
@@ -1387,48 +1396,7 @@ public class RestVerticleTest {
                 )
             )
         );
-    return sendPermissionSet(context, permissionSet);
-  }
-
-  private Future<WrappedResponse> sendUpdatedPermissionSetAndFail(TestContext context) {
-    JsonObject permissionSet = new JsonObject().put("moduleId", "dummy-2.0.0").put("perms",
-        new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "dummy.read")
-                .put("displayName", "Dummy Read")
-                .put("description", "Read Dummy Entries")
-                .put("visible", true)
-            )
-            .add(new JsonObject()
-                .put("permissionName", "dummy.write")
-                .put("displayName", "Dummy Write")
-                .put("description", "Write Dummy Entries")
-            )
-            .add(new JsonObject()
-                .put("permissionName", "dummy.delete")
-                .put("displayName", "Dummy Delete")
-                .put("description", "Delete Dummy Entries")
-            )
-            .add(new JsonObject()
-                .put("permissionName", "dummy.collection.read")
-                .put("displayName", "Dummy Collection Read")
-                .put("description", "Read Dummy Entry Collection")
-                .put("replaces", new JsonArray()
-                    .add("dummy.collection.get")
-                )
-            )
-            .add(new JsonObject().put("permissionName", "dummy.all")
-                .put("displayName", "Dummy All")
-                .put("description", "All Dummy Permissions")
-                .put("subPermissions", new JsonArray()
-                    .add("dummy.read")
-                    .add("dummy.write")
-                    .add("dummy.collection.read")
-                    .add("dummy.delete")
-                )
-            )
-        );
-    return sendPermissionSet(context, permissionSet, 400);
+    return sendPermissionSet(context, permissionSet, shouldFail ? 400 : 201);
   }
 
   private Future<WrappedResponse> sendOtherPermissionSet(TestContext context) {
@@ -1616,6 +1584,13 @@ public class RestVerticleTest {
           if (!wr.getJson().getJsonArray("permissions").getJsonObject(0).getBoolean("deprecated")) {
             return Future.failedFuture(
                 "permission dummy.collection.get should be deprecated due to being renamed");
+          }
+          return Future.succeededFuture(wr);
+        }).compose(resp -> testPermissionExists(context, "dummy.collection.item.get"))
+        .compose(wr -> {
+          if (!wr.getJson().getJsonArray("permissions").getJsonObject(0).getBoolean("deprecated")) {
+            return Future.failedFuture(
+                "permission dummy.collection.item.get should be deprecated due to being renamed");
           }
           return Future.succeededFuture(wr);
         });
