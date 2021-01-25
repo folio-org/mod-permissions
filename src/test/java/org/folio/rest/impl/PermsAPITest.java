@@ -201,7 +201,7 @@ public class PermsAPITest {
     }), null);
   }
 
-  /*@Test
+  @Test
   public void testGetPermsPermissionsNullPointer(TestContext context) {
     PermsAPI api = new PermsAPI();
 
@@ -209,6 +209,6 @@ public class PermsAPITest {
         null, null, null, context.asyncAssertSuccess(res -> {
       context.assertEquals(500, res.getStatus());
     }), null);
-  }*/
+  }
 
 }

@@ -58,7 +58,7 @@ public class RestVerticleWithCacheTest {
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
         .setWorker(true);
-  
+
     vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
       try {
         TenantAttributes ta = new TenantAttributes();

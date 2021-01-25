@@ -251,7 +251,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.GET, "/perms/users/12%2334?indexField=id", null, context);
     context.assertEquals(400, response.code);
     Assert.assertThat(response.body.getString("text"),
-    containsString("invalid input syntax for type uuid: \"12#34\""));
+    containsString("invalid input syntax for type uuid: \\\"12#34\\\""));
   }
 
   @Test
@@ -548,7 +548,7 @@ public class RestVerticleTest {
         null, context);
     context.assertEquals(response.code, 400);
     Assert.assertThat(response.body.getString("text"),
-        containsString("invalid input syntax for type uuid: \"12#34\""));
+        containsString("invalid input syntax for type uuid: \\\"12#34\\\""));
   }
 
   @Test
