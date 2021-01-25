@@ -4,7 +4,6 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.List;
 import org.assertj.core.util.Arrays;
-import org.folio.rest.jaxrs.model.DefinedBy;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
 import org.junit.Test;
@@ -24,16 +23,11 @@ public class PermissionUtilsTest {
     Permission rhs = new Permission()
         .withPermissionName("foo.all")
         .withDescription("everything foo")
-        .withDisplayName("all foo permissions")        
+        .withDisplayName("all foo permissions")
         .withSubPermissions(Arrays.asList(subPerms.toArray()));
     assertTrue(PermissionUtils.equals(lhs, null, rhs));
     
-    DefinedBy definedBy = new DefinedBy();
-    rhs.setDefinedBy(definedBy);
-    assertTrue(PermissionUtils.equals(lhs, null, rhs));
-    
-    definedBy.setModuleName("mod-dummy");
-    rhs.setDefinedBy(definedBy);
+    rhs.setModuleName("mod-dummy");
     assertTrue(PermissionUtils.equals(lhs, "mod-dummy", rhs));
     assertFalse(PermissionUtils.equals(lhs, "mod-smarty", rhs));
     assertFalse(PermissionUtils.equals(lhs, null, rhs));

@@ -40,6 +40,12 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.permstest.TestUtil.WrappedResponse;
+import org.folio.rest.jaxrs.model.OkapiPermissionSet;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.OkapiPermission;
+import org.folio.rest.jaxrs.model.TenantAttributes;
+import org.folio.rest.jaxrs.model.Permission.Defined;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.PermsCache;
@@ -124,12 +130,15 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendInitialPermissionSet(context).compose(w -> {
+      return testPostPermission(context); // add user-defined perm to cause collision later
+    }).compose(w -> {
       return removeModuleContext(context, new String[] {"dummy.all", "dummy.write",
-          "dummy.read", "dummy.collection.get", "dummy.update"});
+          "dummy.read", "dummy.collection.get", "dummy.update", "dummy.delete"});
     }).compose(w -> {
       return sendInitialPermissionSet(context); // simulate perm refresh
     }).compose(w -> {
-      return testModuleContextWasAdded(context, "dummy.read");
+      return testDefinedContextWasAdded(context, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.get", "dummy.update", "dummy.delete"});
     }).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
           new String[] {"dummy.all", "dummy.collection.get"});
@@ -140,8 +149,6 @@ public class RestVerticleTest {
       return testPermissionExists(context, "dummy.collection.get");
     }).compose(w -> {
       return testGrantedTo(context, w, permUserId1);
-    }).compose(w -> {
-      return testPostPermission(context); // add user-defined perm to cause collision
     }).compose(w -> {
       return sendUpdatedPermissionSetAndFail(context); // fail upgrade due to perm collision
     }).compose(w -> {
@@ -1250,46 +1257,49 @@ public class RestVerticleTest {
   }
 
   private Future<Void> removeModuleContext(TestContext context, String[] permNames) {
-    Promise<Void> promise = Promise.promise();
     List<Future> futures = new ArrayList<>();
     Arrays.stream(permNames).forEach(permName -> {
-      futures.add(testPermissionExists(context, permName).compose(wr -> {
-        Promise<WrappedResponse> p = Promise.promise();
-        JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
-        perm.remove("definedBy");
-
-        PostgresClient.getInstance(vertx, "diku").update("permissions", perm, perm.getString("id"),
-            updateReply -> {
-              if (updateReply.failed()) {
-                p.fail(updateReply.cause());
-                return;
-              }
-              p.complete(wr);
-            });
-        return p.future();
-      }));
+      futures.add(testPermissionExists(context, permName)
+          .compose(wr -> {
+            Promise<WrappedResponse> p = Promise.promise();
+            JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
+            perm.remove("defined");
+            perm.remove("moduleName");
+            perm.remove("moduleVersion");
+            PostgresClient.getInstance(vertx, "diku").update("permissions", perm, perm.getString("id"),
+                updateReply -> {
+                  if (updateReply.failed()) {
+                    p.fail(updateReply.cause());
+                    return;
+                  }
+                  p.complete(wr);
+                });
+            return p.future();
+          }));
     });
-
-    CompositeFuture.all(futures).onComplete(ar -> {
-      if (ar.failed()) {
-        promise.fail(ar.cause());
-        return;
-      }
-      promise.complete(null);
-    });
-
-    return promise.future();
+    return CompositeFuture.all(futures).mapEmpty();
   }
 
-  private Future<WrappedResponse> testModuleContextWasAdded(TestContext context, String permName) {
-
-    return testPermissionExists(context, permName).compose(wr -> {
-      JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
-      if (perm.getJsonObject("definedBy") == null) {
-        return Future.failedFuture("Module context was not added to " + permName + " during upgrade");
-      }
-      return Future.succeededFuture(wr);
+  private Future<Void> testDefinedContextWasAdded(TestContext context, String[] permNames) {
+    List<Future> futures = new ArrayList<>();
+    Arrays.stream(permNames).forEach(permName -> {
+      futures.add(testPermissionExists(context, permName)
+          .compose(wr -> {
+            JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
+            String defined = perm.getString("defined");
+            if (defined == null) {
+              return Future
+                  .failedFuture("Defined context wasn't added to " + permName + " during upgrade");
+            }
+            if (Defined.fromValue(defined) == Defined.SYSTEM
+                && perm.getString("moduleName") == null) {
+              return Future
+                  .failedFuture("Module context wasn't added to " + permName + " during upgrade");
+            }
+            return Future.succeededFuture(wr);
+          }));
     });
+    return CompositeFuture.all(futures).mapEmpty();
   }
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet) {
@@ -1298,19 +1308,10 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet,
       int expectedCode) {
-    Promise<WrappedResponse> promise = Promise.promise();
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", CONTENT_TYPE_TEXT_JSON);
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions", HttpMethod.POST,
-        headers, permissionSet.encode(), expectedCode).onComplete(res -> {
-          if (res.failed()) {
-            promise.fail(res.cause());
-          } else {
-            promise.complete(res.result());
-          }
-        });
-
-    return promise.future();
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
+        HttpMethod.POST, headers, permissionSet.encode(), expectedCode);
   }
 
   private Future<WrappedResponse> sendInitialPermissionSet(TestContext context) {
@@ -1579,9 +1580,9 @@ public class RestVerticleTest {
   // test soft delete of removed permission
   private Future<WrappedResponse> testSoftDeleteOfRemovedPermission(TestContext context, String permName) {
     return testPermissionExists(context, permName, true).compose(wr -> {
-        JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (!perm.getBoolean("deprecated")) {
-          return Future.failedFuture(permName + " should be deprecated");
+      JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
+      if (!perm.getBoolean("deprecated")) {
+        return Future.failedFuture(permName + " should be deprecated");
         }
         if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
             return Future.failedFuture("the displayName of deprecated permission " + permName
@@ -1594,15 +1595,15 @@ public class RestVerticleTest {
   // test soft delete of removed permission
   private Future<WrappedResponse> testDowngradeRestoredPermission(TestContext context) {
     return testPermissionExists(context, "dummy.update", true).compose(wr -> {
-        JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
-        if (perm.getBoolean("deprecated")) {
-          return Future.failedFuture("dummy.update should no longer be deprecated");
+      JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
+      if (perm.getBoolean("deprecated")) {
+        return Future.failedFuture("dummy.update should no longer be deprecated");
         }
         if (perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
           return Future.failedFuture(
               "downgrade should have removed the deprecated prefix from the displayName of dummy.update");
-        }
-        return Future.succeededFuture(wr);
+      }
+      return Future.succeededFuture(wr);
       });
   }
 
@@ -1610,23 +1611,23 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testPermissionRename(TestContext context) {
     return testPermissionExists(context, "dummy.collection.read")
         .compose(resp -> testPermissionExists(context, "dummy.collection.get"))
-        .compose(collectionGetRes -> {
-          if (!collectionGetRes.getJson().getJsonArray("permissions").getJsonObject(0)
-              .getBoolean("deprecated")) {
-            return Future.failedFuture("permission dummy.collection.get should be deprecated due to being renamed");
+        .compose(wr -> {
+          if (!wr.getJson().getJsonArray("permissions").getJsonObject(0).getBoolean("deprecated")) {
+            return Future.failedFuture(
+                "permission dummy.collection.get should be deprecated due to being renamed");
           }
-         return Future.succeededFuture(collectionGetRes);
+          return Future.succeededFuture(wr);
         });
   }
 
-  private Future<WrappedResponse> testGrantedTo(TestContext context, WrappedResponse perm, String permUserId) {
-    Promise<WrappedResponse> promise = Promise.promise();
-    if(!perm.getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("grantedTo").contains(permUserId)) {
-      promise.fail("permission not granted to " + permUserId);
+  private Future<WrappedResponse> testGrantedTo(TestContext context, WrappedResponse perm,
+      String permUserId) {
+    if (!perm.getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("grantedTo")
+        .contains(permUserId)) {
+      return Future.failedFuture("permission not granted to " + permUserId);
     } else {
-      promise.complete(perm);
+      return Future.succeededFuture(perm);
     }
-    return promise.future();
   }
 
   // test update for parent permission
