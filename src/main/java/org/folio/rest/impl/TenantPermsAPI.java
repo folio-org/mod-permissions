@@ -103,6 +103,16 @@ public class TenantPermsAPI implements Tenantpermissions {
             perms.forEach(perm ->
               futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
                   .compose(dbPerm -> {
+                    if (dbPerm != null && dbPerm.getModuleName() != null
+                        && Boolean.FALSE.equals(dbPerm.getDummy())) {
+                      // Edge case of (A) where another module already has a permission with
+                      // the same name. We need to fail here as there isn't anything we can do
+                      String msg = String.format(
+                          "Collision! A Permission with name %s is already defined by %s",
+                          perm.getPermissionName(), dbPerm.getModuleName());
+                      logger.error(msg);
+                      return Future.failedFuture(msg);
+                    }
                     if (dbPerm != null && PermissionUtils.equals(perm, dbPerm)) {
                       // (B) we have a match, but lack moduleName. Fix it before we add it.
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)

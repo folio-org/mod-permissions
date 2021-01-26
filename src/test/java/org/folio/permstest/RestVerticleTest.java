@@ -128,6 +128,8 @@ public class RestVerticleTest {
     Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendInitialPermissionSet(context).compose(w -> {
+      return sendPermissionSetWithCollision(context); // fail due to module-defined perm collision
+    }).compose(w -> {
       return testPostPermission(context); // add user-defined perm to cause collision later
     }).compose(w -> {
       return removeModuleContext(context, new String[] {"dummy.all", "dummy.write",
@@ -1342,6 +1344,20 @@ public class RestVerticleTest {
             )
         );
     return sendPermissionSet(context, permissionSet);
+  }
+
+  private Future<WrappedResponse> sendPermissionSetWithCollision(TestContext context) {
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","collision-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "dummy.read")
+                .put("displayName", "Colliding Read")
+                .put("description", "Colliding Permission for Reading Dummy Entries")
+                .put("visible", true)
+            )
+        );
+    return sendPermissionSet(context, permissionSet, 400);
   }
 
   private Future<WrappedResponse> sendUpdatedPermissionSet(TestContext context, boolean shouldFail) {
