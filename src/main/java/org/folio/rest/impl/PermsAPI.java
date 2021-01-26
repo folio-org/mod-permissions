@@ -1,5 +1,33 @@
 package org.folio.rest.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import javax.ws.rs.core.Response;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
+import org.folio.rest.annotations.Validate;
+import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.PermissionListObject;
+import org.folio.rest.jaxrs.model.PermissionNameListObject;
+import org.folio.rest.jaxrs.model.PermissionNameObject;
+import org.folio.rest.jaxrs.model.PermissionUpload;
+import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.resource.Perms;
+import org.folio.rest.persist.PgUtil;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.SQLConnection;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.persist.interfaces.Results;
+import org.folio.rest.tools.utils.TenantTool;
+import org.folio.rest.tools.utils.ValidationHelper;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -10,35 +38,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import javax.ws.rs.core.Response;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import org.folio.cql2pgjson.CQL2PgJSON;
-import org.folio.cql2pgjson.exception.FieldException;
-import org.folio.rest.annotations.Validate;
-import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.Permission.Defined;
-import org.folio.rest.jaxrs.model.PermissionListObject;
-import org.folio.rest.jaxrs.model.PermissionNameListObject;
-import org.folio.rest.jaxrs.model.PermissionNameObject;
-import org.folio.rest.jaxrs.model.PermissionUser;
-import org.folio.rest.jaxrs.model.PermissionUpload;
-import org.folio.rest.jaxrs.resource.Perms;
-import org.folio.rest.persist.PgUtil;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.Criteria.Criteria;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.SQLConnection;
-import org.folio.rest.persist.cql.CQLWrapper;
-import org.folio.rest.persist.interfaces.Results;
-import org.folio.rest.tools.utils.TenantTool;
-import org.folio.rest.tools.utils.ValidationHelper;
 
 /**
  * @author kurt
@@ -797,7 +796,6 @@ public class PermsAPI implements Perms {
               }
               Permission realPerm = getRealPermObject(entity);
               realPerm.setDummy(false);
-              realPerm.setDefined(Defined.USER);
               try {
                 postgresClient.save(connection, TABLE_NAME_PERMS, newId, realPerm, postReply -> {
                   if (postReply.failed()) {

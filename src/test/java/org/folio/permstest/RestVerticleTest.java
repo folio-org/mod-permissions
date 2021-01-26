@@ -1,8 +1,42 @@
 package org.folio.permstest;
 
-import io.vertx.core.Future;
+import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
+import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
+import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
+import static org.hamcrest.CoreMatchers.containsString;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.folio.permstest.TestUtil.WrappedResponse;
+import org.folio.rest.RestVerticle;
+import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermsCache;
+import org.folio.rest.impl.TenantPermsAPI;
+import org.folio.rest.jaxrs.model.OkapiPermission;
+import org.folio.rest.jaxrs.model.OkapiPermissionSet;
+import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.TenantAttributes;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.tools.utils.NetworkUtils;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.Timeout;
+import org.junit.runner.RunWith;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
@@ -13,50 +47,13 @@ import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import java.net.URLEncoder;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import org.folio.permstest.TestUtil.WrappedResponse;
-import org.folio.rest.jaxrs.model.OkapiPermissionSet;
-import org.folio.rest.jaxrs.model.Parameter;
-import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.OkapiPermission;
-import org.folio.rest.jaxrs.model.TenantAttributes;
-import org.folio.rest.jaxrs.model.Permission.Defined;
-import org.folio.rest.RestVerticle;
-import org.folio.rest.client.TenantClient;
-import org.folio.rest.impl.PermsCache;
-import org.folio.rest.impl.TenantPermsAPI;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.Criteria.Criteria;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.tools.utils.NetworkUtils;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
-import org.junit.runner.RunWith;
-import com.sun.el.stream.Stream;
-import static org.folio.permstest.TestUtil.*;
-import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -139,9 +136,8 @@ public class RestVerticleTest {
     }).compose(w -> {
       return sendInitialPermissionSet(context); // simulate perm refresh
     }).compose(w -> {
-      return testDefinedContextWasAdded(context, new String[] {"dummy.all", "dummy.write",
-          "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update",
-          "dummy.delete"});
+      return testModuleContextWasAdded(context, new String[] {"dummy.all", "dummy.write",
+          "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update"});
     }).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
           new String[] {"dummy.all", "dummy.collection.get", "dummy.collection.item.get"});
@@ -1258,7 +1254,6 @@ public class RestVerticleTest {
           .compose(wr -> {
             Promise<WrappedResponse> p = Promise.promise();
             JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
-            perm.remove("defined");
             perm.remove("moduleName");
             perm.remove("moduleVersion");
             PostgresClient.getInstance(vertx, "diku").update("permissions", perm, perm.getString("id"),
@@ -1275,19 +1270,13 @@ public class RestVerticleTest {
     return CompositeFuture.all(futures).mapEmpty();
   }
 
-  private Future<Void> testDefinedContextWasAdded(TestContext context, String[] permNames) {
+  private Future<Void> testModuleContextWasAdded(TestContext context, String[] permNames) {
     List<Future> futures = new ArrayList<>();
     Arrays.stream(permNames).forEach(permName -> {
       futures.add(testPermissionExists(context, permName)
           .compose(wr -> {
             JsonObject perm = wr.getJson().getJsonArray("permissions").getJsonObject(0);
-            String defined = perm.getString("defined");
-            if (defined == null) {
-              return Future
-                  .failedFuture("Defined context wasn't added to " + permName + " during upgrade");
-            }
-            if (Defined.fromValue(defined) == Defined.SYSTEM
-                && perm.getString("moduleName") == null) {
+            if (perm.getString("moduleName") == null) {
               return Future
                   .failedFuture("Module context wasn't added to " + permName + " during upgrade");
             }
