@@ -15,7 +15,7 @@ public class PermissionUtils {
    * provided Permission.
    * 
    * @param okapiPerm a permission passed from Okapi
-   * @param moduleName the module name to compare against permission's definedBy.moduleName property
+   * @param moduleName the module name to compare against permission's moduleName property
    * @param perm the Permission to compare against
    * @return true if equal, false otherwise
    */
