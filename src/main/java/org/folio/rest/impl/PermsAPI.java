@@ -1,5 +1,33 @@
 package org.folio.rest.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import javax.ws.rs.core.Response;
+import org.folio.cql2pgjson.CQL2PgJSON;
+import org.folio.cql2pgjson.exception.FieldException;
+import org.folio.rest.annotations.Validate;
+import org.folio.rest.jaxrs.model.Permission;
+import org.folio.rest.jaxrs.model.PermissionListObject;
+import org.folio.rest.jaxrs.model.PermissionNameListObject;
+import org.folio.rest.jaxrs.model.PermissionNameObject;
+import org.folio.rest.jaxrs.model.PermissionUpload;
+import org.folio.rest.jaxrs.model.PermissionUser;
+import org.folio.rest.jaxrs.resource.Perms;
+import org.folio.rest.persist.PgUtil;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.SQLConnection;
+import org.folio.rest.persist.Criteria.Criteria;
+import org.folio.rest.persist.Criteria.Criterion;
+import org.folio.rest.persist.Criteria.Limit;
+import org.folio.rest.persist.Criteria.Offset;
+import org.folio.rest.persist.cql.CQLWrapper;
+import org.folio.rest.persist.interfaces.Results;
+import org.folio.rest.tools.utils.TenantTool;
+import org.folio.rest.tools.utils.ValidationHelper;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -10,34 +38,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import javax.ws.rs.core.Response;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import org.folio.cql2pgjson.CQL2PgJSON;
-import org.folio.cql2pgjson.exception.FieldException;
-import org.folio.rest.annotations.Validate;
-import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.PermissionListObject;
-import org.folio.rest.jaxrs.model.PermissionNameListObject;
-import org.folio.rest.jaxrs.model.PermissionNameObject;
-import org.folio.rest.jaxrs.model.PermissionUser;
-import org.folio.rest.jaxrs.model.PermissionUpload;
-import org.folio.rest.jaxrs.resource.Perms;
-import org.folio.rest.persist.PgUtil;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.Criteria.Criteria;
-import org.folio.rest.persist.Criteria.Criterion;
-import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.Criteria.Offset;
-import org.folio.rest.persist.SQLConnection;
-import org.folio.rest.persist.cql.CQLWrapper;
-import org.folio.rest.persist.interfaces.Results;
-import org.folio.rest.tools.utils.TenantTool;
-import org.folio.rest.tools.utils.ValidationHelper;
 
 /**
  * @author kurt
@@ -106,7 +106,7 @@ public class PermsAPI implements Perms {
     return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
   }
 
-  private static CQLWrapper getCQL(String query, String tableName) throws FieldException {
+  protected static CQLWrapper getCQL(String query, String tableName) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
     return new CQLWrapper(cql2pgJson, query);
   }
@@ -1081,28 +1081,27 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
-                                  int length, int start, String sortBy, String query, String memberOf,
+                                  int length, int start, String sortBy, String query0, String memberOf,
                                   String ownedBy, Map<String, String> okapiHeaders,
                                   Handler<AsyncResult<Response>> asyncResultHandler,
                                   Context vertxContext) {
 
     try {
       boolean includeDummyPerms = "true".equals(includeDummy);
-      String[] queryArr = new String[]{""};
+      String query = query0 == null ? "" : query0;
       if (!includeDummyPerms) {
         //filter out all dummy perms from query
-        if (query == null || query.isEmpty()) {
-          queryArr[0] = "(dummy == false)";
+        if (query.isEmpty()) {
+          query = "(dummy == false)";
         } else {
-          queryArr[0] = String.format("(%s) AND (dummy==false)", query);
+          query = String.format("(%s) AND (dummy==false)", query);
         }
-      } else {
-        queryArr[0] = query;
       }
+
       CQLWrapper cql;
       logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
-          TABLE_NAME_PERMS, queryArr[0]));
-      cql = getCQL(queryArr[0], TABLE_NAME_PERMS, length, start - 1);
+          TABLE_NAME_PERMS, query));
+      cql = getCQL(query, TABLE_NAME_PERMS, length, start - 1);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
@@ -1863,7 +1862,7 @@ public class PermsAPI implements Perms {
     });
   }
 
-  private static Criterion getIdCriterion(String id) {
+  protected static Criterion getIdCriterion(String id) {
     Criteria idCrit = new Criteria();
     idCrit.addField(ID_FIELD);
     idCrit.setJSONB(false);

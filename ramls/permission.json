@@ -43,19 +43,34 @@
       "description": "Whether or not this permission changes at runtime",
       "type": "boolean"
     },
-    "visible" : {
+    "visible": {
       "description": "Whether or not this permission is visible to users",
-      "type" : "boolean"
+      "type": "boolean"
     },
-    "dummy" : {
+    "dummy": {
       "description": "Is this a temporary dummy permission",
-      "type" : "boolean"
+      "type": "boolean"
     },
-    "metadata" : {
+    "deprecated": {
+      "description": "Indicates whether this permissions has been marked for deletion (soft deleted)",
+      "type": "boolean",
+      "default": "false"
+    },
+    "moduleName": {
+      "description": "The name of the module (not including version) that defined this permission",
+      "type": "string",
+      "readOnly": true
+    },
+    "moduleVersion": {
+      "description": "The version of the module that defined this permission",
+      "type": "string",
+      "readOnly": true
+    },
+    "metadata": {
       "description": "System modification metadata",
-      "type" : "object",
-      "$ref" : "raml-util/schemas/metadata.schema"
+      "type": "object",
+      "$ref": "raml-util/schemas/metadata.schema"
     }
   },
-  "additionalProperties" : false
+  "additionalProperties": false
 }

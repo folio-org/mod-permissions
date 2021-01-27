@@ -47,7 +47,7 @@ public class RestVerticleWithCacheTest {
   static int port;
 
   @Rule
-  public Timeout rule = Timeout.seconds(180); // 3 minutes for loading embedded postgres
+  public Timeout rule = Timeout.seconds(240); // 4 minutes for loading embedded postgres
 
   @BeforeClass
   public static void setup(TestContext context) {

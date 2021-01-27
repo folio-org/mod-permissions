@@ -3,10 +3,18 @@
   "title": "Okapi Permission Object",
   "type": "object",
   "description": "An individual permission from an Okapi permission set",
+  "javaType": "org.folio.rest.jaxrs.model.OkapiPermission",
   "properties": {
     "permissionName": {
       "description": "The unique permission name",
       "type": "string"
+    },
+    "replaces": {
+      "description": "previously used names for this permission",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "displayName": {
       "description": "The human-readable name",
