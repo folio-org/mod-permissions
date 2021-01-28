@@ -4,6 +4,10 @@ import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
 import static org.hamcrest.CoreMatchers.containsString;
+
+
+import io.vertx.core.buffer.Buffer;
+import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -18,8 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -45,19 +47,18 @@ import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -1193,7 +1194,7 @@ public class RestVerticleTest {
         handler.handle(res.result());
       });
     } else {
-      request.sendBuffer(Buffer.buffer(content), res -> {
+      request.sendBuffer(io.vertx.core.buffer.Buffer.buffer(content), res -> {
         if(res.failed()) {
           context.fail(res.cause());
         }
