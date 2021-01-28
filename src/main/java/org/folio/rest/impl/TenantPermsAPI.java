@@ -1,5 +1,8 @@
 package org.folio.rest.impl;
 
+import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
+import static org.folio.rest.impl.PermsAPI.getCQL;
+import static org.folio.rest.impl.PermsAPI.getIdCriterion;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -22,20 +25,25 @@ import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.Permission.Defined;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.cql.CQLWrapper;
-import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.tools.utils.TenantTool;
-
-import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
-import static org.folio.rest.impl.PermsAPI.getCQL;
-import static org.folio.rest.impl.PermsAPI.getIdCriterion;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 
 /**
  *
@@ -45,7 +53,6 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final String MODULE_NAME_FIELD = "'moduleName'";
-  private static final String DEFINED_FIELD = "'defined'";
   private static final String TABLE_NAME_PERMS = "permissions";
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
@@ -58,7 +65,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
       handlePermLists(entity, vertxContext, tenantId)
-          .compose(v -> addMissingDefinedContext(vertxContext, tenantId))
           .onSuccess(v -> asyncResultHandler.handle(Future.succeededFuture(
               PostTenantpermissionsResponse.respond201WithApplicationJson(entity))))
           .onFailure(t -> {
@@ -73,43 +79,24 @@ public class TenantPermsAPI implements Tenantpermissions {
     }
   }
 
-  /*
-   * Add permission.defined: "User" for any permission lacking the defined property. At this point
-   * all system-defined permissions should already have defined set.
-   */
-  private Future<Void> addMissingDefinedContext(Context vertxContext, String tenantId) {
-    Promise<Void> promise = Promise.promise();
-Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
+  private Future<Permission> addMissingModuleContext(Permission perm, ModuleId moduleId,
+      Context vertxContext, String tenantId) {
+    Promise<Permission> promise = Promise.promise();
+perm.setModuleName(moduleId.getProduct());
+    SemVer semver = moduleId.getSemVer();
+    perm.setModuleVersion(semver != null ? semver.toString() : null);
 
-    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    pgClient.startTx(connection -> pgClient.get(TABLE_NAME_PERMS, Permission.class,
-        new Criterion(crit), true, false, getReply -> {
-          if (getReply.failed()) {
-            pgClient.rollbackTx(connection, done -> {
-              Throwable cause = getReply.cause();
-              logger.error(cause.getLocalizedMessage(), cause);
-              promise.fail(cause);
-            });
+    PostgresClient.getInstance(vertxContext.owner(), tenantId).update(TABLE_NAME_PERMS, perm,
+        perm.getId(), updateReply -> {
+          if (updateReply.failed()) {
+            Throwable cause = updateReply.cause();
+            logger.error(cause.getLocalizedMessage(), cause);
+            promise.fail(cause);
             return;
           }
-          List<Permission> userDefined = getReply.result().getResults();
-          userDefined.forEach(perm -> perm.setDefined(Defined.USER));
-          pgClient.upsertBatch(connection, TABLE_NAME_PERMS, userDefined, upsertReply -> {
-            if (upsertReply.failed()) {
-              pgClient.rollbackTx(connection, done -> {
-                Throwable cause = upsertReply.cause();
-                logger.error(cause.getLocalizedMessage(), cause);
-                promise.fail(cause);
-              });
-              return;
-            }
-            pgClient.endTx(connection, done -> {
-              logger.info(String.format("Added defined context to %s user-defined permissions",
-                  userDefined.size()));
-              promise.complete();
-            });
-          });
-        }));
+          logger.info(String.format("Added defined context to %s", perm.getPermissionName()));
+          promise.complete(perm);
+        });
     return promise.future();
   }
 
@@ -120,17 +107,30 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
           if (existing.isEmpty() && perms != null) {
             // this means either:
             // A) the first time enabling this module, or
-            // B) the permissions exist but don't yet have the definedBy field
+            // B) the permissions exist but don't yet have the moduleName field
             List<Permission> ret = new ArrayList<>();
             List<Future> futures = new ArrayList<>(perms.size());
             perms.forEach(perm ->
               futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
                   .compose(dbPerm -> {
-                    if (dbPerm != null && PermissionUtils.equals(perm, dbPerm)) {
-                      // (B) we have a match, but lack definedBy
-                      ret.add(dbPerm);
+                    if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
+                      return Future.succeededFuture();
                     }
-                    return Future.succeededFuture();
+                    if (dbPerm != null && Boolean.FALSE.equals(dbPerm.getMutable())
+                        && PermissionUtils.equals(perm, dbPerm)) {
+                      // (B) we have a match, but lack moduleName. Fix it before we add it.
+                      return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
+                          .onFailure(Future::failedFuture)
+                          .onSuccess(ret::add);
+                    } else {
+                      // Edge case of (A) where a permission with the same name already exists.
+                      // We need to fail here as there isn't anything we can do.
+                      String msg = String.format(
+                          "Collision! A Permission named %s is already defined: %s",
+                          perm.getPermissionName(), Json.encode(dbPerm));
+                      logger.error(msg);
+                      return Future.failedFuture(msg);
+                    }
                   })));
             return CompositeFuture.all(futures).map(ret);
           }
@@ -224,7 +224,6 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
 
   private Future<Void> handlePermLists(OkapiPermissionSet permSet, Context vertxContext,
       String tenantId) {
-
     ModuleId moduleId = new ModuleId(permSet.getModuleId());
     List<OkapiPermission> perms = new ArrayList<>();
     if (permSet.getPerms() != null) {
@@ -258,14 +257,14 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     pgClient.startTx(connection -> savePermList(moduleId, permList, vertxContext, tenantId)
         .onSuccess(v -> pgClient.endTx(connection, done -> promise.complete()))
         .onFailure(t -> pgClient.rollbackTx(connection, rollback -> {
-          logger.error("Error saving permissions: {}", t.getLocalizedMessage());
+          logger.error(String.format("Error saving permissions: %s", t.getLocalizedMessage()));
           promise.fail(t);
         })));
     return promise.future();
   }
 
-  private Future<Void> handleRenamedPerms(ModuleId moduleId, Map<OkapiPermission, List<Permission>> permList,
-      Context vertxContext, String tenantId) {
+  private Future<Void> handleRenamedPerms(ModuleId moduleId,
+      Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
     if (permList.isEmpty()) {
       return Future.succeededFuture();
     }
@@ -275,11 +274,11 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     pgClient.startTx(
         connection -> renamePermList(connection, moduleId, permList, vertxContext, tenantId)
             .onSuccess(v -> pgClient.endTx(connection, done -> {
-              logger.info("Renamed {} permissions", permList.size());
+              logger.info(String.format("Renamed %s permissions", permList.size()));
               promise.complete();
             }))
             .onFailure(t -> pgClient.rollbackTx(connection, rollback -> {
-              logger.info("Error renaming permissions: {}", t.getLocalizedMessage());
+              logger.info(String.format("Error renaming permissions: %s", t.getLocalizedMessage()));
               promise.fail(t);
             })));
     return promise.future();
@@ -295,11 +294,12 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.startTx(connection -> softDeletePermList(connection, permList, vertxContext, tenantId)
         .onSuccess(v -> pgClient.endTx(connection, done -> {
-          logger.info("Soft deleted {} permissions", permList.size());
+          logger.info(String.format("Soft deleted %s permissions", permList.size()));
           promise.complete();
         }))
         .onFailure(t -> pgClient.rollbackTx(connection, rollback -> {
-          logger.info("Error soft deleting permissions: {}", t.getLocalizedMessage());
+          logger
+              .info(String.format("Error soft deleting permissions: %s", t.getLocalizedMessage()));
           promise.fail(t);
         })));
     return promise.future();
@@ -418,8 +418,8 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
             vertxContext, tenantId));
   }
 
-  private Future<Void> savePermList(ModuleId moduleId, List<OkapiPermission> permList, Context vertxContext,
-      String tenantId) {
+  private Future<Void> savePermList(ModuleId moduleId, List<OkapiPermission> permList,
+      Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList == null || permList.isEmpty()) {
       return Future.succeededFuture();
@@ -564,7 +564,8 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     Given a list of permission names, return a list of any that do not currently
     exist
    */
-  private Future<List<String>> findMissingSubs(List<String> subPerms, Context vertxContext, String tenantId) {
+  private Future<List<String>> findMissingSubs(List<String> subPerms, Context vertxContext,
+      String tenantId) {
     Promise<List<String>> promise = Promise.promise();
     Map<String, Future<Boolean>> futureMap = new HashMap<>();
     List<String> notFoundList = new ArrayList<>();
@@ -597,17 +598,18 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
       })
       .onSuccess(returnPerm -> {
         if (returnPerm != null) {
-          logger.info("Permission with name '{}' exists", permName);
+          logger.info(String.format("Permission with name '%s' exists", permName));
           promise.complete(true); // OkapiPermission already exists, no need to re-add
         } else {
-          logger.info("Permission with name '{}' does not exist", permName);
+          logger.info(String.format("Permission with name '%s' does not exist", permName));
           promise.complete(false);
         }
       });
     return promise.future();
   }
 
-  private Future<Permission> getModulePermByName(String permName, String moduleId, Context vertxContext, String tenantId) {
+  private Future<Permission> getModulePermByName(String permName, String moduleId,
+      Context vertxContext, String tenantId) {
     Promise<Permission> promise = Promise.promise();
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
@@ -642,7 +644,8 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     return promise.future();
   }
 
-  private Future<List<Permission>> getPermsByModule(ModuleId moduleId, Context vertxContext, String tenantId) {
+  private Future<List<Permission>> getPermsByModule(ModuleId moduleId, Context vertxContext,
+      String tenantId) {
     Promise<List<Permission>> promise = Promise.promise();
 
     try {
@@ -669,7 +672,8 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     return promise.future();
   }
 
-  private Future<Void> savePerm(ModuleId moduleId, OkapiPermission perm, String tenantId, Context vertxContext) {
+  private Future<Void> savePerm(ModuleId moduleId, OkapiPermission perm, String tenantId,
+      Context vertxContext) {
     Promise<Void> promise = Promise.promise();
     if (perm.getPermissionName() == null) {
       return Future.succeededFuture();
@@ -683,7 +687,6 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
       permission.setModuleName(moduleId.getProduct());
       SemVer semver = moduleId.getSemVer();
       permission.setModuleVersion(semver != null ? semver.toString() : null);
-      permission.setDefined(Defined.SYSTEM);
 
       if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
         List<Object> subPerms = new ArrayList<>();
@@ -714,10 +717,9 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
             Permission foundPerm = null;
             if (!returnList.isEmpty()) {
               foundPerm = returnList.get(0);
-              if (Defined.USER.equals(foundPerm.getDefined())) {
-                pgClient.rollbackTx(connection, rollback -> {
-                  promise.fail("PermissionName collision with user-defined permission: " + perm.getPermissionName());
-                });
+              if (foundPerm.getModuleName() == null) {
+                pgClient.rollbackTx(connection, rollback ->
+                  promise.fail("PermissionName collision with user-defined permission: " + perm.getPermissionName()));
                 return;
               }
               // leverage dummy permission to handle permission update
@@ -854,8 +856,8 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     return promise.future();
   }
 
-  private Future<Void> makeDummyPermList(AsyncResult<SQLConnection> connection, List<String> permList,
-    ModuleId moduleId, Context vertxContext, String tenantId) {
+  private Future<Void> makeDummyPermList(AsyncResult<SQLConnection> connection,
+      List<String> permList, ModuleId moduleId, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     if (permList.isEmpty()) {
       return Future.succeededFuture();
@@ -881,8 +883,8 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
         next -> makeDummyPermList(connection, permListCopy, moduleId, vertxContext, tenantId));
   }
 
-  private Future<Void> makeDummyPerm(AsyncResult<SQLConnection> connection, String perm, ModuleId moduleId,
-                                     Context vertxContext, String tenantId) {
+  private Future<Void> makeDummyPerm(AsyncResult<SQLConnection> connection, String perm,
+      ModuleId moduleId, Context vertxContext, String tenantId) {
 
     Promise<Void> promise = Promise.promise();
     Permission dummyPermission = new Permission();
@@ -895,7 +897,6 @@ Criteria crit = new Criteria().addField(DEFINED_FIELD).setOperation("IS NULL");
     dummyPermission.setModuleName(moduleId.getProduct());
     SemVer semver = moduleId.getSemVer();
     dummyPermission.setModuleVersion(semver != null ? semver.toString() : null);
-    dummyPermission.setDefined(Defined.SYSTEM);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission,
