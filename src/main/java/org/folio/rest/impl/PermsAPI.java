@@ -197,7 +197,7 @@ public class PermsAPI implements Perms {
               tenantId, logger).onComplete(updatePermsRes -> {
             if (updatePermsRes.failed()) {
               postgresClient.rollbackTx(beginTx, rollbackTx -> {
-                logger.error("Error updating derived fields: " + updatePermsRes.cause());
+                logger.error("Error updating derived fields: {0}", updatePermsRes.cause());
                 if (updatePermsRes.cause() instanceof InvalidPermissionsException) {
                   asyncResultHandler.handle(Future.succeededFuture(
                       PostPermsUsersResponse.respond422WithApplicationJson(
@@ -550,8 +550,8 @@ public class PermsAPI implements Perms {
               }
               updatePermissionsForUser(entity, vertxContext, tenantId, permissionName, user, actualId, originalPermissions, asyncResultHandler);
             } catch (Exception e) {
-              logger.error("Error using Postgres instance to retrieve user: "
-                  + e.getMessage(), e);
+              logger.error(
+                String.format("Error using Postgres instance to retrieve user: %s", e.getMessage()), e);
               asyncResultHandler.handle(Future.succeededFuture(
                   PostPermsUsersPermissionsByIdResponse
                       .respond500WithTextPlain(e.getMessage())));
@@ -800,8 +800,9 @@ public class PermsAPI implements Perms {
                 postgresClient.save(connection, TABLE_NAME_PERMS, newId, realPerm, postReply -> {
                   if (postReply.failed()) {
                     postgresClient.rollbackTx(connection, done -> {
-                      logger.error("Unable to save new permission: "
-                          + postReply.cause().getMessage(), postReply.cause());
+                      logger.error(String
+                        .format("Unable to save new permission: %s",
+                          postReply.cause().getMessage()), postReply.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsPermissionsResponse
                               .respond500WithTextPlain(postReply.cause().getMessage())));
@@ -1352,7 +1353,7 @@ public class PermsAPI implements Perms {
 
   private Future<Permission> getFullPermissions(String permissionName,
                                                 Context vertxContext, String tenantId) {
-    logger.debug("Getting full permissions for " + permissionName);
+    logger.debug("Getting full permissions for {}", permissionName);
 
     // use cache by default unless set to false explicitly
     Boolean usePermsCache = vertxContext.config().getBoolean(PermsCache.CACHE_HEADER);
