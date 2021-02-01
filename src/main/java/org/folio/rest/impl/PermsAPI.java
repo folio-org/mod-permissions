@@ -1653,7 +1653,7 @@ public class PermsAPI implements Perms {
               valueList = permission.getGrantedTo();
             }
             logger.info("Performing {} operation on {} of permission {} with value {}",
-                operation.toString(), field.toString(), permissionName, fieldValue);
+                operation, field, permissionName, fieldValue);
             boolean modified = false;
             if (operation == Operation.ADD) {
               if (!valueList.contains(fieldValue)) {
