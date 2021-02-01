@@ -118,7 +118,6 @@ public class RestVerticleTest {
   */
   @Test
   public void testPermsSeq(TestContext context) {
-    Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendInitialPermissionSet(context).compose(w -> {
       return sendPermissionSetWithCollision(context); // fail due to module-defined perm collision
@@ -224,12 +223,7 @@ public class RestVerticleTest {
       return testSoftDeleteOfRemovedPermission(context, "dummy.delete");
     });
 
-    startFuture.onComplete(res -> {
-      if (res.failed()) {
-        context.fail(res.cause());
-      }
-      async.complete();
-    });
+    startFuture.onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -1660,8 +1654,7 @@ public class RestVerticleTest {
       .put("userId", userId)
       .put("permissions", perms);
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users",
-      HttpMethod.POST, null, newUser.encode(), 201)
-      .compose(res -> Future.succeededFuture(res));
+      HttpMethod.POST, null, newUser.encode(), 201);
   }
 
   private Future<WrappedResponse> putPermUserBad(TestContext context,
@@ -1671,8 +1664,7 @@ public class RestVerticleTest {
       .put("userId", userId1)
       .put("permissions", new JsonArray().add("spurious.all"));
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/123",
-      HttpMethod.PUT, null, modifiedUser.encode(), 404)
-      .compose(res -> Future.succeededFuture(res));
+      HttpMethod.PUT, null, modifiedUser.encode(), 404);
   }
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId, String[] expected) {
@@ -1794,14 +1786,10 @@ public class RestVerticleTest {
     return TestUtil
       .doRequest(vertx, "http://localhost:" + port + "/perms/permissions/" + userDefinedPermId,
         HttpMethod.DELETE,
-        MultiMap.caseInsensitiveMultiMap().add(HttpHeaders.ACCEPT, "text/plain"), null, 204)
-      .compose(res -> {
-        return Future.succeededFuture(res);
-      });
+        MultiMap.caseInsensitiveMultiMap().add(HttpHeaders.ACCEPT, "text/plain"), null, 204);
   }
 
   private Future<WrappedResponse> testPostPermission(TestContext context) {
-    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject json = new JsonObject()
         .put("id", userDefinedPermId)
         .put("permissionName", "dummy.delete")
@@ -1809,13 +1797,10 @@ public class RestVerticleTest {
         .put("description", "Delete Dummy Entries");
 
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions", HttpMethod.POST,
-        null, json.encode(), 201).compose(res -> {
-            return Future.succeededFuture(res);
-        });
+        null, json.encode(), 201);
   }
 
   private Future<WrappedResponse> testPostBadPermission(TestContext context) {
-    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject badPermission = new JsonObject()
         .put("permissionName", "setOne")
         .put("subPermissions", new JsonArray()
@@ -1826,13 +1811,8 @@ public class RestVerticleTest {
                 .put("permissionName", "dummy.write")
             )
         );
-    logger.info("testPostBadPermissions....................");
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions", HttpMethod.POST,
-      null, badPermission.encode(), 400).compose(res -> {
-      return Future.succeededFuture(res);
-    });
-
-    return promise.future();
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions", HttpMethod.POST,
+      null, badPermission.encode(), 400);
   }
 
   private Future<WrappedResponse> testPostNullPermissionName(TestContext context) {
@@ -1959,7 +1939,6 @@ public class RestVerticleTest {
   }
 
   private Future<WrappedResponse> sendNestedSubPerms(TestContext context) {
-    Promise<WrappedResponse> promise = Promise.promise();
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","dummy")
         .put("perms", new JsonArray()
@@ -1985,8 +1964,7 @@ public class RestVerticleTest {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201)
-      .compose(res -> Future.succeededFuture(res));
+        HttpMethod.POST, headers, permissionSet.encode(), 201);
   }
 
   private Future<WrappedResponse> testNestedSubPermExpansion(TestContext context) {
@@ -2025,8 +2003,7 @@ public class RestVerticleTest {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", "application/json,text/plain");
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/_/tenantpermissions",
-        HttpMethod.POST, headers, permissionSet.encode(), 201)
-      .compose(res -> Future.succeededFuture(res));
+        HttpMethod.POST, headers, permissionSet.encode(), 201);
   }
 
   private Future<WrappedResponse> testNestedSubPermExpansionWithExceptions(TestContext context) {

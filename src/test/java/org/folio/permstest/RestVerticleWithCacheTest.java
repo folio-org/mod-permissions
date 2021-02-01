@@ -82,7 +82,6 @@ public class RestVerticleWithCacheTest {
 
   @Test
   public void testPermsSeq(TestContext context) {
-    Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context, false).compose(w -> {
       return testSubPermExpansion(context, Arrays.asList(P_READ, P_WRITE));
@@ -102,13 +101,7 @@ public class RestVerticleWithCacheTest {
       return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE, P_DELETE), 2);
     });
 
-    startFuture.onComplete(res -> {
-      if (res.failed()) {
-        context.fail(res.cause());
-      } else {
-        async.complete();
-      }
-    });
+    startFuture.onComplete(context.asyncAssertSuccess());
   }
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, boolean more) {
@@ -147,17 +140,7 @@ public class RestVerticleWithCacheTest {
 
   private Future<WrappedResponse> postPermUser(TestContext context, String userId) {
     JsonObject newUser = new JsonObject().put("userId", userId).put("permissions", new JsonArray().add("dummy.all"));
-    Promise<WrappedResponse> promise = Promise.promise();
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users", POST, null, newUser.encode(), 201)
-        .onComplete(res -> {
-          if (res.failed()) {
-            promise.fail(res.cause());
-          } else {
-            promise.complete(res.result());
-          }
-        });
-
-    return promise.future();
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users", POST, null, newUser.encode(), 201);
   }
 
   private Future<WrappedResponse> testSubPermExpansion(TestContext context, List<String> perms) {
