@@ -82,29 +82,24 @@ public class RestVerticleTest {
 
   @BeforeClass
   public static void setup(TestContext context) {
-    Async async = context.async();
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku",  null);
     vertx = Vertx.vertx();
     client = WebClient.create(vertx);
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
-        .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(true);
+        .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
 
-    vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes();
-        ta.setModuleTo("mod-permissions-1.0.0");
-        List<Parameter> parameters = new LinkedList<>();
-        parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-        ta.setParameters(parameters);
-        tenantClient.postTenant(ta, res2 -> {
-          async.complete();
-        });
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-
-    });
+    vertx.deployVerticle(RestVerticle.class.getName(), options)
+        .onComplete(
+            context.asyncAssertSuccess(res -> {
+              TenantAttributes ta = new TenantAttributes();
+              ta.setModuleTo("mod-permissions-1.0.0");
+              List<Parameter> parameters = new LinkedList<>();
+              parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+              ta.setParameters(parameters);
+              TestUtil.tenantOp(tenantClient, ta)
+                  .onComplete(context.asyncAssertSuccess());
+            }));
   }
 
   @AfterClass
@@ -232,9 +227,8 @@ public class RestVerticleTest {
     startFuture.onComplete(res -> {
       if (res.failed()) {
         context.fail(res.cause());
-      } else {
-        async.complete();
       }
+      async.complete();
     });
   }
 
@@ -1832,6 +1826,7 @@ public class RestVerticleTest {
                 .put("permissionName", "dummy.write")
             )
         );
+    logger.info("testPostBadPermissions....................");
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions", HttpMethod.POST,
       null, badPermission.encode(), 400).compose(res -> {
       return Future.succeededFuture(res);

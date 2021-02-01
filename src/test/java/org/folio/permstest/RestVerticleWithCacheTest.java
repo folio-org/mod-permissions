@@ -51,29 +51,24 @@ public class RestVerticleWithCacheTest {
 
   @BeforeClass
   public static void setup(TestContext context) {
-    Async async = context.async();
     port = NetworkUtils.nextFreePort();
     PermsCache.setCachePeriod(3000);
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
-        .setWorker(true);
+        .setWorker(false);
 
-    vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes();
-        ta.setModuleTo("mod-permissions-1.0.0");
-        List<Parameter> parameters = new LinkedList<>();
-        parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-        ta.setParameters(parameters);
-        tenantClient.postTenant(ta, res2 -> {
-          async.complete();
-        });
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-
-    });
+    vertx.deployVerticle(RestVerticle.class.getName(), options)
+        .onComplete(
+            context.asyncAssertSuccess(res -> {
+              TenantAttributes ta = new TenantAttributes();
+              ta.setModuleTo("mod-permissions-1.0.0");
+              List<Parameter> parameters = new LinkedList<>();
+              parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+              ta.setParameters(parameters);
+              TestUtil.tenantOp(tenantClient, ta)
+                  .onComplete(context.asyncAssertSuccess());
+            }));
   }
 
   @AfterClass
