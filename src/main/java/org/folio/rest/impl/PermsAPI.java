@@ -197,7 +197,8 @@ public class PermsAPI implements Perms {
               tenantId, logger).onComplete(updatePermsRes -> {
             if (updatePermsRes.failed()) {
               postgresClient.rollbackTx(beginTx, rollbackTx -> {
-                logger.error("Error updating derived fields: {0}", updatePermsRes.cause());
+                logger.error("Error updating derived fields: {}",
+                  updatePermsRes.cause().getMessage(), updatePermsRes.cause());
                 if (updatePermsRes.cause() instanceof InvalidPermissionsException) {
                   asyncResultHandler.handle(Future.succeededFuture(
                       PostPermsUsersResponse.respond422WithApplicationJson(
@@ -800,9 +801,8 @@ public class PermsAPI implements Perms {
                 postgresClient.save(connection, TABLE_NAME_PERMS, newId, realPerm, postReply -> {
                   if (postReply.failed()) {
                     postgresClient.rollbackTx(connection, done -> {
-                      logger.error(String
-                        .format("Unable to save new permission: %s",
-                          postReply.cause().getMessage()), postReply.cause());
+                      logger.error("Unable to save new permission: {}",
+                          postReply.cause().getMessage(), postReply.cause());
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsPermissionsResponse
                               .respond500WithTextPlain(postReply.cause().getMessage())));
@@ -909,7 +909,7 @@ public class PermsAPI implements Perms {
                     cqlFilter, true, putReply -> {
                       if (putReply.failed()) {
                         pgClient.rollbackTx(connection, done -> {
-                          logger.error("Error with put: " + putReply.cause().getMessage(), putReply.cause());
+                          logger.error("Error with put: {}", putReply.cause().getMessage(), putReply.cause());
                           asyncResultHandler.handle(Future.succeededFuture(
                               PutPermsPermissionsByIdResponse.respond500WithTextPlain(
                                   putReply.cause().getMessage())));
@@ -1051,7 +1051,7 @@ public class PermsAPI implements Perms {
                 PostgresClient.getInstance(vertxContext.owner(), tenantId).delete(TABLE_NAME_PERMS,
                     id, deleteReply -> {
                       if (deleteReply.failed()) {
-                        logger.error("deleteReply failed: " + deleteReply.cause().getMessage());
+                        logger.error("deleteReply failed: {}", deleteReply.cause().getMessage());
                         asyncResultHandler.handle(Future.succeededFuture(
                             DeletePermsPermissionsByIdResponse.respond500WithTextPlain(
                                 deleteReply.cause().getMessage())));
@@ -1100,8 +1100,8 @@ public class PermsAPI implements Perms {
       }
 
       CQLWrapper cql;
-      logger.info(String.format("Generating cql to request rows from table '%s' with query '%s'",
-          TABLE_NAME_PERMS, query));
+      logger.info("Generating cql to request rows from table '{}' with query '{}'",
+          TABLE_NAME_PERMS, query);
       cql = getCQL(query, TABLE_NAME_PERMS, length, start - 1);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
@@ -1144,7 +1144,7 @@ public class PermsAPI implements Perms {
               CompositeFuture compositeFuture = CompositeFuture.join(futureList);
               compositeFuture.onComplete(compositeResult -> {
                 if (compositeFuture.failed()) {
-                  logger.error("Error expanding permissions: " + compositeFuture.cause().getMessage());
+                  logger.error("Error expanding permissions: {}", compositeFuture.cause().getMessage());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond500WithTextPlain("Error getting expanded permissions: " + compositeResult.cause().getMessage())));
                 } else {
                   List<Permission> newPermList = new ArrayList<>();
@@ -1370,16 +1370,16 @@ public class PermsAPI implements Perms {
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
           Permission.class, new Criterion(nameCrit), true, false, getReply -> {
             if (getReply.failed()) {
-              logger.debug("postgres client 'get' failed: " + getReply.cause().getMessage());
+              logger.debug("postgres client 'get' failed: {}", getReply.cause().getMessage());
               promise.fail(getReply.cause());
               return;
             }
             List<Permission> permList = getReply.result().getResults();
             if (permList.isEmpty()) {
-              logger.debug("No permission object '" + permissionName + "' exists");
+              logger.debug("No permission object '{}' exists", permissionName);
               promise.complete(null);
             } else {
-              logger.debug("Completing promise for getFullPermissions for '" + permissionName + "'");
+              logger.debug("Completing promise for getFullPermissions for '{}'", permissionName);
               promise.complete(permList.get(0));
             }
           });
@@ -1458,7 +1458,7 @@ public class PermsAPI implements Perms {
   private Future<Permission> expandSubPermissions(Permission permission,
                                                   Context vertxContext, String tenantId) {
 
-    logger.debug("Expanding subPermissions for " + permission.getPermissionName());
+    logger.debug("Expanding subPermissions for {}", permission.getPermissionName());
     List<Object> subPerms = permission.getSubPermissions();
     if (subPerms.isEmpty()) {
       return Future.succeededFuture(permission);
@@ -1473,8 +1473,9 @@ public class PermsAPI implements Perms {
     CompositeFuture compositeFuture = CompositeFuture.join(futureList);
     compositeFuture.onComplete(compositeResult -> {
       if (compositeResult.failed()) {
-        logger.error("Failed to expand subpermissions for '" + permission.getPermissionName()
-                + "' : " + compositeResult.cause().getMessage(),
+        logger.error("Failed to expand subpermissions for '{}' : {}",
+              permission.getPermissionName(),
+              compositeResult.cause().getMessage(),
             compositeResult.cause());
         promise.fail(compositeResult.cause().getMessage());
         return;
@@ -1651,9 +1652,8 @@ public class PermsAPI implements Perms {
             } else {
               valueList = permission.getGrantedTo();
             }
-            logger.info("Performing " + operation.toString()
-                + " operation on " + field.toString() + " of permission "
-                + permissionName + " with value " + fieldValue);
+            logger.info("Performing {} operation on {} of permission {} with value {}",
+                operation.toString(), field.toString(), permissionName, fieldValue);
             boolean modified = false;
             if (operation == Operation.ADD) {
               if (!valueList.contains(fieldValue)) {
