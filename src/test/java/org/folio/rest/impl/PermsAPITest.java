@@ -4,16 +4,17 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
+import org.hamcrest.MatcherAssert;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -25,7 +26,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 @RunWith(VertxUnitRunner.class)
 public class PermsAPITest {
 
-  private final Logger logger = LoggerFactory.getLogger(PermsAPITest.class);
+  private final Logger logger = LogManager.getLogger(PermsAPITest.class);
   static Vertx vertx;
 
   @BeforeClass
@@ -81,8 +82,8 @@ public class PermsAPITest {
   public void testRefreshCacheFail(TestContext context) {
     Future<Permission> fullPerms = PermsCache.getFullPerms("foo",
         vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
-      Assert.assertThat(res.getMessage(),
-          containsString("relation \"badtenant_mod_permissions.permissions\" does not exist"));
+      MatcherAssert.assertThat(res.getMessage(),
+          containsString("relation \\\"badtenant_mod_permissions.permissions\\\" does not exist"));
     }));
   }
 

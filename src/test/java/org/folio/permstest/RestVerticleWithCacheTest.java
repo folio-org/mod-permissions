@@ -51,36 +51,24 @@ public class RestVerticleWithCacheTest {
 
   @BeforeClass
   public static void setup(TestContext context) {
-    Async async = context.async();
     port = NetworkUtils.nextFreePort();
     PermsCache.setCachePeriod(3000);
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     vertx = Vertx.vertx();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
-        .setWorker(true);
-    try {
-      PostgresClient.setIsEmbedded(true);
-      PostgresClient.getInstance(vertx).startEmbeddedPostgres();
-    } catch (Exception e) {
-      e.printStackTrace();
-      context.fail(e);
-      return;
-    }
-    vertx.deployVerticle(RestVerticle.class.getName(), options, res -> {
-      try {
-        TenantAttributes ta = new TenantAttributes();
-        ta.setModuleTo("mod-permissions-1.0.0");
-        List<Parameter> parameters = new LinkedList<>();
-        parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-        ta.setParameters(parameters);
-        tenantClient.postTenant(ta, res2 -> {
-          async.complete();
-        });
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+        .setWorker(false);
 
-    });
+    vertx.deployVerticle(RestVerticle.class.getName(), options)
+        .onComplete(
+            context.asyncAssertSuccess(res -> {
+              TenantAttributes ta = new TenantAttributes();
+              ta.setModuleTo("mod-permissions-1.0.0");
+              List<Parameter> parameters = new LinkedList<>();
+              parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+              ta.setParameters(parameters);
+              TestUtil.tenantOp(tenantClient, ta)
+                  .onComplete(context.asyncAssertSuccess());
+            }));
   }
 
   @AfterClass
@@ -94,7 +82,6 @@ public class RestVerticleWithCacheTest {
 
   @Test
   public void testPermsSeq(TestContext context) {
-    Async async = context.async();
     Future<WrappedResponse> startFuture;
     startFuture = sendPermissionSet(context, false).compose(w -> {
       return testSubPermExpansion(context, Arrays.asList(P_READ, P_WRITE));
@@ -114,13 +101,7 @@ public class RestVerticleWithCacheTest {
       return testSubPermExpansionAfterWait(context, Arrays.asList(P_READ, P_WRITE, P_DELETE), 2);
     });
 
-    startFuture.onComplete(res -> {
-      if (res.failed()) {
-        context.fail(res.cause());
-      } else {
-        async.complete();
-      }
-    });
+    startFuture.onComplete(context.asyncAssertSuccess());
   }
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, boolean more) {
@@ -159,17 +140,7 @@ public class RestVerticleWithCacheTest {
 
   private Future<WrappedResponse> postPermUser(TestContext context, String userId) {
     JsonObject newUser = new JsonObject().put("userId", userId).put("permissions", new JsonArray().add("dummy.all"));
-    Promise<WrappedResponse> promise = Promise.promise();
-    TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users", POST, null, newUser.encode(), 201)
-        .onComplete(res -> {
-          if (res.failed()) {
-            promise.fail(res.cause());
-          } else {
-            promise.complete(res.result());
-          }
-        });
-
-    return promise.future();
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users", POST, null, newUser.encode(), 201);
   }
 
   private Future<WrappedResponse> testSubPermExpansion(TestContext context, List<String> perms) {

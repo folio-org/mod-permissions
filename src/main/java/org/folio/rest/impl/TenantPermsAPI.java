@@ -3,6 +3,14 @@ package org.folio.rest.impl;
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 import static org.folio.rest.impl.PermsAPI.getCQL;
 import static org.folio.rest.impl.PermsAPI.getIdCriterion;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,6 +18,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.OkapiPermission;
@@ -24,16 +34,6 @@ import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
 import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Context;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Promise;
-import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 
 /**
  *
@@ -47,7 +47,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
 
-  private final Logger logger = LoggerFactory.getLogger(TenantPermsAPI.class);
+  private final Logger logger = LogManager.getLogger(TenantPermsAPI.class);
 
   @Override
   public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders,
@@ -72,7 +72,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<Permission> addMissingModuleContext(Permission perm, ModuleId moduleId,
       Context vertxContext, String tenantId) {
     Promise<Permission> promise = Promise.promise();
-    perm.setModuleName(moduleId.getProduct());
+perm.setModuleName(moduleId.getProduct());
     SemVer semver = moduleId.getSemVer();
     perm.setModuleVersion(semver != null ? semver.toString() : null);
 
@@ -132,7 +132,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private List<OkapiPermission> getNewPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
     List<OkapiPermission> newPerms = new ArrayList<>();
-    
+
     if(perms != null) {
       perms.stream()
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
@@ -154,7 +154,6 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Map<OkapiPermission, List<Permission>> getRenamedPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
     Map<OkapiPermission, List<Permission>> renamedPerms = new HashMap<>();
-    
     if(perms != null) {
       perms.stream()
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
@@ -390,7 +389,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           List<Future> futures = new ArrayList<>(permList.size());
           permList.keySet().forEach(okapiPerm -> {
             permList.get(okapiPerm).forEach(replaced -> {
-              replaced.getGrantedTo().forEach(permUser -> {            
+              replaced.getGrantedTo().forEach(permUser -> {
                 String permissionName = okapiPerm.getPermissionName();
                 futures.add(addPermissionToUser(connection, permUser.toString(), permissionName,
                     vertxContext, tenantId));
@@ -609,13 +608,13 @@ public class TenantPermsAPI implements Tenantpermissions {
     Criterion crit = new Criterion(nameCrit);
 
     if (moduleId != null) {
-      String moduleName = new ModuleId(moduleId).getProduct();      
+      String moduleName = new ModuleId(moduleId).getProduct();
       Criteria modCrit = new Criteria();
       modCrit.addField(MODULE_NAME_FIELD);
       modCrit.setOperation("=");
       modCrit.setVal(moduleName);
       crit.addCriterion(modCrit);
-    }  
+    }
 
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
         Permission.class, crit.setLimit(new Limit(1)), true, false, getReply -> {

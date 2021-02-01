@@ -15,12 +15,12 @@ import org.folio.rest.impl.PermsCache.PermCache;
 import org.folio.rest.jaxrs.model.Permission;
 import org.junit.Test;
 
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class PermsCacheTest {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(PermsCacheTest.class);
+  private static final Logger LOGGER = LogManager.getLogger(PermsCacheTest.class);
 
   private static final String P1 = "perm-1";
   private static final String S1 = "sub-1";
