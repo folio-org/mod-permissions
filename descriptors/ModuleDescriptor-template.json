@@ -62,12 +62,17 @@
     },
     {
       "id": "_tenant",
-      "version": "1.2",
+      "version": "2.0",
       "interfaceType" : "system",
       "handlers" : [
         {
-          "methods" : [ "POST", "DELETE" ],
+          "methods" : [ "POST" ],
           "pathPattern" : "/_/tenant"
+        },
+        {
+          "methods" : [ "GET", "DELETE" ],
+          "pathPattern" : "/_/tenant/{id}"
+
         }
       ]
     },
