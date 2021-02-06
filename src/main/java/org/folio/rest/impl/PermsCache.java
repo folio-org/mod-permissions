@@ -4,7 +4,7 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -79,7 +79,7 @@ public class PermsCache {
    */
   static Future<Permission> getFullPerms(String permissionName, Context vertxContext, String tenantId) {
     return getPermCache(vertxContext, tenantId,
-        new HashSet<>(Arrays.asList(permissionName))).map(permCache -> permCache.getFullPerm(permissionName));
+        new HashSet<>(Collections.singletonList(permissionName))).map(permCache -> permCache.getFullPerm(permissionName));
   }
 
   private static Future<PermCache> getPermCache(Context vertxContext, String tenantId, Set<String> perms) {
@@ -130,9 +130,9 @@ public class PermsCache {
    */
   public static class PermCache {
 
-    private long timestamp = System.currentTimeMillis();
-    private Map<String, Set<String>> subPermMap = new HashMap<>();
-    private Map<String, Permission> fullPermMap = new HashMap<>();
+    private final long timestamp = System.currentTimeMillis();
+    private final Map<String, Set<String>> subPermMap;
+    private final Map<String, Permission> fullPermMap;
 
     public PermCache(Map<String, Set<String>> subPermMap, Map<String, Permission> fullPermMap) {
       this.subPermMap = subPermMap;

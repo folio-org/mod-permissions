@@ -95,7 +95,7 @@ public class PermsAPITest {
     Context vertxContext = vertx.getOrCreateContext();
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.startTx(s -> {
-      Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
+      Future<Void> future = api.updateUserPermissions(s, "bad",
           new JsonArray().add("this"), new JsonArray().add("that"),
           vertxContext, tenantId, logger);
       future.onComplete(context.asyncAssertFailure());

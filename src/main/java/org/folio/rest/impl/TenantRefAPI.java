@@ -4,14 +4,10 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import java.util.Map;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.tools.utils.TenantLoading;
 
 public class TenantRefAPI extends TenantAPI {
-
-  private static final Logger log = LogManager.getLogger(TenantRefAPI.class);
 
   private String filter(String content) {
     JsonObject jInput = new JsonObject(content);
