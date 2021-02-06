@@ -328,6 +328,41 @@ public class RestVerticleTest {
     context.assertEquals(201, response.code);
   }
 
+  // Test that a permission can be used in another module if first one is deleted MODPERMS-130
+  @Test
+  public void testPermissionsOnTheMove(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description A")
+                )
+            );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // remove permissions for moduleA
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleA")
+        .put("perms", new JsonArray());
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission again in other module with new definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description B")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+  }
+
   @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
     String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
