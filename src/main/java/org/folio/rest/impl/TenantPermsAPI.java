@@ -106,8 +106,8 @@ perm.setModuleName(moduleId.getProduct());
                     if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
                       return Future.succeededFuture();
                     }
-                    if (dbPerm != null && Boolean.FALSE.equals(dbPerm.getMutable())
-                        && PermissionUtils.equals(perm, dbPerm)) {
+                    if (Boolean.TRUE.equals(dbPerm.getDeprecated()) || (Boolean.FALSE.equals(dbPerm.getMutable())
+                        && PermissionUtils.equals(perm, dbPerm))) {
                       // (B) we have a match, but lack moduleName. Fix it before we add it.
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
                           .onFailure(Future::failedFuture)
