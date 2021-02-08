@@ -364,6 +364,57 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPermissionsChangingInMultipleModules(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission in other module with same definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // lets change the definition in other module
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 2")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // module A upgraded with its ORIGINAL definition gives collision!
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleA-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(400, response.code);
+  }
+
+  @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
     String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";
