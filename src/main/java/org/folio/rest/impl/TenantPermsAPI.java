@@ -107,6 +107,11 @@ perm.setModuleName(moduleId.getProduct());
                         // permission does not already exist or is dummy
                         return Future.succeededFuture();
                       }
+                      // we only allow overwrite for immutable permissions (those posted with tenantPermissions)
+                      // and if one of the following it true:
+                      // 1: it's deprecated
+                      // 2: no module context (yet)
+                      // 3: same module context
                       if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
                           (Boolean.TRUE.equals(dbPerm.getDeprecated())
                               || dbPerm.getModuleName() == null
