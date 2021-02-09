@@ -101,27 +101,29 @@ perm.setModuleName(moduleId.getProduct());
             List<Permission> ret = new ArrayList<>();
             List<Future> futures = new ArrayList<>(perms.size());
             perms.forEach(perm ->
-              futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
-                  .compose(dbPerm -> {
-                    if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
-                      return Future.succeededFuture();
-                    }
-                    if (Boolean.TRUE.equals(dbPerm.getDeprecated()) || (Boolean.FALSE.equals(dbPerm.getMutable())
-                        && PermissionUtils.equals(perm, dbPerm))) {
-                      // (B) we have a match, but lack moduleName. Fix it before we add it.
-                      return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
-                          .onFailure(Future::failedFuture)
-                          .onSuccess(ret::add);
-                    } else {
-                      // Edge case of (A) where a permission with the same name already exists.
-                      // We need to fail here as there isn't anything we can do.
-                      String msg = String.format(
-                          "Collision! A Permission named %s is already defined: %s",
-                          perm.getPermissionName(), Json.encode(dbPerm));
-                      logger.error(msg);
-                      return Future.failedFuture(msg);
-                    }
-                  })));
+                futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
+                    .compose(dbPerm -> {
+                      if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
+                        // permission does not already exist or is dummy
+                        return Future.succeededFuture();
+                      }
+                      if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
+                          (Boolean.TRUE.equals(dbPerm.getDeprecated())
+                              || dbPerm.getModuleName() == null
+                              || dbPerm.getModuleName().equals(moduleId.getProduct()))) {
+                        return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
+                            .onFailure(Future::failedFuture)
+                            .onSuccess(ret::add);
+                      } else {
+                        // Edge case of (A) where a permission with the same name already exists.
+                        // We need to fail here as there isn't anything we can do.
+                        String msg = String.format(
+                            "Collision! A Permission named %s is already defined: %s",
+                            perm.getPermissionName(), Json.encode(dbPerm));
+                        logger.error(msg);
+                        return Future.failedFuture(msg);
+                      }
+                    })));
             return CompositeFuture.all(futures).map(ret);
           }
           return Future.succeededFuture(existing); // Happy path.

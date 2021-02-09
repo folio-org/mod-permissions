@@ -333,7 +333,7 @@ public class RestVerticleTest {
   public void testPermissionsOnTheMove(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA")
+        .put("moduleId","moduleA0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -345,14 +345,14 @@ public class RestVerticleTest {
 
     // remove permissions for moduleA
     permissionSet = new JsonObject()
-        .put("moduleId","moduleA")
+        .put("moduleId","moduleA0")
         .put("perms", new JsonArray());
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
     // use same permission again in other module with new definition
     permissionSet = new JsonObject()
-        .put("moduleId","moduleB")
+        .put("moduleId","moduleB0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -367,7 +367,7 @@ public class RestVerticleTest {
   public void testPermissionsChangingInMultipleModules(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA-1.0.0")
+        .put("moduleId","moduleA1-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -379,31 +379,7 @@ public class RestVerticleTest {
 
     // use same permission in other module with same definition
     permissionSet = new JsonObject()
-        .put("moduleId","moduleB-1.0.0")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", perm)
-                .put("displayName", "Description 1")
-            )
-        );
-    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
-
-    // lets change the definition in other module
-    permissionSet = new JsonObject()
-        .put("moduleId","moduleB-1.0.1")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", perm)
-                .put("displayName", "Description 2")
-            )
-        );
-    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
-
-    // module A upgraded with its ORIGINAL definition gives collision!
-    permissionSet = new JsonObject()
-        .put("moduleId","moduleA-1.0.1")
+        .put("moduleId","moduleB1-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
