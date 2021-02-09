@@ -391,6 +391,61 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testSameModuleCanChangeDefinition(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA2-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission in other module with same definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleA2-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 2")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
+  public void testOtherModuleCanNotChangeDefinition(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA3-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission in other module with same definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB3-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(400, response.code);
+  }
+
+
+  @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
     String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";

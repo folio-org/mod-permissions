@@ -94,44 +94,42 @@ perm.setModuleName(moduleId.getProduct());
       Context vertxContext, String tenantId) {
     return getPermsByModule(moduleId, vertxContext, tenantId)
         .compose(existing -> {
-          if (existing.isEmpty() && perms != null) {
-            // this means either:
-            // A) the first time enabling this module, or
-            // B) the permissions exist but don't yet have the moduleName field
-            List<Permission> ret = new ArrayList<>();
-            List<Future> futures = new ArrayList<>(perms.size());
-            perms.forEach(perm ->
-                futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
-                    .compose(dbPerm -> {
-                      if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
-                        // permission does not already exist or is dummy
-                        return Future.succeededFuture();
-                      }
-                      // we only allow overwrite for immutable permissions (those posted with tenantPermissions)
-                      // and if one of the following it true:
-                      // 1: it's deprecated
-                      // 2: no module context (yet)
-                      // 3: same module context
-                      if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
-                          (Boolean.TRUE.equals(dbPerm.getDeprecated())
-                              || dbPerm.getModuleName() == null
-                              || dbPerm.getModuleName().equals(moduleId.getProduct()))) {
-                        return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
-                            .onFailure(Future::failedFuture)
-                            .onSuccess(ret::add);
-                      } else {
-                        // Edge case of (A) where a permission with the same name already exists.
-                        // We need to fail here as there isn't anything we can do.
-                        String msg = String.format(
-                            "Collision! A Permission named %s is already defined: %s",
-                            perm.getPermissionName(), Json.encode(dbPerm));
-                        logger.error(msg);
-                        return Future.failedFuture(msg);
-                      }
-                    })));
-            return CompositeFuture.all(futures).map(ret);
+          if (!existing.isEmpty()) {
+            return Future.succeededFuture(existing); // permission already has context
           }
-          return Future.succeededFuture(existing); // Happy path.
+          // this means either:
+          // A) the first time enabling this module, or
+          // B) the permissions exist but don't yet have the moduleName field
+          List<Permission> ret = new ArrayList<>();
+          List<Future> futures = new ArrayList<>(perms.size());
+          perms.forEach(perm ->
+              futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
+                  .compose(dbPerm -> {
+                    if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
+                      // permission does not already exist or is dummy
+                      return Future.succeededFuture();
+                    }
+                    // we only allow overwrite for immutable permissions (those posted with tenantPermissions)
+                    // and if one of the following it true:
+                    // 1: it's deprecated
+                    // 2: no module context (yet)
+                    if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
+                        (Boolean.TRUE.equals(dbPerm.getDeprecated())
+                            || dbPerm.getModuleName() == null)) {
+                      return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
+                          .onFailure(Future::failedFuture)
+                          .onSuccess(ret::add);
+                    } else {
+                      // Edge case of (A) where a permission with the same name already exists.
+                      // We need to fail here as there isn't anything we can do.
+                      String msg = String.format(
+                          "Collision! A Permission named %s is already defined: %s",
+                          perm.getPermissionName(), Json.encode(dbPerm));
+                      logger.error(msg);
+                      return Future.failedFuture(msg);
+                    }
+                  })));
+          return CompositeFuture.all(futures).map(ret);
         })
         .onFailure(t -> logger.error(t.getMessage(), t));
   }
