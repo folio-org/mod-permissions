@@ -94,21 +94,28 @@ perm.setModuleName(moduleId.getProduct());
       Context vertxContext, String tenantId) {
     return getPermsByModule(moduleId, vertxContext, tenantId)
         .compose(existing -> {
-          if (existing.isEmpty() && perms != null) {
-            // this means either:
-            // A) the first time enabling this module, or
-            // B) the permissions exist but don't yet have the moduleName field
-            List<Permission> ret = new ArrayList<>();
-            List<Future> futures = new ArrayList<>(perms.size());
-            perms.forEach(perm ->
+          if (!existing.isEmpty()) {
+            return Future.succeededFuture(existing); // permission already has context
+          }
+          // this means either:
+          // A) the first time enabling this module, or
+          // B) the permissions exist but don't yet have the moduleName field
+          List<Permission> ret = new ArrayList<>();
+          List<Future> futures = new ArrayList<>(perms.size());
+          perms.forEach(perm ->
               futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
                   .compose(dbPerm -> {
                     if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
+                      // permission does not already exist or is dummy
                       return Future.succeededFuture();
                     }
-                    if (dbPerm != null && Boolean.FALSE.equals(dbPerm.getMutable())
-                        && PermissionUtils.equals(perm, dbPerm)) {
-                      // (B) we have a match, but lack moduleName. Fix it before we add it.
+                    // we only allow overwrite for immutable permissions (those posted with tenantPermissions)
+                    // and if one of the following it true:
+                    // 1: it's deprecated
+                    // 2: no module context (yet)
+                    if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
+                        (Boolean.TRUE.equals(dbPerm.getDeprecated())
+                            || dbPerm.getModuleName() == null)) {
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
                           .onFailure(Future::failedFuture)
                           .onSuccess(ret::add);
@@ -122,9 +129,7 @@ perm.setModuleName(moduleId.getProduct());
                       return Future.failedFuture(msg);
                     }
                   })));
-            return CompositeFuture.all(futures).map(ret);
-          }
-          return Future.succeededFuture(existing); // Happy path.
+          return CompositeFuture.all(futures).map(ret);
         })
         .onFailure(t -> logger.error(t.getMessage(), t));
   }
