@@ -34,7 +34,7 @@ public class TenantRefAPI extends TenantAPI {
   Future<Integer> loadData(TenantAttributes attributes, String tenantId,
                            Map<String, String> headers, Context vertxContext) {
     return super.loadData(attributes, tenantId, headers, vertxContext)
-        .compose(num -> deprecateSystemPerms(tenantId, vertxContext))
+        .compose(num -> deprecateSystemPerms(tenantId, vertxContext, num))
         .compose(num -> new TenantLoading()
             .withKey("loadSample").withLead("sample-data")
             .withPostOnly()
@@ -44,7 +44,7 @@ public class TenantRefAPI extends TenantAPI {
             .perform(attributes, headers, vertxContext, num));
   }
 
-  private Future<Integer> deprecateSystemPerms(String tenantId, Context context) {
+  private Future<Integer> deprecateSystemPerms(String tenantId, Context context, Integer num) {
     Promise<Integer> promise = Promise.promise();
 
     PostgresClient pgClient = PostgresClient.getInstance(context.owner(), tenantId);
@@ -54,7 +54,7 @@ public class TenantRefAPI extends TenantAPI {
         return tenantPermsApi.softDeletePermList(connection, perms, context, tenantId);
       }).onSuccess(perms -> {
         log.info("Marked all system-defined permissions deprecated.");
-        pgClient.endTx(connection, done -> promise.complete(0));
+        pgClient.endTx(connection, done -> promise.complete(num));
       }).onFailure(t -> {
         log.error("Failed to mark system-defined permissions deprecated", t);
         pgClient.rollbackTx(connection, done -> promise.fail(t));
@@ -63,7 +63,7 @@ public class TenantRefAPI extends TenantAPI {
     return promise.future();
   }
 
-  private Future<List<Permission>> getSystemPerms(AsyncResult<SQLConnection> connection,
+  protected Future<List<Permission>> getSystemPerms(AsyncResult<SQLConnection> connection,
       String tenantId, Context context) {
     Promise<List<Permission>> promise = Promise.promise();
 

@@ -1035,7 +1035,6 @@ public class RestVerticleTest {
         context.assertFalse(perm.getString("displayName").startsWith("(deprecated)"));
         async.complete();
       });
-    async.await(60000);
   }
 
   @Test
