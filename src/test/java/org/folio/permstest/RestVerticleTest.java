@@ -329,6 +329,10 @@ public class RestVerticleTest {
   }
 
   // Test that a permission can be used in another module if first one is deleted MODPERMS-130
+  // This may happen if a module is deprecated and simply renamed, but keep providing the same interfaces
+  // and permissions
+  // Or there really are two modules out there offering the same interface and permissions (and only
+  // one can be enabled at a time).
   @Test
   public void testPermissionsOnTheMove(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
@@ -343,7 +347,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
-    // remove permissions for moduleA
+    // remove permissions for it / OKAPI-982
     permissionSet = new JsonObject()
         .put("moduleId","moduleA0")
         .put("perms", new JsonArray());
@@ -387,6 +391,7 @@ public class RestVerticleTest {
             )
         );
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    // fails because we can only have one module offering a permission
     context.assertEquals(400, response.code);
   }
 
@@ -404,7 +409,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
-    // use same permission in other module with same definition
+    // update the module with an updated permission definition
     permissionSet = new JsonObject()
         .put("moduleId","moduleA2-1.0.1")
         .put("perms", new JsonArray()
