@@ -196,7 +196,8 @@ perm.setModuleName(moduleId.getProduct());
         .filter(okapiPerm -> {
             String name = okapiPerm.getPermissionName();
             return dbPerms.containsKey(name)
-                && !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name));
+                && (dbPerms.get(name).getDeprecated()
+                || !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name)));
           })
         .forEach(modifiedPerms::add);
     }
@@ -300,7 +301,7 @@ perm.setModuleName(moduleId.getProduct());
     return promise.future();
   }
 
-  private Future<Void> softDeletePermList(AsyncResult<SQLConnection> connection,
+  protected Future<Void> softDeletePermList(AsyncResult<SQLConnection> connection,
       List<Permission> permList, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
 
@@ -680,6 +681,7 @@ perm.setModuleName(moduleId.getProduct());
       permission.setDisplayName(perm.getDisplayName());
       permission.setDescription(perm.getDescription());
       permission.setModuleName(moduleId.getProduct());
+      permission.setDeprecated(false);
       SemVer semver = moduleId.getSemVer();
       permission.setModuleVersion(semver != null ? semver.toString() : null);
 
@@ -718,7 +720,8 @@ perm.setModuleName(moduleId.getProduct());
                 return;
               }
               // leverage dummy permission to handle permission update
-              if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
+              if (Boolean.TRUE.equals(foundPerm.getDeprecated())
+                  || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
                   || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
