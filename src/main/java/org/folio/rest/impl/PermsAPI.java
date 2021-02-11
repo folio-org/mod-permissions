@@ -211,7 +211,7 @@ public class PermsAPI implements Perms {
                     }
                   })
               )
-              .onSuccess(res1 ->
+              .onSuccess(res ->
                   postgresClient.endTx(beginTx, endTx ->
                     asyncResultHandler.handle(Future.succeededFuture(
                         PostPermsUsersResponse.respond201WithApplicationJson(entity)))

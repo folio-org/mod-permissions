@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
 import org.hamcrest.MatcherAssert;
@@ -64,7 +63,6 @@ public class PermsAPITest {
     Assert.assertEquals(2, lists.size());
     Assert.assertEquals(Arrays.asList("a", "b"), lists.get(0));
     Assert.assertEquals(Arrays.asList("c", "d"), lists.get(1));
-
   }
 
   @Test
@@ -80,7 +78,7 @@ public class PermsAPITest {
 
   @Test
   public void testRefreshCacheFail(TestContext context) {
-    Future<Permission> fullPerms = PermsCache.getFullPerms("foo",
+    PermsCache.getFullPerms("foo",
         vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
       MatcherAssert.assertThat(res.getMessage(),
           containsString("relation \\\"badtenant_mod_permissions.permissions\\\" does not exist"));
@@ -89,13 +87,11 @@ public class PermsAPITest {
 
   @Test
   public void testUpdateUserPermissionsFail(TestContext context) {
-    PermsAPI api = new PermsAPI();
-
     String tenantId = "badTenant";
     Context vertxContext = vertx.getOrCreateContext();
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.startTx(s -> {
-      Future<Void> future = api.updateUserPermissions(s, "bad",
+      Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
           new JsonArray().add("this"), new JsonArray().add("that"),
           vertxContext, tenantId, logger);
       future.onComplete(context.asyncAssertFailure());
