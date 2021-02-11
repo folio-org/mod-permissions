@@ -721,7 +721,8 @@ perm.setModuleName(moduleId.getProduct());
               if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
-                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))) {
+                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
+                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getModuleVersion()))) {
                 foundPerm.setDummy(true);
               }
             }
