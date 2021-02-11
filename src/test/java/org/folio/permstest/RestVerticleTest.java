@@ -4,8 +4,9 @@ import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
 import static org.hamcrest.CoreMatchers.containsString;
-
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
@@ -327,6 +328,128 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", "{\"moduleId\":\"module\",\"perms\":null}", context);
     context.assertEquals(201, response.code);
   }
+
+  // Test that a permission can be used in another module if first one is deleted MODPERMS-130
+  // This may happen if a module is deprecated and simply renamed, but keep providing the same interfaces
+  // and permissions
+  // Or there really are two modules out there offering the same interface and permissions (and only
+  // one can be enabled at a time).
+  @Test
+  public void testPermissionsOnTheMove(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description A")
+                )
+            );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // remove permissions for it / OKAPI-982
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleA0")
+        .put("perms", new JsonArray());
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission again in other module with new definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description B")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
+  public void testPermissionsChangingInMultipleModules(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA1-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission in other module with same definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB1-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    // fails because we can only have one module offering a permission
+    context.assertEquals(400, response.code);
+  }
+
+  @Test
+  public void testSameModuleCanChangeDefinition(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA2-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // update the module with an updated permission definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleA2-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 2")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
+  public void testOtherModuleCanNotChangeDefinition(TestContext context) {
+    String perm = "perm" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA3-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // use same permission in other module with same definition
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB3-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm)
+                .put("displayName", "Description 1")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(400, response.code);
+  }
+
 
   @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
@@ -852,6 +975,66 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.DELETE, "/perms/permissions/" + id2, null, context);
     context.assertEquals(204, response.code);
+  }
+
+  @Test
+  public void testDeprecatePermissionsOnTenantInit(TestContext context) {
+    String permFoo = "perm" + UUID.randomUUID().toString();
+    String permUserDef = "user.defined.perm" + UUID.randomUUID().toString();
+
+    // create a system-defined permission - this should be marked deprecated by the tenant init call.
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleFoo")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", permFoo)
+                .put("displayName", "Description Foo")
+                )
+            );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // post a user-defined permission - this shouldn't be marked deprecated by the tenant init call.
+    JsonObject json = new JsonObject()
+        .put("permissionName", permUserDef)
+        .put("displayName", "User-defined permission")
+        .put("description", "A user-defined permission");
+
+    response = send(HttpMethod.POST, "/perms/permissions", json.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // call tenant init
+    Async async = context.async();
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku",  null);
+    TenantAttributes ta = new TenantAttributes();
+    ta.setModuleTo("mod-permissions-1.0.0");
+    TestUtil.tenantOp(tenantClient, ta)
+      .onFailure(context::fail)
+      .onSuccess(v -> {
+        // check that the system-defined perm was marked deprecated
+        Response resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
+        JsonObject perm = resp.body.getJsonArray("permissions").getJsonObject(0);
+        logger.info(perm.encodePrettily());
+        context.assertTrue(perm.getBoolean("deprecated"));
+        context.assertTrue(perm.getString("displayName").startsWith("(deprecated)"));
+
+        // check that the user-defined perm was not marked deprecated
+        resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permUserDef, null, context);
+        logger.info(resp.body.encodePrettily());
+          context.assertFalse(
+              resp.body.getJsonArray("permissions").getJsonObject(0).getBoolean("deprecated"));
+
+        resp = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+        context.assertEquals(201, resp.code);
+
+        // check that the system-defined perm was unmarked deprecated
+        resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
+        perm = resp.body.getJsonArray("permissions").getJsonObject(0);
+        logger.info(perm.encodePrettily());
+        context.assertFalse(perm.getBoolean("deprecated"));
+        context.assertFalse(perm.getString("displayName").startsWith("(deprecated)"));
+        async.complete();
+      });
   }
 
   @Test

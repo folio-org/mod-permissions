@@ -94,21 +94,28 @@ perm.setModuleName(moduleId.getProduct());
       Context vertxContext, String tenantId) {
     return getPermsByModule(moduleId, vertxContext, tenantId)
         .compose(existing -> {
-          if (existing.isEmpty() && perms != null) {
-            // this means either:
-            // A) the first time enabling this module, or
-            // B) the permissions exist but don't yet have the moduleName field
-            List<Permission> ret = new ArrayList<>();
-            List<Future> futures = new ArrayList<>(perms.size());
-            perms.forEach(perm ->
-              futures.add(getModulePermByName(perm.getPermissionName(),vertxContext, tenantId)
+          if (!existing.isEmpty()) {
+            return Future.succeededFuture(existing); // permission already has context
+          }
+          // this means either:
+          // A) the first time enabling this module, or
+          // B) the permissions exist but don't yet have the moduleName field
+          List<Permission> ret = new ArrayList<>();
+          List<Future> futures = new ArrayList<>(perms.size());
+          perms.forEach(perm ->
+              futures.add(getModulePermByName(perm.getPermissionName(), vertxContext, tenantId)
                   .compose(dbPerm -> {
                     if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
+                      // permission does not already exist or is dummy
                       return Future.succeededFuture();
                     }
-                    if (dbPerm != null && Boolean.FALSE.equals(dbPerm.getMutable())
-                        && PermissionUtils.equals(perm, dbPerm)) {
-                      // (B) we have a match, but lack moduleName. Fix it before we add it.
+                    // we only allow overwrite for immutable permissions (those posted with tenantPermissions)
+                    // and if one of the following it true:
+                    // 1: it's deprecated
+                    // 2: no module context (yet)
+                    if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
+                        (Boolean.TRUE.equals(dbPerm.getDeprecated())
+                            || dbPerm.getModuleName() == null)) {
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
                           .onSuccess(ret::add);
                     } else {
@@ -121,9 +128,7 @@ perm.setModuleName(moduleId.getProduct());
                       return Future.failedFuture(msg);
                     }
                   })));
-            return CompositeFuture.all(futures).map(ret);
-          }
-          return Future.succeededFuture(existing); // Happy path.
+          return CompositeFuture.all(futures).map(ret);
         })
         .onFailure(t -> logger.error(t.getMessage(), t));
   }
@@ -190,7 +195,8 @@ perm.setModuleName(moduleId.getProduct());
         .filter(okapiPerm -> {
             String name = okapiPerm.getPermissionName();
             return dbPerms.containsKey(name)
-                && !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name));
+                && (dbPerms.get(name).getDeprecated()
+                || !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name)));
           })
         .forEach(modifiedPerms::add);
     }
@@ -294,7 +300,7 @@ perm.setModuleName(moduleId.getProduct());
     return promise.future();
   }
 
-  private Future<Void> softDeletePermList(AsyncResult<SQLConnection> connection,
+  protected Future<Void> softDeletePermList(AsyncResult<SQLConnection> connection,
       List<Permission> permList, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
 
@@ -664,6 +670,7 @@ perm.setModuleName(moduleId.getProduct());
       permission.setDisplayName(perm.getDisplayName());
       permission.setDescription(perm.getDescription());
       permission.setModuleName(moduleId.getProduct());
+      permission.setDeprecated(false);
       SemVer semver = moduleId.getSemVer();
       permission.setModuleVersion(semver != null ? semver.toString() : null);
 
@@ -702,7 +709,8 @@ perm.setModuleName(moduleId.getProduct());
                 return;
               }
               // leverage dummy permission to handle permission update
-              if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
+              if (Boolean.TRUE.equals(foundPerm.getDeprecated())
+                  || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
                   || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
