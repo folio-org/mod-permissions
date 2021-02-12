@@ -48,7 +48,7 @@ public class TenantRefAPI extends TenantAPI {
     Promise<Integer> promise = Promise.promise();
 
     PostgresClient pgClient = PostgresClient.getInstance(context.owner(), tenantId);
-    pgClient.startTx(connection -> {
+    pgClient.startTx(connection ->
       getSystemPerms(connection, tenantId, context).compose(perms -> {
         TenantPermsAPI tenantPermsApi = new TenantPermsAPI();
         return tenantPermsApi.softDeletePermList(connection, perms, context, tenantId);
@@ -58,8 +58,8 @@ public class TenantRefAPI extends TenantAPI {
       }).onFailure(t -> {
         log.error("Failed to mark system-defined permissions deprecated", t);
         pgClient.rollbackTx(connection, done -> promise.fail(t));
-      });
-    });
+      })
+    );
     return promise.future();
   }
 

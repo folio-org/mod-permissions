@@ -2,8 +2,6 @@ package org.folio.rest.impl;
 
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.folio.permstest.TestUtil;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
@@ -17,7 +15,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
-import io.vertx.core.Context;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -29,7 +26,6 @@ import io.vertx.ext.web.client.WebClient;
 @RunWith(VertxUnitRunner.class)
 public class TenantRefAPITest {
 
-  private final Logger logger = LogManager.getLogger(TenantRefAPITest.class);
   private static Vertx vertx;
   private static WebClient client;
   static int port;
@@ -98,5 +94,4 @@ public class TenantRefAPITest {
           .onFailure(t -> async.complete());
     });
   }
-  
 }
