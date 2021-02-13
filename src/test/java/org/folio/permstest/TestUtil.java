@@ -27,17 +27,12 @@ public class TestUtil {
   public static final String CONTENT_TYPE_TEXT_JSON = "application/json,text/plain";
   private static final Logger LOGGER = LogManager.getLogger(TestUtil.class);
 
-
   static class WrappedResponse {
-    private int code;
-    private String body;
+    private final String body;
     private JsonObject json;
-    private HttpResponse response;
 
-    public WrappedResponse(int code, String body, HttpResponse response) {
-      this.code = code;
+    public WrappedResponse(String body) {
       this.body = body;
-      this.response = response;
       try {
         json = new JsonObject(body);
       } catch(Exception e) {
@@ -45,16 +40,8 @@ public class TestUtil {
       }
     }
 
-    public int getCode() {
-      return code;
-    }
-
     public String getBody() {
       return body;
-    }
-
-    public HttpResponse getResponse() {
-      return response;
     }
 
     public JsonObject getJson() {
@@ -72,8 +59,8 @@ public class TestUtil {
       .putHeader("content-type", CONTENT_TYPE_JSON)
       .putHeader("accept", CONTENT_TYPE_JSON);
     if (headers != null) {
-      for (Map.Entry entry : headers.entries()) {
-        request.putHeader((String) entry.getKey(), (String) entry.getValue());
+      for (Map.Entry<String, String> entry : headers.entries()) {
+        request.putHeader(entry.getKey(), entry.getValue());
       }
     }
 
@@ -95,7 +82,7 @@ public class TestUtil {
           + " '%s' but got status code '%s': %s", method, url,
         expectedCode, req.statusCode(), buf));
     } else {
-      return Future.succeededFuture(new WrappedResponse(req.statusCode(), buf, req));
+      return Future.succeededFuture(new WrappedResponse(buf));
     }
   }
 

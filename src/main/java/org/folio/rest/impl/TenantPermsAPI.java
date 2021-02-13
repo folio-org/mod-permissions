@@ -103,7 +103,7 @@ perm.setModuleName(moduleId.getProduct());
           List<Permission> ret = new ArrayList<>();
           List<Future> futures = new ArrayList<>(perms.size());
           perms.forEach(perm ->
-              futures.add(getModulePermByName(perm.getPermissionName(), null, vertxContext, tenantId)
+              futures.add(getModulePermByName(perm.getPermissionName(), vertxContext, tenantId)
                   .compose(dbPerm -> {
                     if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
                       // permission does not already exist or is dummy
@@ -117,7 +117,6 @@ perm.setModuleName(moduleId.getProduct());
                         (Boolean.TRUE.equals(dbPerm.getDeprecated())
                             || dbPerm.getModuleName() == null)) {
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
-                          .onFailure(Future::failedFuture)
                           .onSuccess(ret::add);
                     } else {
                       // Edge case of (A) where a permission with the same name already exists.
@@ -196,7 +195,8 @@ perm.setModuleName(moduleId.getProduct());
         .filter(okapiPerm -> {
             String name = okapiPerm.getPermissionName();
             return dbPerms.containsKey(name)
-                && !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name));
+                && (dbPerms.get(name).getDeprecated()
+                || !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name)));
           })
         .forEach(modifiedPerms::add);
     }
@@ -300,7 +300,7 @@ perm.setModuleName(moduleId.getProduct());
     return promise.future();
   }
 
-  private Future<Void> softDeletePermList(AsyncResult<SQLConnection> connection,
+  protected Future<Void> softDeletePermList(AsyncResult<SQLConnection> connection,
       List<Permission> permList, Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
 
@@ -586,7 +586,7 @@ perm.setModuleName(moduleId.getProduct());
 
   private Future<Boolean> checkPermExists(String permName, Context vertxContext, String tenantId) {
     Promise<Boolean> promise = Promise.promise();
-    getModulePermByName(permName, null, vertxContext, tenantId)
+    getModulePermByName(permName, vertxContext, tenantId)
       .onFailure(t -> {
         logger.error(t.getLocalizedMessage(), t);
         promise.fail(t);
@@ -603,23 +603,13 @@ perm.setModuleName(moduleId.getProduct());
     return promise.future();
   }
 
-  private Future<Permission> getModulePermByName(String permName, String moduleId,
-      Context vertxContext, String tenantId) {
+  private Future<Permission> getModulePermByName(String permName, Context vertxContext, String tenantId) {
     Promise<Permission> promise = Promise.promise();
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
     nameCrit.setVal(permName);
     Criterion crit = new Criterion(nameCrit);
-
-    if (moduleId != null) {
-      String moduleName = new ModuleId(moduleId).getProduct();
-      Criteria modCrit = new Criteria();
-      modCrit.addField(MODULE_NAME_FIELD);
-      modCrit.setOperation("=");
-      modCrit.setVal(moduleName);
-      crit.addCriterion(modCrit);
-    }
 
     PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
         Permission.class, crit.setLimit(new Limit(1)), true, false, getReply -> {
@@ -680,6 +670,7 @@ perm.setModuleName(moduleId.getProduct());
       permission.setDisplayName(perm.getDisplayName());
       permission.setDescription(perm.getDescription());
       permission.setModuleName(moduleId.getProduct());
+      permission.setDeprecated(false);
       SemVer semver = moduleId.getSemVer();
       permission.setModuleVersion(semver != null ? semver.toString() : null);
 
@@ -718,7 +709,8 @@ perm.setModuleName(moduleId.getProduct());
                 return;
               }
               // leverage dummy permission to handle permission update
-              if ((perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
+              if (Boolean.TRUE.equals(foundPerm.getDeprecated())
+                  || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
                   || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
                   || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
                   || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
@@ -731,7 +723,7 @@ perm.setModuleName(moduleId.getProduct());
               pgClient.endTx(connection, done -> promise.complete());
             } else {
               List<Object> grantedTo = foundPerm == null ? null : foundPerm.getGrantedTo();
-              Future<Void> deleteExistingFuture = null;
+              Future<Void> deleteExistingFuture;
               if (foundPerm == null) {
                 deleteExistingFuture = Future.succeededFuture();
               } else {
