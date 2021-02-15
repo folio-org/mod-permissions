@@ -450,6 +450,72 @@ public class RestVerticleTest {
     context.assertEquals(400, response.code);
   }
 
+  @Test
+  public void testDummyPerm(TestContext context) {
+    String perm1 = "permA" + UUID.randomUUID().toString();
+    String perm2 = "permB" + UUID.randomUUID().toString();
+    String dummy = "dummy" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleA4-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm1)
+                .put("displayName", "Description 1")
+                .put("subPermissions", new JsonArray()
+                    .add(dummy))
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName%3D" + dummy, null, context);
+    context.assertEquals(200, response.code);
+    JsonObject permObject = response.body.getJsonArray("permissions").getJsonObject(0);
+    context.assertEquals(dummy, permObject.getString("permissionName"));
+    context.assertFalse(permObject.containsKey("moduleName"));
+    context.assertFalse(permObject.containsKey("moduleVersion"));
+    context.assertTrue(permObject.getBoolean("dummy"), permObject.encode());
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName%3D" + perm1, null, context);
+    context.assertEquals(200, response.code);
+    permObject = response.body.getJsonArray("permissions").getJsonObject(0);
+    context.assertEquals(perm1, permObject.getString("permissionName"));
+    context.assertEquals("moduleA4", permObject.getString("moduleName"));
+    context.assertEquals("1.0.0", permObject.getString("moduleVersion"));
+    context.assertFalse(permObject.getBoolean("dummy"), permObject.encode());
+
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleB4-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm2)
+                .put("displayName", "Description 1")
+                .put("subPermissions", new JsonArray()
+                    .add(dummy))
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleA5-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", dummy)
+                .put("displayName", "Description 1")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName%3D" + dummy, null, context);
+    context.assertEquals(200, response.code);
+    permObject = response.body.getJsonArray("permissions").getJsonObject(0);
+    context.assertEquals(dummy, permObject.getString("permissionName"));
+    context.assertEquals("moduleA5", permObject.getString("moduleName"));
+    context.assertEquals("1.0.0", permObject.getString("moduleVersion"));
+    context.assertFalse(permObject.getBoolean("dummy"), permObject.encode());
+  }
 
   @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {

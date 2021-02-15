@@ -703,7 +703,7 @@ perm.setModuleName(moduleId.getProduct());
             Permission foundPerm = null;
             if (!returnList.isEmpty()) {
               foundPerm = returnList.get(0);
-              if (foundPerm.getModuleName() == null) {
+              if (!Boolean.FALSE.equals(foundPerm.getMutable())) {
                 pgClient.rollbackTx(connection, rollback ->
                   promise.fail("PermissionName collision with user-defined permission: " + perm.getPermissionName()));
                 return;
@@ -861,7 +861,7 @@ perm.setModuleName(moduleId.getProduct());
             //permission already exists
             promise.complete();
           } else {
-            makeDummyPerm(connection, perm, moduleId, vertxContext, tenantId).onComplete(
+            makeDummyPerm(connection, perm, vertxContext, tenantId).onComplete(
                 makeDummyRes -> promise.handle(makeDummyRes.mapEmpty()));
           }
         }
@@ -871,7 +871,7 @@ perm.setModuleName(moduleId.getProduct());
   }
 
   private Future<Void> makeDummyPerm(AsyncResult<SQLConnection> connection, String perm,
-      ModuleId moduleId, Context vertxContext, String tenantId) {
+      Context vertxContext, String tenantId) {
 
     Promise<Void> promise = Promise.promise();
     Permission dummyPermission = new Permission();
@@ -881,9 +881,6 @@ perm.setModuleName(moduleId.getProduct());
     dummyPermission.setDummy(true);
     dummyPermission.setVisible(false);
     dummyPermission.setMutable(false);
-    dummyPermission.setModuleName(moduleId.getProduct());
-    SemVer semver = moduleId.getSemVer();
-    dummyPermission.setModuleVersion(semver != null ? semver.toString() : null);
 
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     pgClient.save(connection, TABLE_NAME_PERMS, newId, dummyPermission,
