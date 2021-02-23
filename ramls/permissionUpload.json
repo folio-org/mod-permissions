@@ -34,10 +34,6 @@
         "type": "string"
       }
     },
-    "mutable": {
-      "description": "Whether or not this permission can change at runtime",
-      "type": "boolean"
-    },
     "visible": {
       "description": "Should this permission be hidden from users",
       "type": "boolean"
