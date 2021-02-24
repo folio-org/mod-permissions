@@ -1937,4 +1937,28 @@ public class PermsAPI implements Perms {
     }
     return criterion;
   }
+
+  @Override
+  public void postPermsPurgeDeprecated(Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext) {
+    try {
+      String tenantId = TenantTool.tenantId(okapiHeaders);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+      PermissionUtils.purgeDeprecatedPermissions(pgClient, tenantId)
+        .onSuccess(res -> {
+          asyncResultHandler
+            .handle(Future.succeededFuture(PostPermsPurgeDeprecatedResponse.respond200WithApplicationJson(res)));
+        })
+        .onFailure(ex -> {
+          asyncResultHandler
+            .handle(Future.succeededFuture(PostPermsPurgeDeprecatedResponse.respond500WithTextPlain(ex.getCause()
+              .getMessage())));
+        });
+    } catch (Exception e) {
+      logger.error(e.getMessage(), e);
+      asyncResultHandler
+        .handle(Future.succeededFuture(PostPermsPurgeDeprecatedResponse.respond500WithTextPlain(e.getMessage())));
+    }
+  }
+
 }

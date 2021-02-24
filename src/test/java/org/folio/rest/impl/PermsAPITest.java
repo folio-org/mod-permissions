@@ -207,4 +207,13 @@ public class PermsAPITest {
     }), null);
   }
 
+  @Test
+  public void testPostPermsPurgeDeprecatedNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.postPermsPurgeDeprecated(null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
 }

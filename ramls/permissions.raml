@@ -415,4 +415,17 @@ traits:
             body:
               text/plain:
                 example: "Internal server error"
-
+  /purge-deprecated:
+    post:
+      description: purge deprecated permissions
+      responses:
+        200:
+          description: "A list of permission names purged"
+          body:
+            application/json:
+              type: permissionNameListObject
+        500:
+          description: "Internal server error"
+          body:
+            text/plain:
+              example: "Internal server error"
