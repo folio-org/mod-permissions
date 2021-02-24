@@ -7,7 +7,9 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -207,4 +209,23 @@ public class PermsAPITest {
     }), null);
   }
 
+  @Test
+  public void testPostPermsPurgeDeprecatedNullPointer(TestContext context) {
+    PermsAPI api = new PermsAPI();
+
+    api.postPermsPurgeDeprecated(null, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), null);
+  }
+
+  @Test
+  public void testPostPermsPurgeDeprecatedBadTenant(TestContext context) {
+    PermsAPI api = new PermsAPI();
+    
+    Map<String, String> headers = new HashMap<>();
+    headers.put("x-okapi-tenant", "foo");
+    api.postPermsPurgeDeprecated(headers, context.asyncAssertSuccess(res -> {
+      context.assertEquals(500, res.getStatus());
+    }), vertx.getOrCreateContext());
+  }
 }
