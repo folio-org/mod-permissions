@@ -9,7 +9,6 @@ import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
 import org.folio.rest.persist.PostgresClient;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.sqlclient.Row;
