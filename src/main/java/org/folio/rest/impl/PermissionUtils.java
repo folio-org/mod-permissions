@@ -3,6 +3,8 @@ package org.folio.rest.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
@@ -82,8 +84,7 @@ public class PermissionUtils {
           }
           PermissionNameListObject permNames = new PermissionNameListObject();
           permNames.setTotalRecords(0);
-          @SuppressWarnings("rawtypes")
-          List<Future> futures = new ArrayList<Future>();
+          List<Future<RowSet<Row>>> futures = new ArrayList<Future<RowSet<Row>>>();
           res.result()
             .forEach(row -> {
               String id = row.getString("id");
@@ -94,7 +95,7 @@ public class PermissionUtils {
               permNames.getPermissionNames().add(name);
               permNames.setTotalRecords(permNames.getTotalRecords() + 1);
             });
-          CompositeFuture.all(futures)
+          GenericCompositeFuture.all(futures)
             .onSuccess(ignore -> {
               pgClient.endTx(tx, done -> promise.complete(permNames));
             })
