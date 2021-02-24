@@ -918,7 +918,12 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 201);
     context.assertEquals(uuid, response.body.getString("id")); // MODPERMS-84
 
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + uuid,null, context);
+    response = send(HttpMethod.GET, "/perms/permissions/" + uuid, null, context);
+    context.assertEquals(response.code, 200);
+    context.assertTrue(Boolean.TRUE.equals(response.body.getBoolean("mutable")),
+        response.body.encodePrettily()); // MODPERMS-126
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + uuid, null, context);
     context.assertEquals(response.code, 204);
   }
 

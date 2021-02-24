@@ -1897,6 +1897,7 @@ public class PermsAPI implements Perms {
     }
     perm.setSubPermissions(subPerms);
     perm.setVisible(entity.getVisible());
+    perm.setMutable(true); // user-defined perms are always mutable
     perm.setTags(entity.getTags());
     perm.setMetadata(entity.getMetadata());
     return perm;
