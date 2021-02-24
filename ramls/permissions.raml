@@ -424,6 +424,11 @@ traits:
           body:
             application/json:
               type: permissionNameListObject
+        400:
+          description: "Bad request"
+          body:
+            text/plain:
+              example: "Bad request"
         500:
           description: "Internal server error"
           body:

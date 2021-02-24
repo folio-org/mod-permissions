@@ -76,6 +76,10 @@ public class PermissionUtils {
     pgClient.startTx(tx -> {
       try {
         pgClient.select(tx, String.format(SELECT_DEPRECATED_PERMS, tenantId), res -> {
+          if (res.failed()) {
+            pgClient.rollbackTx(tx, done -> promise.fail(res.cause()));
+            return;
+          }
           PermissionNameListObject permNames = new PermissionNameListObject();
           permNames.setTotalRecords(0);
           @SuppressWarnings("rawtypes")
@@ -92,17 +96,14 @@ public class PermissionUtils {
             });
           CompositeFuture.all(futures)
             .onSuccess(ignore -> {
-              pgClient.endTx(tx, done -> done.mapEmpty());
-              promise.complete(permNames);
+              pgClient.endTx(tx, done -> promise.complete(permNames));
             })
             .onFailure(ex -> {
-              pgClient.rollbackTx(tx, done -> done.mapEmpty());
-              promise.fail(ex);
+              pgClient.rollbackTx(tx, done -> promise.fail(ex));
             });
         });
       } catch (Exception e) {
-        pgClient.rollbackTx(tx, done -> done.mapEmpty());
-        promise.fail(e);
+        pgClient.rollbackTx(tx, done -> promise.fail(e));
       }
     });
     return promise.future();

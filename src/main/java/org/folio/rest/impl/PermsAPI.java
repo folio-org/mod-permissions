@@ -1951,8 +1951,7 @@ public class PermsAPI implements Perms {
         })
         .onFailure(ex -> {
           asyncResultHandler
-            .handle(Future.succeededFuture(PostPermsPurgeDeprecatedResponse.respond500WithTextPlain(ex.getCause()
-              .getMessage())));
+            .handle(Future.succeededFuture(PostPermsPurgeDeprecatedResponse.respond500WithTextPlain(ex.getMessage())));
         });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
