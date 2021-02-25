@@ -519,6 +519,9 @@ public class RestVerticleTest {
 
   @Test
   public void testPurgeDeprecatedPerm(TestContext context) {
+    // clean up deprecated perms first
+    Response response = send(HttpMethod.POST, "/perms/purge-deprecated", null, context);
+
     // seed permissions
     String perm1 = "permA" + UUID.randomUUID().toString();
     String perm2 = "permB" + UUID.randomUUID().toString();
@@ -532,7 +535,7 @@ public class RestVerticleTest {
             .add(new JsonObject()
                 .put("permissionName", perm2)
                 .put("displayName", "Description 2")));
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
     
     // seed perm user
@@ -619,11 +622,13 @@ public class RestVerticleTest {
     permUsersObject = response.body;
     context.assertTrue(permUsersObject.getJsonArray("permissions").contains(perm1));
     context.assertFalse(permUsersObject.getJsonArray("permissions").contains(perm2)); // perm2 is gone
-    
   }
 
   @Test
   public void testPermissionNameReplace(TestContext context) {
+    // clean up deprecated perms first
+    Response response = send(HttpMethod.POST, "/perms/purge-deprecated", null, context);
+
     // seed modA with perm1 and perm2
     String perm1 = "permA" + UUID.randomUUID().toString();
     String perm2 = "permB" + UUID.randomUUID().toString();
@@ -632,7 +637,7 @@ public class RestVerticleTest {
         .put("perms", new JsonArray()
             .add(new JsonObject().put("permissionName", perm1))
             .add(new JsonObject().put("permissionName", perm2)));
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
     // seed modB with perm3 that has perm1 and perm2 in subperms
