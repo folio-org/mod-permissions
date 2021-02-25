@@ -617,9 +617,66 @@ public class RestVerticleTest {
     // verify perm user
     response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
     permUsersObject = response.body;
-    context.assertTrue( permUsersObject.getJsonArray("permissions").contains(perm1));
-    context.assertFalse( permUsersObject.getJsonArray("permissions").contains(perm2)); // perm2 is gone
+    context.assertTrue(permUsersObject.getJsonArray("permissions").contains(perm1));
+    context.assertFalse(permUsersObject.getJsonArray("permissions").contains(perm2)); // perm2 is gone
     
+  }
+
+  @Test
+  public void testPermissionNameReplace(TestContext context) {
+    // seed modA with perm1 and perm2
+    String perm1 = "permA" + UUID.randomUUID().toString();
+    String perm2 = "permB" + UUID.randomUUID().toString();
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId","moduleTestReplaceA-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject().put("permissionName", perm1))
+            .add(new JsonObject().put("permissionName", perm2)));
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // seed modB with perm3 that has perm1 and perm2 in subperms
+    String perm3 = "permC" + UUID.randomUUID().toString();
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleTestReplaceB-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm3)
+                .put("subPermissions", new JsonArray().add(perm1).add(perm2))));
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // seed perm user with perm1 and perm2
+    String permUserId = UUID.randomUUID().toString();
+    String userId = UUID.randomUUID().toString();
+    JsonObject permUser = new JsonObject()
+        .put("id", permUserId)
+        .put("userId", userId)
+        .put("permissions", new JsonArray().add(perm1).add(perm2));
+    response = send(HttpMethod.POST, "/perms/users", permUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // update modA, and replace perm1 and perm2 with perm4
+    String perm4 = "permD" + UUID.randomUUID().toString();
+    permissionSet = new JsonObject()
+        .put("moduleId","moduleTestReplaceA-2.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", perm4)
+                .put("replaces", new JsonArray().add(perm1).add(perm2))));
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // verify perm3 has the perm4 in subperm
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm3, null, context);
+    context.assertEquals(200, response.code);
+    JsonObject permObject = response.body.getJsonArray("permissions").getJsonObject(0);
+    context.assertTrue(permObject.getJsonArray("subPermissions").contains(perm4));
+
+    // verify permuser has perm4 assigned
+    response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
+    JsonObject permUsersObject = response.body;
+    context.assertTrue(permUsersObject.getJsonArray("permissions").contains(perm4));
   }
 
   @Test
