@@ -793,6 +793,7 @@ public class PermsAPI implements Perms {
               if (entity.getPermissionName() == null) {
                 entity.setPermissionName(newId);
               }
+              entity.setMutable(true); //MODPERMS-126
               Permission realPerm = getRealPermObject(entity);
               realPerm.setDummy(false);
               try {
@@ -883,10 +884,17 @@ public class PermsAPI implements Perms {
               return;
             }
             Permission perm = permList.get(0);
+            entity.setMutable(true);
             Permission updatePerm = getRealPermObject(entity);
             updatePerm.setId(entity.getId());
             updatePerm.setChildOf(perm.getChildOf());
             updatePerm.setGrantedTo(perm.getGrantedTo());
+            if (Boolean.FALSE.equals(perm.getMutable())) {
+              asyncResultHandler.handle(Future.succeededFuture(
+                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(
+                      "cannot change an immutable permission")));
+              return;
+            }
             if (!perm.getPermissionName().equals(entity.getPermissionName())) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsPermissionsByIdResponse.respond400WithTextPlain(
@@ -983,6 +991,11 @@ public class PermsAPI implements Perms {
               return;
             }
             Permission perm = permList.get(0);
+            if (Boolean.FALSE.equals(perm.getMutable())) {
+              asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse
+                  .respond400WithTextPlain("cannot change an immutable permission")));
+              return;
+            }
             if (!perm.getChildOf().isEmpty() || !perm.getGrantedTo().isEmpty()) {
               PostgresClient pgClient = PostgresClient.getInstance(
                   vertxContext.owner(), tenantId);

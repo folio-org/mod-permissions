@@ -35,7 +35,7 @@
       }
     },
     "mutable": {
-      "description": "Whether or not this permission can change at runtime",
+      "description": "Whether or not this permission can change at runtime.  Since v5.13.0 this property is ignored.  All permissions created or modified via this API are always mutable",
       "type": "boolean"
     },
     "visible": {

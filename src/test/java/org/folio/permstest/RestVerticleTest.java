@@ -1016,7 +1016,7 @@ public class RestVerticleTest {
   @Test
   public void testPostPermsPermissions(TestContext context) {
     String uuid = UUID.randomUUID().toString();
-    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"adname\",\"displayName\":\"addisplay\"}";
+    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"adname\",\"displayName\":\"addisplay\", \"mutable\":false}";
 
     Response response = send(HttpMethod.POST, "/perms/permissions",
         permRequest, context);
@@ -1024,6 +1024,57 @@ public class RestVerticleTest {
     context.assertEquals(uuid, response.body.getString("id")); // MODPERMS-84
 
     response = send(HttpMethod.DELETE, "/perms/permissions/" + uuid,null, context);
+    context.assertEquals(response.code, 204);
+  }
+
+  @Test
+  public void testPermsPermissionsMutable(TestContext context) {
+    String userDefined = UUID.randomUUID().toString();
+    String sysDefined = UUID.randomUUID().toString();
+
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId", "mutable-test-module")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "sys-defined-" + sysDefined)
+            )
+        );
+    Response response =
+        send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String id = response.body.getString("id");
+    JsonObject updatedSysPerm = new JsonObject()
+        .put("id", id)
+        .put("permissionName", response.body.getString("permissionName"))
+        .put("description", "updated!");
+
+    // Shouldn't be able to modify an immutable permission
+    response = send(HttpMethod.PUT, "/perms/permissions/" + id,
+        updatedSysPerm.encode(), context);
+    context.assertEquals(response.code, 400);
+
+    // Shouldn't be able to delete an immutable permission
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + id, null, context);
+    context.assertEquals(response.code, 400);
+
+    JsonObject userDefinedPerm = new JsonObject()
+         .put("permissionName", "user-defined-" + userDefined)
+         .put("id", userDefined)
+         .put("mutable", false);
+
+    // Create a user-defined permission - mutable will be ignored. These are always mutable.
+    response = send(HttpMethod.POST, "/perms/permissions", userDefinedPerm.encode(), context);
+    context.assertEquals(response.code, 201);
+    context.assertEquals(true, response.body.getBoolean("mutable"));
+
+    // Again ignore mutable when modifying permission via this API
+    response = send(HttpMethod.PUT, "/perms/permissions/" + userDefined, userDefinedPerm.encode(),
+        context);
+    context.assertEquals(response.code, 200);
+    context.assertEquals(true, response.body.getBoolean("mutable"));
+
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + userDefined, null, context);
     context.assertEquals(response.code, 204);
   }
 
