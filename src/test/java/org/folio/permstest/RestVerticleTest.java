@@ -901,63 +901,6 @@ public class RestVerticleTest {
   }
 
   @Test
-  public void testPutPermsPermissionsByIdDummy(TestContext context) {
-    String normalPerm = "normal-" + UUID.randomUUID().toString();
-    String dummyPerm = "dummy-" + UUID.randomUUID().toString();
-
-    JsonObject permissionSet = new JsonObject()
-        .put("moduleId", "amodule")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", normalPerm)
-                .put("subPermissions", new JsonArray()
-                    .add(dummyPerm)
-                )
-            )
-        );
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
-
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm,
-        null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
-    String dummyId = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
-
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + normalPerm,
-        null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
-    String normalId = response.body.getJsonArray("permissions").getJsonObject(0).getString("id");
-
-    JsonObject o = new JsonObject().put("id", dummyId).put("permissionName", dummyPerm);
-    response = send(HttpMethod.PUT, "/perms/permissions/" + dummyId, o.encode(), context);
-    context.assertEquals(response.code, 400);
-    context.assertEquals("dummy permissions cannot be modified", response.body.getString("text"));
-
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + normalId, null, context);
-    context.assertEquals(response.code, 204);
-
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + normalPerm,
-        null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(0, response.body.getInteger("totalRecords"));
-
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm,
-        null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
-
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + dummyId, null, context);
-    context.assertEquals(response.code, 204);
-
-    response = send(HttpMethod.GET, "/perms/permissions?includeDummy=true&query=permissionName=" + dummyPerm,
-        null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(0, response.body.getInteger("totalRecords"));
-  }
-
-  @Test
   public void testDeletePermsPermissionsByIdBadTenant(TestContext context) {
     Response response = send("badTenant", HttpMethod.DELETE, "/perms/permissions/123",
         null, context);
@@ -1069,13 +1012,24 @@ public class RestVerticleTest {
     context.assertEquals(true, response.body.getBoolean("mutable"));
 
     // Again ignore mutable when modifying permission via this API
+    userDefinedPerm.put("description", "Updated!");
     response = send(HttpMethod.PUT, "/perms/permissions/" + userDefined, userDefinedPerm.encode(),
         context);
     context.assertEquals(response.code, 200);
     context.assertEquals(true, response.body.getBoolean("mutable"));
+    context.assertEquals(userDefinedPerm.getString("description"),
+        response.body.getString("description"));
 
     response = send(HttpMethod.DELETE, "/perms/permissions/" + userDefined, null, context);
     context.assertEquals(response.code, 204);
+
+    permissionSet = new JsonObject()
+        .put("moduleId", "mutable-test-module")
+        .put("perms", new JsonArray());
+
+    response =
+        send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
   }
 
   @Test
@@ -1189,14 +1143,12 @@ public class RestVerticleTest {
     response = send(HttpMethod.GET, "/perms/permissions/" + id1, null, context);
     context.assertEquals(200, response.code);
 
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + id1, null, context);
-    context.assertEquals(204, response.code);
-
     response = send(HttpMethod.GET, "/perms/permissions/" + id2, null, context);
     context.assertEquals(200, response.code);
 
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + id2, null, context);
-    context.assertEquals(204, response.code);
+    set = new OkapiPermissionSet().withModuleId("module-2.3.4").withPerms(null);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", Json.encode(set), context);
+    context.assertEquals(201, response.code);
   }
 
   @Test

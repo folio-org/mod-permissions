@@ -889,22 +889,16 @@ public class PermsAPI implements Perms {
             updatePerm.setId(entity.getId());
             updatePerm.setChildOf(perm.getChildOf());
             updatePerm.setGrantedTo(perm.getGrantedTo());
-            if (Boolean.FALSE.equals(perm.getMutable())) {
-              asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(
-                      "cannot change an immutable permission")));
-              return;
-            }
             if (!perm.getPermissionName().equals(entity.getPermissionName())) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsPermissionsByIdResponse.respond400WithTextPlain(
                       "permission name property cannot change")));
               return;
             }
-            if (perm.getDummy() != null && perm.getDummy()) {
+            if (Boolean.FALSE.equals(perm.getMutable())) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsPermissionsByIdResponse.respond400WithTextPlain(
-                      "dummy permissions cannot be modified")));
+                      "cannot change an immutable permission")));
               return;
             }
             try {
