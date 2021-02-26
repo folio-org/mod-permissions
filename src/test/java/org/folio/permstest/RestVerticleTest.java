@@ -4,9 +4,8 @@ import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
@@ -59,7 +58,6 @@ import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
 
 @RunWith(VertxUnitRunner.class)
 public class RestVerticleTest {
@@ -522,106 +520,74 @@ public class RestVerticleTest {
     // clean up deprecated perms first
     Response response = send(HttpMethod.POST, "/perms/purge-deprecated", null, context);
 
-    // seed permissions
-    String perm1 = "permA" + UUID.randomUUID().toString();
-    String perm2 = "permB" + UUID.randomUUID().toString();
+    // seed permA and permB
+    String permA = "permA" + UUID.randomUUID().toString();
+    String permB = "permB" + UUID.randomUUID().toString();
+    JsonArray a = new JsonArray().add(permA);
+    JsonArray b = new JsonArray().add(permB);
+    JsonArray ab = new JsonArray().add(permA).add(permB);
     JsonObject permissionSet = new JsonObject()
         .put("moduleId","moduleTestDeprecated-1.0.0")
         .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", perm1)
-                .put("displayName", "Description 1")
-                .put("subPermissions", new JsonArray().add(perm2)))
-            .add(new JsonObject()
-                .put("permissionName", perm2)
-                .put("displayName", "Description 2")));
+            .add(new JsonObject().put("permissionName", permA).put("subPermissions", b))
+            .add(new JsonObject().put("permissionName", permB)));
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
     
     // seed perm user
     String permUserId = UUID.randomUUID().toString();
     String userId = UUID.randomUUID().toString();
     JsonObject permUser = new JsonObject()
-        .put("id", permUserId)
-        .put("userId", userId)
-        .put("permissions", new JsonArray().add(perm1).add(perm2));
+        .put("id", permUserId).put("userId", userId).put("permissions", ab);
     response = send(HttpMethod.POST, "/perms/users", permUser.encode(), context);
-    context.assertEquals(201, response.code);
     
-    // verify perm1 and perm2
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm1, null, context);
-    context.assertEquals(200, response.code);
+    // verify permA and permB
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permA, null, context);
     JsonObject permObject = response.body.getJsonArray("permissions").getJsonObject(0);
-    context.assertEquals(perm1, permObject.getString("permissionName"));
-    context.assertTrue(permObject.getJsonArray("subPermissions").contains(perm2));
-    
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm2, null, context);
-    context.assertEquals(200, response.code);
+    assertThat(permObject.getString("permissionName"), is(permA));
+    assertThat(permObject.getJsonArray("subPermissions"), is(b));
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permB, null, context);
     permObject = response.body.getJsonArray("permissions").getJsonObject(0);
-    context.assertEquals(perm2, permObject.getString("permissionName"));
-    context.assertFalse(permObject.getBoolean("deprecated"));
+    assertThat(permObject.getString("permissionName"), is(permB));
+    assertThat(permObject.getBoolean("deprecated"), is(false));
     
     // verify perm user
     response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
-    JsonObject permUsersObject = response.body;
-    context.assertEquals(permUserId, permUsersObject.getString("id"));
-    context.assertEquals(userId, permUsersObject.getString("userId"));
-    context.assertTrue( permUsersObject.getJsonArray("permissions").contains(perm1));
-    context.assertTrue( permUsersObject.getJsonArray("permissions").contains(perm2));
+    assertThat(response.body.getString("id"), is(permUserId));
+    assertThat(response.body.getString("userId"), is(userId));
+    assertThat(response.body.getJsonArray("permissions"), is(ab));
     
-    // update module version and deprecate perm2
+    // update module version and deprecate permB
     permissionSet = new JsonObject()
         .put("moduleId","moduleTestDeprecated-2.0.0")
         .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", perm1)
-                .put("displayName", "Description 1")
-                .put("subPermissions", new JsonArray().add(perm2))));
-    
+            .add(new JsonObject().put("permissionName", permA).put("subPermissions", b)));
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
-
-    // verify perm1 and perm2
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm1, null, context);
-    context.assertEquals(200, response.code);
-    permObject = response.body.getJsonArray("permissions").getJsonObject(0);
-    context.assertEquals(perm1, permObject.getString("permissionName"));
-    context.assertTrue(permObject.getJsonArray("subPermissions").contains(perm2));
     
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm2, null, context);
-    context.assertEquals(200, response.code);
-    permObject = response.body.getJsonArray("permissions").getJsonObject(0);
-    context.assertEquals(perm2, permObject.getString("permissionName"));
-    context.assertTrue(permObject.getBoolean("deprecated")); // perm2 is deprecated
+    // verify permA and permB
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permA, null, context);
+    assertThat(response.body.getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions"), is(b));
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permB, null, context);
+    assertThat(response.body.getJsonArray("permissions").getJsonObject(0).getBoolean("deprecated"), is(true));
     
     // verify perm user
     response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
-    permUsersObject = response.body;
-    context.assertTrue( permUsersObject.getJsonArray("permissions").contains(perm1));
-    context.assertTrue( permUsersObject.getJsonArray("permissions").contains(perm2));
+    assertThat(response.body.getJsonArray("permissions"), is(ab));
     
     // purge deprecated and verify response
     response = send(HttpMethod.POST, "/perms/purge-deprecated", null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(perm2, response.body.getJsonArray("permissionNames").getString(0));
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    assertThat(response.code, is(200));
+    assertThat(response.body.getJsonArray("permissionNames"), is(b));
+    assertThat(response.body.getInteger("totalRecords"), is(1));
     
-    // verify perm1 and perm2
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm1, null, context);
-    context.assertEquals(200, response.code);
-    permObject = response.body.getJsonArray("permissions").getJsonObject(0);
-    context.assertEquals(perm1, permObject.getString("permissionName"));
-    context.assertFalse(permObject.getJsonArray("subPermissions").contains(perm2)); // perm2 is gone
-    
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm2, null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(0, response.body.getJsonArray("permissions").size()); // perm2 is gone
+    // verify permA and permB
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permA, null, context);
+    assertThat(response.body.getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions").size(), is(0));
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permB, null, context);
+    assertThat(response.body.getJsonArray("permissions").size(), is(0));
     
     // verify perm user
     response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
-    permUsersObject = response.body;
-    context.assertTrue(permUsersObject.getJsonArray("permissions").contains(perm1));
-    context.assertFalse(permUsersObject.getJsonArray("permissions").contains(perm2)); // perm2 is gone
+    assertThat(response.body.getJsonArray("permissions"), is(a));
   }
 
   @Test
@@ -629,27 +595,27 @@ public class RestVerticleTest {
     // clean up deprecated perms first
     Response response = send(HttpMethod.POST, "/perms/purge-deprecated", null, context);
 
-    // seed modA with perm1 and perm2
-    String perm1 = "permA" + UUID.randomUUID().toString();
-    String perm2 = "permB" + UUID.randomUUID().toString();
+    // seed modA with permA and permB
+    String permA = "permA" + UUID.randomUUID().toString();
+    String permB = "permB" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleTestReplaceA-1.0.0")
+        .put("moduleId","moduleTestReplaceX-1.0.0")
         .put("perms", new JsonArray()
-            .add(new JsonObject().put("permissionName", perm1))
-            .add(new JsonObject().put("permissionName", perm2)));
+            .add(new JsonObject().put("permissionName", permA))
+            .add(new JsonObject().put("permissionName", permB)));
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
+    assertThat(response.code, is(201));
 
     // seed modB with perm3 that has perm1 and perm2 in subperms
-    String perm3 = "permC" + UUID.randomUUID().toString();
+    String permC = "permC" + UUID.randomUUID().toString();
     permissionSet = new JsonObject()
-        .put("moduleId","moduleTestReplaceB-1.0.0")
+        .put("moduleId","moduleTestReplaceY-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
-                .put("permissionName", perm3)
-                .put("subPermissions", new JsonArray().add(perm1).add(perm2))));
+                .put("permissionName", permC)
+                .put("subPermissions", new JsonArray().add(permA).add(permB))));
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
+    assertThat(response.code, is(201));
 
     // seed perm user with perm1 and perm2
     String permUserId = UUID.randomUUID().toString();
@@ -657,31 +623,30 @@ public class RestVerticleTest {
     JsonObject permUser = new JsonObject()
         .put("id", permUserId)
         .put("userId", userId)
-        .put("permissions", new JsonArray().add(perm1).add(perm2));
+        .put("permissions", new JsonArray().add(permA).add(permB));
     response = send(HttpMethod.POST, "/perms/users", permUser.encode(), context);
-    context.assertEquals(201, response.code);
+    assertThat(response.code, is(201));
 
-    // update modA, and replace perm1 and perm2 with perm4
-    String perm4 = "permD" + UUID.randomUUID().toString();
+    // update modA, and replace permA and permB with permD
+    String permD = "permD" + UUID.randomUUID().toString();
     permissionSet = new JsonObject()
-        .put("moduleId","moduleTestReplaceA-2.0.0")
+        .put("moduleId","moduleTestReplaceX-2.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
-                .put("permissionName", perm4)
-                .put("replaces", new JsonArray().add(perm1).add(perm2))));
+                .put("permissionName", permD)
+                .put("replaces", new JsonArray().add(permA).add(permB))));
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-    context.assertEquals(201, response.code);
+    assertThat(response.code, is(201));
 
-    // verify perm3 has the perm4 in subperm
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + perm3, null, context);
-    context.assertEquals(200, response.code);
-    JsonObject permObject = response.body.getJsonArray("permissions").getJsonObject(0);
-    context.assertTrue(permObject.getJsonArray("subPermissions").contains(perm4));
+    JsonArray abd = new JsonArray().add(permA).add(permB).add(permD);
+    
+    // verify permC has permA, permB and permD in subperm
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D" + permC, null, context);
+    assertThat(response.body.getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions"), is(abd));
 
-    // verify permuser has perm4 assigned
+    // verify permuser has permA, permB and permD assigned
     response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
-    JsonObject permUsersObject = response.body;
-    context.assertTrue(permUsersObject.getJsonArray("permissions").contains(perm4));
+    assertThat(response.body.getJsonArray("permissions"), is(abd));
   }
 
   @Test

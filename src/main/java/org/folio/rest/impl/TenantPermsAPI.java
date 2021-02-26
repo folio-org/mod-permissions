@@ -13,6 +13,7 @@ import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.Tuple;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,10 +49,10 @@ public class TenantPermsAPI implements Tenantpermissions {
   private static final String TABLE_NAME_PERMS = "permissions";
   private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
-  
+
   private static final String ADD_PERM_TO_SUB_PERMS = "update %s_mod_permissions.permissions "
-      + "set jsonb = jsonb_set(jsonb, '{subPermissions}', (jsonb->'subPermissions')::jsonb || '[\"%s\"]'::jsonb) "
-      + "where jsonb->'subPermissions' ? '%s' and not jsonb->'subPermissions' ? '%s' ";
+      + "set jsonb = jsonb_set(jsonb, '{subPermissions}', (jsonb->'subPermissions')::jsonb || $1) "
+      + "where jsonb->'subPermissions' ? $2 and not jsonb->'subPermissions' ? $3 ";
 
   private final Logger logger = LogManager.getLogger(TenantPermsAPI.class);
 
@@ -404,9 +405,10 @@ perm.setModuleName(moduleId.getProduct());
             permList.get(okapiPerm).forEach(replaced -> {
               // add new permission name to all relevant sub permissions
               String oldPermName = replaced.getPermissionName();
-              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(connection,
-                  String.format(ADD_PERM_TO_SUB_PERMS, tenantId, newPermName, oldPermName, newPermName), p)));
-              
+                futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(connection, 
+                    String.format(ADD_PERM_TO_SUB_PERMS, tenantId),
+                    Tuple.of(new JsonArray().add(newPermName), oldPermName, newPermName), p)));
+
               replaced.getGrantedTo().forEach(permUser -> {
                 String permissionName = okapiPerm.getPermissionName();
                 futures.add(addPermissionToUser(connection, permUser.toString(), permissionName,

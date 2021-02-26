@@ -13,6 +13,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.Tuple;
 
 public class PermissionUtils {
 
@@ -21,11 +22,11 @@ public class PermissionUtils {
   private static final String PURGE_DEPRECATED_PERMS = "delete from %s_mod_permissions.permissions "
       + "where jsonb->>'deprecated' = 'true'";
   private static final String PURGE_DEPRECATED_SUB_PERMS = "update %s_mod_permissions.permissions "
-      + "set jsonb = jsonb_set(jsonb, '{subPermissions}', (jsonb->'subPermissions')::jsonb - '%s') "
-      + "where jsonb->'subPermissions' ? '%s'";
+      + "set jsonb = jsonb_set(jsonb, '{subPermissions}', (jsonb->'subPermissions')::jsonb - $1) "
+      + "where jsonb->'subPermissions' ? $2";
   private static final String PURGE_DEPRECATED_PERMS_USERS = "update %s_mod_permissions.permissions_users "
-      + "set jsonb = jsonb_set(jsonb, '{permissions}', (jsonb->'permissions')::jsonb - '%s') "
-      + "where jsonb->'permissions' ? '%s'";
+      + "set jsonb = jsonb_set(jsonb, '{permissions}', (jsonb->'permissions')::jsonb - $1) "
+      + "where jsonb->'permissions' ? $2";
 
   private PermissionUtils() {
     
@@ -87,8 +88,8 @@ public class PermissionUtils {
           res.result()
             .forEach(row -> {
               String name = row.getString("name");
-              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_SUB_PERMS, tenantId, name, name), p)));
-              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_PERMS_USERS, tenantId, name, name), p)));
+              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_SUB_PERMS, tenantId), Tuple.of(name, name), p)));
+              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_PERMS_USERS, tenantId), Tuple.of(name, name), p)));
               futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_PERMS, tenantId), p)));
               permNames.getPermissionNames().add(name);
               permNames.setTotalRecords(permNames.getTotalRecords() + 1);
