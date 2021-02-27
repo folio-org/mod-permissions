@@ -987,7 +987,7 @@ public class PermsAPI implements Perms {
             Permission perm = permList.get(0);
             if (Boolean.FALSE.equals(perm.getMutable())) {
               asyncResultHandler.handle(Future.succeededFuture(DeletePermsPermissionsByIdResponse
-                  .respond400WithTextPlain("cannot change an immutable permission")));
+                  .respond400WithTextPlain("cannot delete an immutable permission")));
               return;
             }
             if (!perm.getChildOf().isEmpty() || !perm.getGrantedTo().isEmpty()) {
