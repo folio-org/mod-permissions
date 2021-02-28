@@ -986,7 +986,7 @@ public class RestVerticleTest {
   @Test
   public void testPostPermsPermissions(TestContext context) {
     String uuid = UUID.randomUUID().toString();
-    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"adname\",\"displayName\":\"addisplay\", \"mutable\":false}";
+    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"adname\",\"displayName\":\"addisplay\"}";
 
     Response response = send(HttpMethod.POST, "/perms/permissions",
         permRequest, context);
