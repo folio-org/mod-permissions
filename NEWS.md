@@ -1,11 +1,12 @@
 ## 2021-02-27 v5.13.0
 
-* [MODPERMS-131](https://issues.folio.org/browse/MODPERMS-131) Some problems reported by IntelliJ IDEA
+* [MODPERMS-135](https://issues.folio.org/browse/MODPERMS-135) replaces processing doesn't update permissions, only permission assignments
 * [MODPERMS-133](https://issues.folio.org/browse/MODPERMS-133) Dummy permissions assigned a context
+* [MODPERMS-131](https://issues.folio.org/browse/MODPERMS-131) Some problems reported by IntelliJ IDEA
 * [MODPERMS-130](https://issues.folio.org/browse/MODPERMS-130) Allow re-use of permissions when deprecated
 * [MODPERMS-128](https://issues.folio.org/browse/MODPERMS-128) Wrong _tenant version in module descriptor
+* [MODPERMS-126](https://issues.folio.org/browse/MODPERMS-126) Fix mutable handling
 * [MODPERMS-121](https://issues.folio.org/browse/MODPERMS-121) Upgrade mod-permissions to RMB v32
-* [MODPERMS-135](https://issues.folio.org/browse/MODPERMS-135) replaces processing doesn't update permissions, only permission assignments
 * [MODPERMS-116](https://issues.folio.org/browse/MODPERMS-116) Create purge Deprecated API
 * [MODPERMS-115](https://issues.folio.org/browse/MODPERMS-115) Implement static permission migration
 * [MODPERMS-108](https://issues.folio.org/browse/MODPERMS-108) Upgrade to RMB 31.1.2 due to RMB-732 fix
