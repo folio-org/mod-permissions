@@ -884,7 +884,7 @@ public class PermsAPI implements Perms {
               return;
             }
             Permission perm = permList.get(0);
-            entity.setMutable(true);
+            entity.setMutable(true); // MODPERMS-126
             Permission updatePerm = getRealPermObject(entity);
             updatePerm.setId(entity.getId());
             updatePerm.setChildOf(perm.getChildOf());
