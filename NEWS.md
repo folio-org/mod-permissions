@@ -4,7 +4,7 @@
 There are several changes related to migration of static (system-defined) permissions introduced in this release:
 
 * Permissions can now be renamed via a new `replaces` property.  Perm-users (Assignments) and PermissionSet sub-permissions will be updated automatically.
-  * Example:  `foo.get` replaces `foo.read`, `foo.view`.  Any users which were assigned either `foo.read` or `foo.view` would automatically be granted `foo.get` and would no longer be assigned the replaced permission.
+  * Example:  `foo.get` replaces `foo.read`, `foo.view`.  Any users which were assigned either `foo.read` or `foo.view` would automatically be granted `foo.get`.  Permissions `foo.read` and `foo.view` would be marked deprecated.
 * When permissions that once appeared in a module descriptor are removed in a newer version of the module descriptor, they will be marked deprecated. 
   * For now, this means the `displayName` of these permissions will be prefixed with `(deprecated) `, but the permissions will not be filtered out of any API calls. 
  * In the future we'd like to filter deprecated permissions out of API responses unless they're specifically requested.  This feature, however, did not make it into v5.13.0.
