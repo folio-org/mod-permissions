@@ -1,5 +1,33 @@
 ## 2021-02-27 v5.13.0
 
+### Static Permission Migration
+There are several changes related to migration of static (system-defined) permissions introduced in this release:
+
+* Permissions can now be renamed via a new `replaces` property.  Perm-users (Assignments) and PermissionSet sub-permissions will be updated automatically.
+  * Example:  `foo.get` replaces `foo.read`, `foo.view`.  Any users which were assigned either `foo.read` or `foo.view` would automatically be granted `foo.get` and would no longer be assigned the replaced permission.
+* When permissions that once appeared in a module descriptor are removed in a newer version of the module descriptor, they will be marked deprecated. 
+  * For now, this means the `displayName` of these permissions will be prefixed with `(deprecated) `, but the permissions will not be filtered out of any API calls. 
+ * In the future we'd like to filter deprecated permissions out of API responses unless they're specifically requested.  This feature, however, did not make it into v5.13.0.
+* A new [purgeDeprecated API](https://s3.amazonaws.com/foliodocs/api/mod-permissions/permissions.html#perms_purge_deprecated_post) has been introduced to allow an operator to purge deprecated permissions.  This will:
+  * Remove deprecated permissions from the system
+  * Remove deprecated permission names from user's permission assignments
+  * Remove deprecated permissions from permission sets
+  * *N.B.* This API should only be called once you're confident that a module downgrade will not be required.  Once deprecated permissions are purged, the system will not know how to "undo" the permission migration for that module. 
+  * *N.B.* Currently this is an all-or-nothing operation.  There is no way to purge individual deprecated permissions, or remove deprecated permissions for a particular module.
+* If a permission name collides with a user-defined permission with the same name,
+  * For now, the call to enable the module (install/upgrade) will fail with an appropriate error message.  
+  * In the future we'd like to do something like rename the user-defined permissions and adjust assignments as needed. 
+* All system-defined permissions will now include context about the module that defined them (new permission fields `moduleName`/`moduleVersion`).
+* Duplicate permission definitions are not allowed.  If a permission (name) is defined by multiple module descriptors the upgrade will fail with an appropriate error message. 
+* The `mutable` property will now be ignored when creating or updating permissions.  This is a system-controlled field.
+* Orphaned system-defined permissions - those which are marked as immutable and are no longer present an any enabled module descriptor - will automatically be deprecated when upgrading mod-permissions.
+
+### Deployment Considerations
+* OKAPI [v4.6.0](https://github.com/folio-org/okapi/releases/tag/v4.6.0) or greater ([v4.7.2](https://github.com/folio-org/okapi/releases/tag/v4.7.2) is highly recommended) is required to benefit from these changes.
+* ***Contrary to earlier communications, it is NOT required to upgrade mod-permissions first or last.  It is also NOT required that you resolve duplicate permissions prior to upgrading to mod-permissions-5.13.0***
+
+### Stories / Bugs:
+
 * [MODPERMS-135](https://issues.folio.org/browse/MODPERMS-135) replaces processing doesn't update permissions, only permission assignments
 * [MODPERMS-133](https://issues.folio.org/browse/MODPERMS-133) Dummy permissions assigned a context
 * [MODPERMS-131](https://issues.folio.org/browse/MODPERMS-131) Some problems reported by IntelliJ IDEA
