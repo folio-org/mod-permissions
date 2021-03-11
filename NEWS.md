@@ -3,11 +3,11 @@
 ### Static Permission Migration
 There are several changes related to migration of static (system-defined) permissions introduced in this release:
 
-* Permissions can now be renamed via a new `replaces` property.  Perm-users (Assignments) and PermissionSet sub-permissions will be updated automatically.
-  * Example:  `foo.get` replaces `foo.read`, `foo.view`.  Any users which were assigned either `foo.read` or `foo.view` would automatically be granted `foo.get`.  Permissions `foo.read` and `foo.view` would be marked deprecated.
 * When permissions that once appeared in a module descriptor are removed in a newer version of the module descriptor, they will be marked deprecated. 
   * For now, this means the `displayName` of these permissions will be prefixed with `(deprecated) `, but the permissions will not be filtered out of any API calls. 
- * In the future we'd like to filter deprecated permissions out of API responses unless they're specifically requested.  This feature, however, did not make it into v5.13.0.
+  * In the future we'd like to filter deprecated permissions out of API responses unless they're specifically requested.  This feature, however, did not make it into v5.13.0.
+* Permissions can now be renamed via a new `replaces` property.  Perm-users (Assignments) and PermissionSet sub-permissions will be updated automatically.
+  * Example:  `foo.get` replaces `foo.read`, `foo.view`.  Any users which were assigned either `foo.read` or `foo.view` would automatically be granted `foo.get`.  Permissions `foo.read` and `foo.view` would be marked deprecated.
 * A new [purgeDeprecated API](https://s3.amazonaws.com/foliodocs/api/mod-permissions/permissions.html#perms_purge_deprecated_post) has been introduced to allow an operator to purge deprecated permissions.  This will:
   * Remove deprecated permissions from the system
   * Remove deprecated permission names from user's permission assignments
