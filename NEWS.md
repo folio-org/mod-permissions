@@ -23,7 +23,7 @@ There are several changes related to migration of static (system-defined) permis
 * Orphaned system-defined permissions - those which are marked as immutable and are no longer present an any enabled module descriptor - will automatically be deprecated when upgrading mod-permissions.
 
 ### Deployment Considerations
-* OKAPI [v4.6.0](https://github.com/folio-org/okapi/releases/tag/v4.6.0) or greater ([v4.7.2](https://github.com/folio-org/okapi/releases/tag/v4.7.2) is highly recommended) is required to benefit from these changes.
+* OKAPI [v4.6.0](https://github.com/folio-org/okapi/releases/tag/v4.6.0) or greater ([v4.7.2](https://github.com/folio-org/okapi/releases/tag/v4.7.2) or greater is highly recommended) is required to benefit from these changes.
 * ***Contrary to earlier communications, it is NOT required to upgrade mod-permissions first or last.  It is also NOT required that you resolve duplicate permissions prior to upgrading to mod-permissions-5.13.0***
 
 ### Stories / Bugs:
@@ -166,4 +166,3 @@ There are several changes related to migration of static (system-defined) permis
 
 ## 2017-05-11
  * Update to RMB release 11.0.0
-
