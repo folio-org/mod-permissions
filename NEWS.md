@@ -20,7 +20,7 @@ There are several changes related to migration of static (system-defined) permis
 * All system-defined permissions will now include context about the module that defined them (new permission fields `moduleName`/`moduleVersion`).
 * Once v5.13.0 is enabled, duplicate permission definitions are not allowed.  If a permission (name) is defined by multiple module descriptors the upgrade will fail with an appropriate error message. 
 * The `mutable` property will now be ignored when creating or updating permissions.  This is a system-controlled field.
-* Orphaned system-defined permissions - those which are marked as immutable and are no longer present an any enabled module descriptor - will automatically be deprecated when upgrading mod-permissions.
+* Orphaned system-defined permissions - those which are marked as immutable and are no longer present in any enabled module descriptor - will automatically be deprecated when upgrading mod-permissions.
 
 ### Deployment Considerations
 * OKAPI [v4.6.0](https://github.com/folio-org/okapi/releases/tag/v4.6.0) or greater ([v4.7.2](https://github.com/folio-org/okapi/releases/tag/v4.7.2) or greater is highly recommended) is required to benefit from these changes.
