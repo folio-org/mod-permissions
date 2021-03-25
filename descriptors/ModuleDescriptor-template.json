@@ -57,6 +57,11 @@
           "methods": [ "DELETE" ],
           "pathPattern": "/perms/permissions/{id}",
           "permissionsRequired": [ "perms.permissions.item.delete " ]
+        },
+        {
+          "methods": [ "POST" ],
+          "pathPattern": "/perms/purge-deprecated",
+          "permissionsRequired": [ "perms.permissions.purge-deprecated.post" ]
         }
       ]
     },
@@ -129,6 +134,11 @@
       "description" : "Remove a permission"
     },
     {
+      "permissionName" : "perms.permissions.purge-deprecated.post",
+      "displayName" : "purge deprecated permission",
+      "description" : "Purge deprecated permissions"
+    },
+    {
       "permissionName" : "perms.permissions",
       "displayName" : "permissions",
       "description" : "All permissions for permission objects",
@@ -136,7 +146,8 @@
           "perms.permissions.get",
           "perms.permissions.item.post",
           "perms.permissions.item.put",
-          "perms.permissions.item.delete"
+          "perms.permissions.item.delete",
+          "perms.permissions.purge-deprecated.post"
       ]
     },
     {
