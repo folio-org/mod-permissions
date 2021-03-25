@@ -1,3 +1,7 @@
+## 2021-03-25 v5.13.1
+
+* [MODPERMS-137](https://issues.folio.org/browse/MODPERMS-137) Missing purge-deprecated in module descriptor
+
 ## 2021-02-27 v5.13.0
 
 * [MODPERMS-135](https://issues.folio.org/browse/MODPERMS-135) replaces processing doesn't update permissions, only permission assignments
