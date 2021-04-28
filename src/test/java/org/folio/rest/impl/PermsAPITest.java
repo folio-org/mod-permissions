@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
 import org.hamcrest.MatcherAssert;
@@ -33,11 +34,11 @@ public class PermsAPITest {
   @BeforeClass
   public static void setup(TestContext context) {
     vertx = Vertx.vertx();
+        PostgresClient.setPostgresTester(new PostgresTesterContainer());
   }
 
   @AfterClass
   public static void tearDown(TestContext context) {
-    PostgresClient.stopEmbeddedPostgres();
     vertx.close();
   }
 
@@ -221,7 +222,7 @@ public class PermsAPITest {
   @Test
   public void testPostPermsPurgeDeprecatedBadTenant(TestContext context) {
     PermsAPI api = new PermsAPI();
-    
+
     Map<String, String> headers = new HashMap<>();
     headers.put("x-okapi-tenant", "foo");
     api.postPermsPurgeDeprecated(headers, context.asyncAssertSuccess(res -> {

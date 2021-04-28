@@ -82,6 +82,13 @@
       <type>jar</type>
     </dependency>
 
+    <dependency>
+      <groupId>org.folio</groupId>
+      <scope>test</scope>
+      <artifactId>postgres-testing</artifactId>
+      <version>${raml-module-builder-version}</version>
+    </dependency>
+
   </dependencies>
 
   <build>

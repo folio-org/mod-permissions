@@ -3,6 +3,7 @@ package org.folio.rest.impl;
 import java.util.LinkedList;
 import java.util.List;
 import org.folio.permstest.TestUtil;
+import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.jaxrs.model.Parameter;
@@ -35,6 +36,7 @@ public class TenantRefAPITest {
 
   @BeforeClass
   public static void setup(TestContext context) {
+        PostgresClient.setPostgresTester(new PostgresTesterContainer());
     port = NetworkUtils.nextFreePort();
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku",  null);
     vertx = Vertx.vertx();
@@ -59,7 +61,6 @@ public class TenantRefAPITest {
   public static void teardown(TestContext context) {
     Async async = context.async();
     client.close();
-    PostgresClient.stopEmbeddedPostgres();
     vertx.close(context.asyncAssertSuccess( res-> {
       async.complete();
     }));

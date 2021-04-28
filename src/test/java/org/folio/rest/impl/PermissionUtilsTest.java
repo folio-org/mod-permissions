@@ -67,7 +67,7 @@ public class PermissionUtilsTest {
     lhsSubPerms.add("baz");
     lhs.setSubPermissions(lhsSubPerms);
     assertFalse(PermissionUtils.equals(lhs, rhs));
-    List<Object> rhsSubPerms = Arrays.asList(lhsSubPerms.toArray());
+    List<Object> rhsSubPerms = new ArrayList<>(Arrays.asList(lhsSubPerms.toArray()));
     rhs.setSubPermissions(rhsSubPerms);
     assertTrue(PermissionUtils.equals(lhs, rhs));
     rhsSubPerms.remove(0);
