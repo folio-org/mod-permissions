@@ -2306,7 +2306,7 @@ public class RestVerticleTest {
     return TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newPerm.encode(), 201).compose(
       res -> {
         try {
-          String newPermId = res.getJson().getString("idRestVerticleTest");
+          String newPermId = res.getJson().getString("id");
           String url2 = String.format("http://localhost:%s/perms/permissions/%s", port,
             newPermId);
           return TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).compose(res2 -> {
