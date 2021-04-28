@@ -2,8 +2,8 @@ package org.folio.rest.impl;
 
 import static org.junit.Assert.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import org.assertj.core.util.Arrays;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
 import org.junit.Test;
@@ -26,7 +26,7 @@ public class PermissionUtilsTest {
         .withDisplayName("all foo permissions")
         .withSubPermissions(Arrays.asList(subPerms.toArray()));
     assertTrue(PermissionUtils.equals(lhs, null, rhs));
-    
+
     rhs.setModuleName("mod-dummy");
     assertTrue(PermissionUtils.equals(lhs, "mod-dummy", rhs));
     assertFalse(PermissionUtils.equals(lhs, "mod-smarty", rhs));
