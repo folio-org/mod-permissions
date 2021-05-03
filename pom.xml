@@ -33,7 +33,7 @@
 
   <properties>
     <vertx.version>4.0.0</vertx.version>
-    <raml-module-builder-version>33.0.0-pre1</raml-module-builder-version>
+    <raml-module-builder-version>33.0.0-pre2</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
@@ -124,10 +124,6 @@
         <groupId>org.folio</groupId>
         <artifactId>domain-models-maven-plugin</artifactId>
         <version>${raml-module-builder-version}</version>
-        <configuration>
-          <generateInterfaces>true</generateInterfaces>
-          <generateClients>true</generateClients>
-        </configuration>
         <executions>
           <execution>
             <id>generate_interfaces</id>
@@ -136,7 +132,6 @@
             </goals>
             <configuration>
               <generateInterfaces>true</generateInterfaces>
-              <generateClients>true</generateClients>
             </configuration>
           </execution>
         </executions>
