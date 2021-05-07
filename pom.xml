@@ -32,7 +32,8 @@
   </pluginRepositories>
 
   <properties>
-    <vertx.version>4.0.0</vertx.version>
+    <vertx.version>4.0.3</vertx.version>
+    <vertx.clients.version>4.0.0-FOLIO</vertx.clients.version>
     <raml-module-builder-version>33.0.0-pre2</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
@@ -51,12 +52,12 @@
       <dependency>
         <groupId>io.vertx</groupId>
         <artifactId>vertx-sql-client</artifactId>
-        <version>${vertx.version}-FOLIO</version>
+        <version>${vertx.clients.version}</version>
       </dependency>
       <dependency>
         <groupId>io.vertx</groupId>
         <artifactId>vertx-pg-client</artifactId>
-        <version>${vertx.version}-FOLIO</version>
+        <version>${vertx.clients.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
