@@ -51,12 +51,12 @@
       <dependency>
         <groupId>io.vertx</groupId>
         <artifactId>vertx-sql-client</artifactId>
-        <version>${vertx.clients.version}</version>
+        <version>${vertx.version}-FOLIO</version>
       </dependency>
       <dependency>
         <groupId>io.vertx</groupId>
         <artifactId>vertx-pg-client</artifactId>
-        <version>${vertx.clients.version}</version>
+        <version>${vertx.version}-FOLIO</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
