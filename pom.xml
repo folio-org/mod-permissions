@@ -22,7 +22,8 @@
   </repositories>
 
   <properties>
-    <vertx.version>4.0.0</vertx.version>
+    <vertx.version>4.0.3</vertx.version>
+    <raml-module-builder-version>33.0.0-SNAPSHOT</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
