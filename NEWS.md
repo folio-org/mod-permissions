@@ -1,3 +1,7 @@
+## 2021-05-11 v5.13.2
+
+* [MODPERMS-148](https://issues.folio.org/browse/MODPERMS-148) RMB 33.0.0-pre3 and Vert.x 4.0.3
+
 ## 2021-03-25 v5.13.1
 
 * [MODPERMS-137](https://issues.folio.org/browse/MODPERMS-137) Missing purge-deprecated in module descriptor
