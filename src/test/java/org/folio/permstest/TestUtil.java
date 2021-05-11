@@ -125,20 +125,4 @@ public class TestUtil {
     return promise.future();
   }
 
-  /**
-   * Purge old data. This is needed if developers reuse an external database configured
-   * by DB_* environment variables.
-   */
-  public static Future<Void> purge(TenantClient tenantClient) {
-    TenantAttributes ta = new TenantAttributes();
-    ta.setPurge(true);
-    return tenantClient.postTenant(ta)
-    .compose(res -> {
-      if (res.statusCode() == 204) {
-        return Future.succeededFuture();
-      }
-      return Future.failedFuture(new AssertionError("purge: expecting status code 204 but got " + res.statusCode()));
-    });
-  }
-
 }

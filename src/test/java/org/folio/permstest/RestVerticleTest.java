@@ -34,6 +34,7 @@ import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
+import org.folio.rest.tools.utils.TenantInit;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -91,7 +92,7 @@ public class RestVerticleTest {
         .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
-    .compose(res -> TestUtil.purge(tenantClient))  // purge old data when reusing external database
+    .compose(res -> TenantInit.purge(tenantClient, 10000))  // purge old data when reusing external database
     .compose(res -> {
       TenantAttributes ta = new TenantAttributes();
       ta.setModuleTo("mod-permissions-1.0.0");
