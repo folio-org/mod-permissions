@@ -74,16 +74,17 @@ public class TestUtil {
   }
 
   public static Future<WrappedResponse> handler(HttpResponse<Buffer> req,
-    Integer expectedCode, HttpMethod method, String url) {
+      Integer expectedCode, HttpMethod method, String url) {
+
     String buf = req.bodyAsString();
-    if (expectedCode != null && expectedCode != req.statusCode()) {
-      LOGGER.error("Got {}, expected {}", req.statusCode(), expectedCode);
-      return Future.failedFuture(String.format("%s request to %s failed. Expected status code"
-          + " '%s' but got status code '%s': %s", method, url,
-        expectedCode, req.statusCode(), buf));
-    } else {
+    if (expectedCode == null || expectedCode == req.statusCode()) {
       return Future.succeededFuture(new WrappedResponse(buf));
     }
+    Error e = new AssertionError(String.format(
+        "%s request to %s failed. Expected status code '%s' but got status code '%s': %s",
+        method, url, expectedCode, req.statusCode(), buf));
+    LOGGER.error(e.getMessage(), e);
+    return Future.failedFuture(e);
   }
 
   public static Future<Void> tenantOp(TenantClient tenantClient, TenantAttributes ta) {
@@ -123,4 +124,21 @@ public class TestUtil {
     }
     return promise.future();
   }
+
+  /**
+   * Purge old data. This is needed if developers reuse an external database configured
+   * by DB_* environment variables.
+   */
+  public static Future<Void> purge(TenantClient tenantClient) {
+    TenantAttributes ta = new TenantAttributes();
+    ta.setPurge(true);
+    return tenantClient.postTenant(ta)
+    .compose(res -> {
+      if (res.statusCode() == 204) {
+        return Future.succeededFuture();
+      }
+      return Future.failedFuture(new AssertionError("purge: expecting status code 204 but got " + res.statusCode()));
+    });
+  }
+
 }

@@ -61,16 +61,16 @@ public class RestVerticleWithCacheTest {
         .setWorker(false);
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
-        .onComplete(
-            context.asyncAssertSuccess(res -> {
-              TenantAttributes ta = new TenantAttributes();
-              ta.setModuleTo("mod-permissions-1.0.0");
-              List<Parameter> parameters = new LinkedList<>();
-              parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-              ta.setParameters(parameters);
-              TestUtil.tenantOp(tenantClient, ta)
-                  .onComplete(context.asyncAssertSuccess());
-            }));
+    .compose(x -> TestUtil.purge(tenantClient))  // purge old data when reusing external database
+    .compose(x -> {
+      TenantAttributes ta = new TenantAttributes();
+      ta.setModuleTo("mod-permissions-1.0.0");
+      List<Parameter> parameters = new LinkedList<>();
+      parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+      ta.setParameters(parameters);
+      return TestUtil.tenantOp(tenantClient, ta);
+    })
+    .onComplete(context.asyncAssertSuccess());
   }
 
   @AfterClass
