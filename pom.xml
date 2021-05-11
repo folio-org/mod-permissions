@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-permissions</artifactId>
-  <version>5.13.2-SNAPSHOT</version>
+  <version>5.13.2</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -379,7 +379,7 @@
     <url>https://github.com/folio-org/mod-permissions</url>
     <connection>scm:git:git://github.com:folio-org/mod-permissions.git</connection>
     <developerConnection>scm:git:git@github.com:folio-org/mod-permissions.git</developerConnection>
-    <tag>v5.13.0</tag>
+    <tag>v5.13.2</tag>
   </scm>
 
 </project>
