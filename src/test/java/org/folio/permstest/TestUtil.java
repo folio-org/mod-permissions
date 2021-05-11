@@ -74,16 +74,17 @@ public class TestUtil {
   }
 
   public static Future<WrappedResponse> handler(HttpResponse<Buffer> req,
-    Integer expectedCode, HttpMethod method, String url) {
+      Integer expectedCode, HttpMethod method, String url) {
+
     String buf = req.bodyAsString();
-    if (expectedCode != null && expectedCode != req.statusCode()) {
-      LOGGER.error("Got {}, expected {}", req.statusCode(), expectedCode);
-      return Future.failedFuture(String.format("%s request to %s failed. Expected status code"
-          + " '%s' but got status code '%s': %s", method, url,
-        expectedCode, req.statusCode(), buf));
-    } else {
+    if (expectedCode == null || expectedCode == req.statusCode()) {
       return Future.succeededFuture(new WrappedResponse(buf));
     }
+    Error e = new AssertionError(String.format(
+        "%s request to %s failed. Expected status code '%s' but got status code '%s': %s",
+        method, url, expectedCode, req.statusCode(), buf));
+    LOGGER.error(e.getMessage(), e);
+    return Future.failedFuture(e);
   }
 
   public static Future<Void> tenantOp(TenantClient tenantClient, TenantAttributes ta) {
@@ -123,4 +124,5 @@ public class TestUtil {
     }
     return promise.future();
   }
+
 }

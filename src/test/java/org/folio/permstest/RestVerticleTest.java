@@ -34,6 +34,7 @@ import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
+import org.folio.rest.tools.utils.TenantInit;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -78,7 +79,7 @@ public class RestVerticleTest {
   static int port;
 
   @Rule
-  public Timeout rule = Timeout.seconds(240);  // 4 (?!) minutes for loading embedded postgres
+  public Timeout rule = Timeout.seconds(10);
 
   @BeforeClass
   public static void setup(TestContext context) {
@@ -91,16 +92,15 @@ public class RestVerticleTest {
         .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
-        .onComplete(
-            context.asyncAssertSuccess(res -> {
-              TenantAttributes ta = new TenantAttributes();
-              ta.setModuleTo("mod-permissions-1.0.0");
-              List<Parameter> parameters = new LinkedList<>();
-              parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-              ta.setParameters(parameters);
-              TestUtil.tenantOp(tenantClient, ta)
-                  .onComplete(context.asyncAssertSuccess());
-            }));
+    .compose(res -> TenantInit.purge(tenantClient, 10000))  // purge old data when reusing external database
+    .compose(res -> {
+      TenantAttributes ta = new TenantAttributes();
+      ta.setModuleTo("mod-permissions-1.0.0");
+      List<Parameter> parameters = new LinkedList<>();
+      parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+      ta.setParameters(parameters);
+      return TestUtil.tenantOp(tenantClient, ta);
+    }).onComplete(context.asyncAssertSuccess());
   }
 
   @AfterClass
@@ -114,7 +114,7 @@ public class RestVerticleTest {
 
   /*
           Call our various tests for the permissions module, but do so in a sequential fashion,
-          chaning each future's completion to the next in line
+          chaining each future's completion to the next in line
   */
   @Test
   public void testPermsSeq(TestContext context) {
