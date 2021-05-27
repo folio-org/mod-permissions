@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.folio</groupId>
   <artifactId>mod-permissions</artifactId>
-  <version>5.14.0-SNAPSHOT</version>
+  <version>5.15.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <licenses>
@@ -32,8 +30,8 @@
   </pluginRepositories>
 
   <properties>
-    <vertx.version>4.1.0.Beta1</vertx.version>
-    <raml-module-builder-version>33.0.0-pre4</raml-module-builder-version>
+    <vertx.version>4.1.0.CR1</vertx.version>
+    <raml-module-builder-version>33.0.0</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
@@ -293,19 +291,16 @@
             <phase>prepare-package</phase>
             <configuration>
               <target>
-                <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*"
-                    replace="baseUri: http://localhost:{http.port}">
+                <replaceregexp match="baseUri: http://github.com/org/folio/mod-auth/.*" replace="baseUri: http://localhost:{http.port}">
                   <fileset dir="${basedir}/target/classes/apidocs/raml">
-                    <include name="**/*.raml"/>
+                    <include name="**/*.raml" />
                   </fileset>
                 </replaceregexp>
-                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]"
-                    dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml"/>
+                <replace token="protocols: [ HTTPS ]" value="protocols: [ HTTP ]" dir="${basedir}/target/classes/apidocs/raml">
+                  <include name="**/*.raml" />
                 </replace>
-                <replace token="../.." value="../ramls/raml-util"
-                    dir="${basedir}/target/classes/apidocs/raml">
-                  <include name="**/*.raml"/>
+                <replace token="../.." value="../ramls/raml-util" dir="${basedir}/target/classes/apidocs/raml">
+                  <include name="**/*.raml" />
                 </replace>
               </target>
             </configuration>
@@ -338,8 +333,7 @@
             </goals>
             <configuration>
               <transformers>
-                <transformer
-                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
                     <Main-Class>org.folio.rest.RestLauncher</Main-Class>
                     <Main-Verticle>org.folio.rest.RestVerticle</Main-Verticle>
@@ -347,7 +341,7 @@
                   </manifestEntries>
                 </transformer>
               </transformers>
-              <artifactSet/>
+              <artifactSet />
               <outputFile>${project.build.directory}/${project.artifactId}-fat.jar</outputFile>
             </configuration>
           </execution>

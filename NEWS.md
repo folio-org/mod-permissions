@@ -1,3 +1,10 @@
+## 2021-05-27 v5.14.0
+
+No bug fixes for this release. JIRA issues:
+
+ * [MODPERMS-148](https://issues.folio.org/browse/MODPERMS-148) RMB 33 and Vert.x 4
+ * [MODPERMS-117](https://issues.folio.org/browse/MODPERMS-117) Add personal data disclosure form
+
 ## 2021-02-27 v5.13.0
 
 ### Static Permission Migration
@@ -37,7 +44,7 @@ There are several changes related to migration of static (system-defined) permis
 * [MODPERMS-121](https://issues.folio.org/browse/MODPERMS-121) Upgrade mod-permissions to RMB v32
 * [MODPERMS-116](https://issues.folio.org/browse/MODPERMS-116) Create purge Deprecated API
 * [MODPERMS-115](https://issues.folio.org/browse/MODPERMS-115) Implement static permission migration
-* [MODPERMS-108](https://issues.folio.org/browse/MODPERMS-108) Upgrade to RMB 31.1.2 due to RMB-732 fix
+* [MODPERMS-108](https://issues.folio.org/browse/MODPERMS-108) Upgrade to RMB 31.1.2 due to [RMB-732](https://issues.folio.org/browse/RMB-732) fix
 
 ## 2020-10-06 v5.12.0
 
@@ -100,8 +107,8 @@ There are several changes related to migration of static (system-defined) permis
  * [MODPERMS-52](https://issues.folio.org/browse/MODPERMS-52) Fix raml files in multiple places
 
 ## 2018-12-05 v5.4.0
- * Update to RAML 1.0 (MODPERMS-47)
- * Reduce unnecessary logging (MODPERMS-42)
+ * Update to RAML 1.0 ([MODPERMS-47](https://issues.folio.org/browse/MODPERMS-47))
+ * Reduce unnecessary logging ([MODPERMS-42](https://issues.folio.org/browse/MODPERMS-42))
 
 ## 2018-08-08 v5.3.2
  * Fix metadata population for permissions
