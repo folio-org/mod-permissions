@@ -30,8 +30,8 @@
   </pluginRepositories>
 
   <properties>
-    <vertx.version>4.1.0.CR1</vertx.version>
-    <raml-module-builder-version>33.0.0</raml-module-builder-version>
+    <vertx.version>4.1.4</vertx.version>
+    <raml-module-builder-version>33.1.1</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
@@ -46,16 +46,6 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
-      <dependency>
-        <groupId>io.vertx</groupId>
-        <artifactId>vertx-sql-client</artifactId>
-        <version>${vertx.version}-FOLIO</version>
-      </dependency>
-      <dependency>
-        <groupId>io.vertx</groupId>
-        <artifactId>vertx-pg-client</artifactId>
-        <version>${vertx.version}-FOLIO</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -63,7 +53,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13.1</version>
+      <version>4.13.2</version>
       <optional>true</optional>
     </dependency>
 
