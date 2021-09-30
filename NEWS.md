@@ -1,3 +1,7 @@
+## 2021-09-30 v5.14.1
+
+[MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
+
 ## 2021-05-27 v5.14.0
 
 No bug fixes for this release. JIRA issues:
