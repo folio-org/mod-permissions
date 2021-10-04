@@ -1,6 +1,8 @@
-## 2021-09-30 v5.14.1
+## 2021-10-01 v5.14.2
 
 [MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
+
+NOTE: There was no v5.14.1 due to errors preparing the release.
 
 ## 2021-05-27 v5.14.0
 
