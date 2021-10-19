@@ -219,7 +219,7 @@ public class PermsAPI implements Perms {
                   )
               );
         } catch (Exception e) {
-          String errStr = "Error saving entity " + entity.toString() + ": " + e.getMessage();
+          String errStr = "Error saving entity " + entity + ": " + e.getMessage();
           logger.error(errStr, e);
           asyncResultHandler.handle(Future.succeededFuture(
               PostPermsUsersResponse.respond500WithTextPlain(errStr)));
@@ -819,7 +819,7 @@ public class PermsAPI implements Perms {
                   }
                   updateSubPermissions(connection, entity.getPermissionName(), new JsonArray(),
                       new JsonArray(entity.getSubPermissions()), vertxContext,
-                      tenantId, logger).onComplete(updateSubPermsRes -> {
+                      tenantId).onComplete(updateSubPermsRes -> {
                     if (updateSubPermsRes.failed()) {
                       postgresClient.rollbackTx(connection, done -> {
                         asyncResultHandler.handle(Future.succeededFuture(
@@ -928,7 +928,7 @@ public class PermsAPI implements Perms {
                       updateSubPermissions(connection, entity.getPermissionName(),
                           new JsonArray(perm.getSubPermissions()),
                           new JsonArray(entity.getSubPermissions()),
-                          vertxContext, tenantId, logger)
+                          vertxContext, tenantId)
                           .onComplete(updateSubPermsRes -> {
                             if (updateSubPermsRes.failed()) {
                               pgClient.rollbackTx(connection, done -> {
@@ -1143,7 +1143,7 @@ public class PermsAPI implements Perms {
                   expandedSubPerms.onComplete(ar -> {
                     if (ar.succeeded()) {
                       List<Object> list = new ArrayList<>(ar.result().size());
-                      ar.result().forEach(list::add);
+                      list.addAll(ar.result());
                       permission.setSubPermissions(list);
                       promise.complete(permission);
                     } else {
@@ -1446,9 +1446,7 @@ public class PermsAPI implements Perms {
               if (!full) {
                 PermissionNameListObject pnlo = new PermissionNameListObject();
                 List<Object> objectList = new ArrayList();
-                for (String s : res.result()) {
-                  objectList.add(s);
-                }
+                objectList.addAll(res.result());
                 pnlo.setPermissionNames(objectList);
                 pnlo.setTotalRecords(res.result().size());
                 promise.complete(pnlo);
@@ -1569,7 +1567,7 @@ public class PermsAPI implements Perms {
               Operation.DELETE);
           fuvList.add(fuv);
         }
-        return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId, logger);
+        return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
       });
     });
   }
@@ -1579,10 +1577,9 @@ public class PermsAPI implements Perms {
   the permission name to the the 'childOf' field for those permisisons
    */
   protected static Future<Void> updateSubPermissions(AsyncResult<SQLConnection> connection,
-                                                     String permissionName, JsonArray originalList, JsonArray newList,
-                                                     Context vertxContext, String tenantId, Logger logger) {
+      String permissionName, JsonArray originalList, JsonArray newList,
+      Context vertxContext, String tenantId) {
 
-    Promise<Void> promise = Promise.promise();
     try {
       JsonArray missingFromOriginalList = new JsonArray();
       JsonArray missingFromNewList = new JsonArray();
@@ -1599,16 +1596,11 @@ public class PermsAPI implements Perms {
       Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
           connection, missingFromOriginalList.getList(), vertxContext,
           tenantId, null);
-      checkExistsFuture.onComplete(res -> {
-        if (res.failed()) {
-          promise.fail(res.cause());
-          return;
-        }
-        if (!res.result().isEmpty()) {
-          promise.fail(new InvalidPermissionsException(String.format(
+      return checkExistsFuture.compose(res -> {
+        if (!res.isEmpty()) {
+          return Future.failedFuture(new InvalidPermissionsException(String.format(
               "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
-              String.join(",", res.result()), permissionName)));
-          return;
+              String.join(",", res), permissionName)));
         }
         List<FieldUpdateValues> fuvList = new ArrayList<>();
         for (Object childPermissionNameOb : missingFromOriginalList) {
@@ -1619,7 +1611,6 @@ public class PermsAPI implements Perms {
               Operation.ADD);
           fuvList.add(fuv);
         }
-
         for (Object childPermissionNameOb : missingFromNewList) {
           FieldUpdateValues fuv = new FieldUpdateValues(
               permissionName,
@@ -1628,23 +1619,16 @@ public class PermsAPI implements Perms {
               Operation.DELETE);
           fuvList.add(fuv);
         }
-
-        if (fuvList.isEmpty()) {
-          promise.complete();
-        } else {
-          modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-              tenantId, logger).onComplete(res2 -> promise.handle(res2.mapEmpty()));
-        }
+        return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
       });
     } catch (Exception e) {
-      promise.fail(e);
+      return Future.failedFuture(e);
     }
-    return promise.future();
   }
 
   private static Future<Void> modifyPermissionArrayField(AsyncResult<SQLConnection> connection, String fieldValue,
                                                          String permissionName, PermissionField field, Operation operation,
-                                                         Context vertxContext, String tenantId, Logger logger) {
+                                                         Context vertxContext, String tenantId) {
     Promise<Void> promise = Promise.promise();
     try {
       Criteria nameCrit = new Criteria()
@@ -1707,23 +1691,17 @@ public class PermsAPI implements Perms {
     return promise.future();
   }
 
-  private static Future<Void> modifyPermissionArrayFieldList(
-      AsyncResult<SQLConnection> connection, List<FieldUpdateValues> fuvList, Context vertxContext,
-      String tenantId, Logger logger) {
+  private static Future<Void> modifyPermissionArrayFieldList(AsyncResult<SQLConnection> connection,
+      List<FieldUpdateValues> fuvList, Context vertxContext, String tenantId) {
 
-    if (fuvList.isEmpty()) {
-      return Future.succeededFuture();
+    Future<Void> future = Future.succeededFuture();
+    for (FieldUpdateValues fuv : fuvList) {
+      future = future.compose(x ->
+        modifyPermissionArrayField(connection,
+            fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
+            fuv.getOperation(), vertxContext, tenantId));
     }
-    Promise<Void> promise = Promise.promise();
-    FieldUpdateValues fuv = fuvList.get(0);
-    List<FieldUpdateValues> fuvListCopy = new ArrayList<>(fuvList);
-    fuvListCopy.remove(0); //pop
-    Future<Void> modifyPermArrayFieldFuture = modifyPermissionArrayField(connection,
-        fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
-        fuv.getOperation(), vertxContext, tenantId, logger);
-    modifyPermArrayFieldFuture.onComplete(res -> promise.handle(res.mapEmpty()));
-    return promise.future().compose(mapper -> modifyPermissionArrayFieldList(connection,
-        fuvListCopy, vertxContext, tenantId, logger));
+    return future;
   }
 
   private Future<Void> removePermissionFromUserList(
@@ -1917,9 +1895,7 @@ public class PermsAPI implements Perms {
     perm.setDisplayName(entity.getDisplayName());
     perm.setDescription(entity.getDescription());
     List<Object> subPerms = new ArrayList<>();
-    for (String s : entity.getSubPermissions()) {
-      subPerms.add(s);
-    }
+    subPerms.addAll(entity.getSubPermissions());
     perm.setSubPermissions(subPerms);
     perm.setMutable(entity.getMutable());
     perm.setVisible(entity.getVisible());
