@@ -74,7 +74,7 @@ public class PermsAPITest {
     PermsAPI api = new PermsAPI();
     PermissionUser permissionUser = new PermissionUser();
 
-    api.postPermsUsersTrans(permissionUser, vertx.getOrCreateContext(), "badTenant",
+    api.postPermsUsersTrans(permissionUser, vertx.getOrCreateContext(), "badTenant", null,
         context.asyncAssertSuccess(res -> {
           context.assertEquals(400, res.getStatus());
         }));
@@ -98,7 +98,7 @@ public class PermsAPITest {
     postgresClient.startTx(s -> {
       Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
           new JsonArray().add("this"), new JsonArray().add("that"),
-          vertxContext, tenantId);
+          vertxContext, tenantId, null);
       future.onComplete(context.asyncAssertFailure());
     });
   }

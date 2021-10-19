@@ -1542,14 +1542,20 @@ public class RestVerticleTest {
   }
 
   private Response send(HttpMethod method, String path, String content, TestContext context) {
-    return send("diku", method, path, content, context);
+    return send("diku", method, path, content, null, context);
   }
 
-  private Response send(String tenant, HttpMethod method, String path, String content, TestContext context) {
+  private Response send(String tenant, HttpMethod method, String path, String content,
+      TestContext context) {
+    return send(tenant, method, path, content, null, context);
+  }
+
+  private Response send(String tenant, HttpMethod method, String path, String content,
+      String okapiUserId, TestContext context) {
     try {
       CompletableFuture<Response> futureResponse = new CompletableFuture();
       send(tenant, "http://localhost:" + port + path, context, method, content,
-          CONTENT_TYPE_JSON, new HTTPResponseHandler(futureResponse));
+          CONTENT_TYPE_JSON, okapiUserId, new HTTPResponseHandler(futureResponse));
       return futureResponse.get(10000, TimeUnit.SECONDS);
     } catch (Exception e) {
       context.fail(e);
@@ -1558,10 +1564,11 @@ public class RestVerticleTest {
   }
 
   private void send(String tenant, String url, TestContext context, HttpMethod method, String content,
-                    String contentType, Handler<HttpResponse<Buffer>> handler) {
+                    String contentType, String okapiUserId, Handler<HttpResponse<Buffer>> handler) {
     HttpRequest<Buffer> request = client.requestAbs(method, url)
       .putHeader("x-okapi-tenant", tenant)
       .putHeader("Accept", CONTENT_TYPE_TEXT_JSON)
+      .putHeader("X-Okapi-User-Id", okapiUserId)
       .putHeader("Content-type", contentType);
 
     if (content == null) {
@@ -2267,7 +2274,6 @@ public class RestVerticleTest {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
     headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
-    headers.add("X-Okapi-User-Id", fakeUserId);
     return TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newUser.encode(), 201).compose(
       res -> {
         try {
@@ -2427,6 +2433,74 @@ public class RestVerticleTest {
             .getBytes(StandardCharsets.UTF_8)));
     logger.debug("Generated fake JWT: " + ret);
     return ret;
+  }
+
+  @Test
+  public void testOperatingUser(TestContext context) {
+    JsonObject permissionUpload = new JsonObject()
+        .put("permissionName", "okapi.all")
+        .put("id", UUID.randomUUID().toString());
+    Response response = send(HttpMethod.POST, "/perms/permissions", permissionUpload.encode(), context);
+    context.assertEquals(201, response.code);
+
+    permissionUpload = new JsonObject()
+        .put("permissionName", "okapi.readonly")
+        .put("id", UUID.randomUUID().toString());
+    response = send(HttpMethod.POST, "/perms/permissions", permissionUpload.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add("okapi.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), null, context);
+    context.assertEquals(201, response.code);
+
+    // add a user with a permission owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("okapi.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, context);
+    context.assertEquals(201, response.code);
+
+    // add a user with unknown operator
+    String unknownOperatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("okapi.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        unknownOperatorUserId, context);
+    context.assertEquals(500, response.code);
+    context.assertEquals("Cannot update permissions: operating user " + unknownOperatorUserId + " not found",
+        response.body.getString("text"));
+
+    // add a user with a permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("okapi.all"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, context);
+    context.assertEquals(500, response.code);
+    context.assertEquals("Cannot add permission okapi.all not owned by operating user " + operatorUserId,
+        response.body.getString("text"));
+
+    // add a user with a permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("okapi.readonly").add("okapi.all"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, context);
+    context.assertEquals(500, response.code);
+    context.assertEquals("Cannot add permission okapi.all not owned by operating user " + operatorUserId,
+        response.body.getString("text"));
   }
 }
 
