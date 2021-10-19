@@ -177,6 +177,7 @@ public class PermsAPI implements Perms {
     }
   }
 
+
   void postPermsUsersTrans(PermissionUser entity, Context vertxContext,
                            String tenantId, Handler<AsyncResult<Response>> asyncResultHandler) {
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
@@ -227,7 +228,7 @@ public class PermsAPI implements Perms {
     });
   }
 
-  Future<PermissionUser> lookupPermsUsersById(String id, String indexField, String tenantId, Context vertxContext) {
+  static Future<PermissionUser> lookupPermsUsersById(String id, String indexField, String tenantId, Context vertxContext) {
     Criterion idCrit = getIdCriterion(indexField, id);
     PostgresClient instance = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     return instance.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit, true)
@@ -1515,7 +1516,6 @@ public class PermsAPI implements Perms {
       String operatingUser, String permUserId, JsonArray originalList, JsonArray newList,
       Context vertxContext, String tenantId) {
 
-    Promise<Void> promise = Promise.promise();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
     for (Object ob : newList) {
@@ -1528,45 +1528,61 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
-        connection, missingFromOriginalList.getList(), vertxContext,
-        tenantId, null);
-    checkExistsFuture.onComplete(checkExistsRes -> {
-      if (checkExistsFuture.failed()) {
-        promise.fail(checkExistsFuture.cause());
-        return;
+    Future<List<Object>> future = Future.succeededFuture(null);
+    if (operatingUser != null) {
+      future = future.compose(x -> lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext))
+          .compose(x -> {
+            if (x == null) {
+              return Future.failedFuture("Cannot update permissions: operating user " + operatingUser + " not found");
+            }
+            return Future.succeededFuture(x.getPermissions());
+          });
+    }
+    return future.compose(operatorPermissions -> {
+      if (operatorPermissions != null) {
+        for (Object ob : missingFromOriginalList) {
+          if (!operatorPermissions.contains(ob)) {
+            return Future.failedFuture("Cannot add permission " + (String) ob
+                + " not owned by operating user " + operatingUser);
+          }
+        }
       }
-      if (!checkExistsFuture.result().isEmpty()) {
-        promise.fail(
-            new InvalidPermissionsException(String.format(
-                "Attempting to add non-existent permissions %s to permission user with id %s",
-                String.join(",", checkExistsFuture.result()), permUserId)));
-        return;
-      }
-      List<FieldUpdateValues> fuvList = new ArrayList<>();
-      for (Object permissionNameOb : missingFromOriginalList) {
-        FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
-            (String) permissionNameOb,
-            PermissionField.GRANTED_TO,
-            Operation.ADD);
-        fuvList.add(fuv);
-      }
-      for (Object permissionNameOb : missingFromNewList) {
-        FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
-            (String) permissionNameOb,
-            PermissionField.GRANTED_TO,
-            Operation.DELETE);
-        fuvList.add(fuv);
-      }
-      if (fuvList.isEmpty()) {
-        promise.complete(); //Nuthin' to do
-      } else {
-        modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
-            tenantId, logger).onComplete(res -> promise.handle(res.mapEmpty()));
-      }
+      Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
+          connection, missingFromOriginalList.getList(), vertxContext,
+          tenantId, null);
+      return checkExistsResF.compose(checkExistsRes -> {
+            if (!checkExistsRes.isEmpty()) {
+              return Future.failedFuture(
+                  new InvalidPermissionsException(String.format(
+                      "Attempting to add non-existent permissions %s to permission user with id %s",
+                      String.join(",", checkExistsRes), permUserId)));
+            }
+            Promise<Void> promise = Promise.promise();
+            List<FieldUpdateValues> fuvList = new ArrayList<>();
+            for (Object permissionNameOb : missingFromOriginalList) {
+              FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
+                  (String) permissionNameOb,
+                  PermissionField.GRANTED_TO,
+                  Operation.ADD);
+              fuvList.add(fuv);
+            }
+            for (Object permissionNameOb : missingFromNewList) {
+              FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
+                  (String) permissionNameOb,
+                  PermissionField.GRANTED_TO,
+                  Operation.DELETE);
+              fuvList.add(fuv);
+            }
+            if (fuvList.isEmpty()) {
+              promise.complete(); //Nuthin' to do
+            } else {
+              modifyPermissionArrayFieldList(connection, fuvList, vertxContext,
+                  tenantId, logger).onComplete(res -> promise.handle(res.mapEmpty()));
+            }
+            return promise.future();
+          });
     });
-    return promise.future();
-  }
+}
 
   /* If we are modifying (or creating) the subpermissions array of a permission
   object, check for any changes and for any newly declared subpermissions, add
