@@ -31,7 +31,6 @@
           "pathPattern": "/perms/users/{id}/permissions/{perm}",
           "permissionsRequired": [ "perms.users.item.delete" ]
         },
-
         {
           "methods": [ "GET" ],
           "pathPattern": "/perms/permissions",

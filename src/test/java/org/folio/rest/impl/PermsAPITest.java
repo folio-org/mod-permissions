@@ -98,7 +98,7 @@ public class PermsAPITest {
     postgresClient.startTx(s -> {
       Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
           new JsonArray().add("this"), new JsonArray().add("that"),
-          vertxContext, tenantId, logger);
+          vertxContext, tenantId);
       future.onComplete(context.asyncAssertFailure());
     });
   }

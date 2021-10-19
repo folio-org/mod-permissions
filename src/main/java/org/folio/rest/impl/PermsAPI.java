@@ -11,6 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.annotations.Validate;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionListObject;
@@ -99,7 +100,7 @@ public class PermsAPI implements Perms {
   private static final String ID_FIELD = "id";
   private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
-  private final Logger logger = LogManager.getLogger(PermsAPI.class);
+  private static final Logger logger = LogManager.getLogger(PermsAPI.class);
 
   private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
     CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
@@ -178,7 +179,6 @@ public class PermsAPI implements Perms {
 
   void postPermsUsersTrans(PermissionUser entity, Context vertxContext,
                            String tenantId, Handler<AsyncResult<Response>> asyncResultHandler) {
-
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.startTx(beginTx -> {
       logger.debug("Starting transaction to save new permissions user");
@@ -193,7 +193,7 @@ public class PermsAPI implements Perms {
           }
           final PermissionUser permUser = entity;
           updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
-              new JsonArray(permUser.getPermissions()), vertxContext, tenantId, logger)
+              new JsonArray(permUser.getPermissions()), vertxContext, tenantId)
               .onFailure(cause ->
                   postgresClient.rollbackTx(beginTx, rollbackTx -> {
                     logger.error("Error updating derived fields: {}",
@@ -227,27 +227,31 @@ public class PermsAPI implements Perms {
     });
   }
 
+  Future<PermissionUser> lookupPermsUsersById(String id, String indexField, String tenantId, Context vertxContext) {
+    Criterion idCrit = getIdCriterion(indexField, id);
+    PostgresClient instance = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    return instance.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit, true)
+        .map(x -> x.getResults().isEmpty() ? null : x.getResults().get(0));
+  }
+
   @Validate
   @Override
   public void getPermsUsersById(String id, String indexField, Map<String, String> okapiHeaders,
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criterion idCrit = getIdCriterion(indexField, id);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          idCrit, true, false, queryReply -> {
-            if (queryReply.failed()) {
-              String errStr = queryReply.cause().getMessage();
-              logger.error(errStr, queryReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond400WithTextPlain(errStr)));
-              return;
-            }
-            List<PermissionUser> userList = queryReply.result().getResults();
-            if (userList.isEmpty()) {
+      lookupPermsUsersById(id, indexField, tenantId, vertxContext)
+          .onSuccess(user -> {
+            if (user == null) {
               asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond404WithTextPlain("No user with id: " + id)));
-              return;
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond200WithApplicationJson(user)));
             }
-            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond200WithApplicationJson(userList.get(0))));
+          })
+          .onFailure(cause -> {
+            String errStr = cause.getMessage();
+            logger.error(errStr, cause);
+            asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond400WithTextPlain(errStr)));
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
@@ -336,7 +340,7 @@ public class PermsAPI implements Perms {
                 updateUserPermissions(connection, userid,
                     new JsonArray(originalUser.getPermissions()),
                     new JsonArray(entity.getPermissions()),
-                    vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
+                    vertxContext, tenantId).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, done -> {
                       if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
@@ -409,7 +413,7 @@ public class PermsAPI implements Perms {
               try {
                 updateUserPermissions(connection, userid,
                     new JsonArray(permUser.getPermissions()), new JsonArray(),
-                    vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
+                    vertxContext, tenantId).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, rollback -> {
                       String errStr = String.format("Error updating metadata: %s",
@@ -621,7 +625,7 @@ public class PermsAPI implements Perms {
                     //update metadata
                     updateUserPermissions(connection, actualId, originalPermissions,
                         new JsonArray(user.getPermissions()), vertxContext,
-                        tenantId, logger).onComplete(updateUserPermsRes -> {
+                        tenantId).onComplete(updateUserPermsRes -> {
                       if (updateUserPermsRes.failed()) {
                         //rollback
                         pgClient.rollbackTx(connection, rollback -> {
@@ -713,7 +717,7 @@ public class PermsAPI implements Perms {
                       }
                       updateUserPermissions(connection, user.getId(), originalPermissions,
                           new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, logger).onComplete(updateUserPermsRes -> {
+                          tenantId).onComplete(updateUserPermsRes -> {
                         if (updateUserPermsRes.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
                             String errStr = String.format(
@@ -1502,7 +1506,15 @@ public class PermsAPI implements Perms {
    */
   protected static Future<Void> updateUserPermissions(AsyncResult<SQLConnection> connection, String permUserId,
                                                       JsonArray originalList, JsonArray newList, Context vertxContext,
-                                                      String tenantId, Logger logger) {
+                                                      String tenantId) {
+    return updateUserPermissions(connection, null, permUserId, originalList,
+        newList, vertxContext, tenantId);
+  }
+
+  protected static Future<Void> updateUserPermissions(AsyncResult<SQLConnection> connection,
+      String operatingUser, String permUserId, JsonArray originalList, JsonArray newList,
+      Context vertxContext, String tenantId) {
+
     Promise<Void> promise = Promise.promise();
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
