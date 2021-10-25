@@ -2,7 +2,6 @@ package org.folio.rest.impl;
 
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 import static org.folio.rest.impl.PermsAPI.getCQL;
-import static org.folio.rest.impl.PermsAPI.getIdCriterion;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -500,35 +499,21 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<Void> addPermissionToUser(AsyncResult<SQLConnection> connection, String userId,
       String permissionName, Context vertxContext, String tenantId) {
 
-    Criterion useridCrit = getIdCriterion(userId);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    return pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, useridCrit, true)
-            .compose(result -> {
-      List<PermissionUser> userList = result.getResults();
-      if (userList.isEmpty()) {
+    return PermsAPI.lookupPermsUsersById(userId, "id", tenantId, vertxContext).compose(user -> {
+      if (user == null) {
         return Future.failedFuture("User with id " + userId + " does not exist");
       }
-      // now we can actually add it
-      PermissionUser user = userList.get(0);
       String actualId = user.getId();
       if (user.getPermissions().contains(permissionName)) {
         return Future.failedFuture("User with id " + actualId + " already has permission " + permissionName);
       }
       try {
         user.getPermissions().add(permissionName);
-
         String query = String.format("id==%s", actualId);
         CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
-        Promise<Void> promise = Promise.promise();
-        pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true, putReply -> {
-          if (putReply.failed()) {
-            promise.fail(putReply.cause());
-            logger.error(putReply.cause().getMessage(), putReply.cause());
-            return;
-          }
-          promise.complete();
-        });
-        return promise.future();
+        return pgClient.withConn(connection, con -> con.update(TABLE_NAME_PERMSUSERS, user, cqlFilter, true))
+            .mapEmpty();
       } catch (Exception e) {
         logger.error(e.getMessage(), e);
         return Future.failedFuture(e);
