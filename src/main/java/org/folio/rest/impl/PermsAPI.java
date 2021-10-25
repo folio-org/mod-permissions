@@ -1523,21 +1523,32 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    Future<List<Object>> future = Future.succeededFuture(null);
+    Future<List<String>> future = Future.succeededFuture(null);
     if (operatingUser != null) {
       future = future.compose(x -> lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext))
           .compose(x -> {
             if (x == null) {
               return Future.failedFuture("Cannot update permissions: operating user " + operatingUser + " not found");
             }
-            return Future.succeededFuture(x.getPermissions());
+            List<String> expandedSubs = new ArrayList<>();
+            Future<Void> future1 = Future.succeededFuture();
+            for (Object p : x.getPermissions()) {
+              String perm = (String) p;
+              List<String> subPerm = new ArrayList<>();
+              subPerm.add(perm);
+              expandedSubs.add(perm);
+              future1 = future1.compose(x1 -> PermsCache.expandPerms(subPerm, vertxContext, tenantId)
+                  .onSuccess(subs -> expandedSubs.addAll(subs))
+                  .mapEmpty());
+            }
+            return Future.succeededFuture(expandedSubs);
           });
     }
     return future.compose(operatorPermissions -> {
       if (operatorPermissions != null) {
         for (Object ob : missingFromOriginalList) {
           if (!operatorPermissions.contains(ob)) {
-            return Future.failedFuture("Cannot add permission " + (String) ob
+            return Future.failedFuture("Cannot add permission " + ob
                 + " not owned by operating user " + operatingUser);
           }
         }

@@ -2521,10 +2521,16 @@ public class RestVerticleTest {
                 )
             )
             .add(new JsonObject()
+                .put("permissionName", "toi.mod.write")
+                .put("subPermissions", new JsonArray()
+                    .add("toi.mod.post")
+                )
+            )
+            .add(new JsonObject()
                 .put("permissionName", "toi.mod.all")
                 .put("subPermissions", new JsonArray()
                     .add("toi.mod.readonly")
-                    .add("toi.mod.post")
+                    .add("toi.mod.write")
                 )
             )
         );
@@ -2556,7 +2562,18 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("toi.mod.get"));
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, context);
-    // TODO: context.assertEquals(201, response.code);
+    context.assertEquals(201, response.code);
+
+    // add a user with sub permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.post"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, context);
+    context.assertEquals(500, response.code);
+    context.assertEquals("Cannot add permission toi.mod.post not owned by operating user " + operatorUserId,
+        response.body.getString("text"));
 
     // add a user with unknown operator
     String unknownOperatorUserId = UUID.randomUUID().toString();
