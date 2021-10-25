@@ -9,6 +9,7 @@
         {
           "methods": [ "POST" ],
           "pathPattern": "/perms/users*",
+          "permissionsDesired": [ "perms.users.extra" ],
           "permissionsRequired": [ "perms.users.item.post" ]
         },
         {
@@ -19,16 +20,19 @@
         {
           "methods": [ "PUT" ],
           "pathPattern": "/perms/users/{id}",
+          "permissionsDesired": [ "perms.users.extra" ],
           "permissionsRequired": [ "perms.users.item.put" ]
         },
         {
           "methods": [ "DELETE" ],
           "pathPattern": "/perms/users/{id}",
+          "permissionsDesired": [ "perms.users.extra" ],
           "permissionsRequired": [ "perms.users.item.delete" ]
         },
         {
           "methods": [ "DELETE" ],
           "pathPattern": "/perms/users/{id}/permissions/{perm}",
+          "permissionsDesired": [ "perms.users.extra" ],
           "permissionsRequired": [ "perms.users.item.delete" ]
         },
         {
@@ -91,6 +95,7 @@
       ]
     }
   ],
+  "requires" : [],
   "permissionSets" : [
     {
       "permissionName" : "perms.users.get",
@@ -136,6 +141,11 @@
       "permissionName" : "perms.permissions.purge-deprecated.post",
       "displayName" : "purge deprecated permission",
       "description" : "Purge deprecated permissions"
+    },
+    {
+      "permissionName" : "perms.users.extra",
+      "displayName" : "perms users extra",
+      "description" : "Allow any permission to be added for user"
     },
     {
       "permissionName" : "perms.permissions",

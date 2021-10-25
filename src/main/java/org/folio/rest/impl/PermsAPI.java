@@ -168,7 +168,7 @@ public class PermsAPI implements Perms {
             if (entity.getId() == null) {
               entity.setId(UUID.randomUUID().toString());
             }
-            postPermsUsersTrans(entity, vertxContext, tenantId, okapiHeaders.get(XOkapiHeaders.USER_ID), asyncResultHandler);
+            postPermsUsersTrans(entity, vertxContext, tenantId, operatorUser(okapiHeaders), asyncResultHandler);
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
@@ -289,7 +289,7 @@ public class PermsAPI implements Perms {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMSUSERS, PermissionUser.class, cqlFilter, true,
                   putPermsUsersbyIdHandle(userid, entity, asyncResultHandler, vertxContext, tenantId,
-                      okapiHeaders.get(XOkapiHeaders.USER_ID), cqlFilter));
+                      operatorUser(okapiHeaders), cqlFilter));
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
@@ -415,7 +415,7 @@ public class PermsAPI implements Perms {
               try {
                 updateUserPermissions(connection, userid,
                     new JsonArray(permUser.getPermissions()), new JsonArray(),
-                    vertxContext, tenantId, okapiHeaders.get(XOkapiHeaders.USER_ID))
+                    vertxContext, tenantId, operatorUser(okapiHeaders))
                     .onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, rollback -> {
@@ -511,6 +511,14 @@ public class PermsAPI implements Perms {
     }
   }
 
+  static String operatorUser(Map<String, String> okapiHeaders) {
+    String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
+    if (perms != null && new JsonArray(perms).contains("perms.users.extra")) {
+      return null;
+    }
+    return okapiHeaders.get(XOkapiHeaders.USER_ID);
+  }
+
   @Validate
   @Override
   public void postPermsUsersPermissionsById(String id, String indexField,
@@ -555,7 +563,7 @@ public class PermsAPI implements Perms {
                                     + permissionName))));
                 return;
               }
-              updatePermissionsForUser(entity, vertxContext, tenantId, okapiHeaders.get(XOkapiHeaders.USER_ID),
+              updatePermissionsForUser(entity, vertxContext, tenantId, operatorUser(okapiHeaders),
                   permissionName, user, actualId, originalPermissions, asyncResultHandler);
             } catch (Exception e) {
               logger.error(
@@ -721,7 +729,7 @@ public class PermsAPI implements Perms {
                       }
                       updateUserPermissions(connection, user.getId(), originalPermissions,
                           new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, okapiHeaders.get(XOkapiHeaders.USER_ID))
+                          tenantId, operatorUser(okapiHeaders))
                           .onComplete(updateUserPermsRes -> {
                         if (updateUserPermsRes.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
