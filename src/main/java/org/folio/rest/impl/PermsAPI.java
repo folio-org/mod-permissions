@@ -511,6 +511,12 @@ public class PermsAPI implements Perms {
     }
   }
 
+  /**
+   * Returns operating user.
+   * @param okapiHeaders Okapi headers
+   * @return operating user; null for no operating user in which case
+   * there is no check for permissions of operating user.
+   */
   static String operatorUser(Map<String, String> okapiHeaders) {
     String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
     if (perms != null && new JsonArray(perms).contains("perms.users.extra")) {
