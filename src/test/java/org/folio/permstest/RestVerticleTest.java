@@ -2634,10 +2634,24 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("toi.mod.readonly").add("toi.mod.all"));
 
-    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.add("Content-Type", CONTENT_TYPE_JSON);
+    headers.add("X-Okapi-Tenant", "diku");
+    headers.add("X-User-Id", operatorUserId);
+    headers.add("X-Okapi-Permissions", "[ \"okapi.all\" ]");
+
     context.assertEquals(500, response.code);
     context.assertEquals("Cannot add permission toi.mod.all not owned by operating user " + operatorUserId,
         response.body.getString("text"));
+
+    headers = MultiMap.caseInsensitiveMultiMap();
+    headers.add("Content-Type", CONTENT_TYPE_JSON);
+    headers.add("X-Okapi-Tenant", "diku");
+    headers.add("X-User-Id", operatorUserId);
+    headers.add("X-Okapi-Permissions", "[ \"perms.users.extra\" ]");
+
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
 
     String superUserId = UUID.randomUUID().toString();
     permsUser = new JsonObject()
@@ -2652,11 +2666,10 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("toi.mod.all"));
 
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("Content-Type", CONTENT_TYPE_JSON);
     headers.add("X-Okapi-Tenant", "diku");
     headers.add("X-User-Id", superUserId);
-    headers.add("X-Okapi-Permissions", "[ \"perms.users.extra\" ]");
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
   }
