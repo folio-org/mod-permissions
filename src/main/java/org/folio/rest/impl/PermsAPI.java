@@ -1559,7 +1559,7 @@ public class PermsAPI implements Perms {
           });
     }
     return future.compose(operatorPermissions -> {
-      if (operatorPermissions != null) {
+      if (operatorPermissions != null && !operatorPermissions.contains("perms.users.extra")) {
         for (Object ob : missingFromOriginalList) {
           if (!operatorPermissions.contains(ob)) {
             return Future.failedFuture("Cannot add permission " + ob
