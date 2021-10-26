@@ -168,7 +168,7 @@ public class PermsAPI implements Perms {
             if (entity.getId() == null) {
               entity.setId(UUID.randomUUID().toString());
             }
-            postPermsUsersTrans(entity, vertxContext, tenantId, operatorUser(okapiHeaders), asyncResultHandler);
+            postPermsUsersTrans(entity, vertxContext, tenantId, getOperatingUser(okapiHeaders), asyncResultHandler);
           });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
@@ -289,7 +289,7 @@ public class PermsAPI implements Perms {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMSUSERS, PermissionUser.class, cqlFilter, true,
                   putPermsUsersbyIdHandle(userid, entity, asyncResultHandler, vertxContext, tenantId,
-                      operatorUser(okapiHeaders), cqlFilter));
+                      getOperatingUser(okapiHeaders), cqlFilter));
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
@@ -305,7 +305,7 @@ public class PermsAPI implements Perms {
 
   private Handler<AsyncResult<Results<PermissionUser>>> putPermsUsersbyIdHandle(
       String userid, PermissionUser entity, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
-      String tenantId, String operatorUserId, CQLWrapper cqlFilter) {
+      String tenantId, String operatingUserId, CQLWrapper cqlFilter) {
 
     return getReply -> {
       if (getReply.failed()) {
@@ -342,7 +342,7 @@ public class PermsAPI implements Perms {
                 updateUserPermissions(connection, userid,
                     new JsonArray(originalUser.getPermissions()),
                     new JsonArray(entity.getPermissions()),
-                    vertxContext, tenantId, operatorUserId).onComplete(updateUserPermsRes -> {
+                    vertxContext, tenantId, operatingUserId).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, done -> {
                       if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
@@ -415,7 +415,7 @@ public class PermsAPI implements Perms {
               try {
                 updateUserPermissions(connection, userid,
                     new JsonArray(permUser.getPermissions()), new JsonArray(),
-                    vertxContext, tenantId, operatorUser(okapiHeaders))
+                    vertxContext, tenantId, getOperatingUser(okapiHeaders))
                     .onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, rollback -> {
@@ -517,7 +517,7 @@ public class PermsAPI implements Perms {
    * @return operating user; null for no operating user in which case
    * there is no check for permissions of operating user.
    */
-  static String operatorUser(Map<String, String> okapiHeaders) {
+  static String getOperatingUser(Map<String, String> okapiHeaders) {
     String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
     if (perms != null && new JsonArray(perms).contains("perms.users.extra")) {
       return null;
@@ -569,7 +569,7 @@ public class PermsAPI implements Perms {
                                     + permissionName))));
                 return;
               }
-              updatePermissionsForUser(entity, vertxContext, tenantId, operatorUser(okapiHeaders),
+              updatePermissionsForUser(entity, vertxContext, tenantId, getOperatingUser(okapiHeaders),
                   permissionName, user, actualId, originalPermissions, asyncResultHandler);
             } catch (Exception e) {
               logger.error(
@@ -589,7 +589,7 @@ public class PermsAPI implements Perms {
 
   @SuppressWarnings({"squid:S00107"})   // Method has more than 7 parameters
   private void updatePermissionsForUser(PermissionNameObject entity,
-                                        Context vertxContext, String tenantId, String operatorUserId, String permissionName,
+                                        Context vertxContext, String tenantId, String operatingUserId, String permissionName,
                                         PermissionUser user, String actualId, JsonArray originalPermissions,
                                         Handler<AsyncResult<Response>> asyncResultHandler) {
 
@@ -643,7 +643,7 @@ public class PermsAPI implements Perms {
                     //update metadata
                     updateUserPermissions(connection, actualId, originalPermissions,
                         new JsonArray(user.getPermissions()), vertxContext,
-                        tenantId, operatorUserId).onComplete(updateUserPermsRes -> {
+                        tenantId, operatingUserId).onComplete(updateUserPermsRes -> {
                       if (updateUserPermsRes.failed()) {
                         //rollback
                         pgClient.rollbackTx(connection, rollback -> {
@@ -735,7 +735,7 @@ public class PermsAPI implements Perms {
                       }
                       updateUserPermissions(connection, user.getId(), originalPermissions,
                           new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, operatorUser(okapiHeaders))
+                          tenantId, getOperatingUser(okapiHeaders))
                           .onComplete(updateUserPermsRes -> {
                         if (updateUserPermsRes.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
@@ -1558,10 +1558,10 @@ public class PermsAPI implements Perms {
             return Future.succeededFuture(expandedSubs);
           });
     }
-    return future.compose(operatorPermissions -> {
-      if (operatorPermissions != null && !operatorPermissions.contains("perms.users.extra")) {
+    return future.compose(operatingPermissions -> {
+      if (operatingPermissions != null && !operatingPermissions.contains("perms.users.extra")) {
         for (Object ob : missingFromOriginalList) {
-          if (!operatorPermissions.contains(ob)) {
+          if (!operatingPermissions.contains(ob)) {
             return Future.failedFuture("Cannot add permission " + ob
                 + " not owned by operating user " + operatingUser);
           }
