@@ -1537,65 +1537,70 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    Future<List<String>> future = Future.succeededFuture(null);
-    if (operatingUser != null) {
-      future = future.compose(x -> lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext))
-          .compose(x -> {
-            if (x == null) {
-              return Future.failedFuture("Cannot update permissions: operating user " + operatingUser + " not found");
+    return getOperatingPermissions(vertxContext, tenantId, operatingUser)
+        .compose(operatingPermissions -> {
+          if (operatingPermissions != null && !operatingPermissions.contains("perms.users.extra")) {
+            for (Object ob : missingFromOriginalList) {
+              if (!operatingPermissions.contains(ob)) {
+                return Future.failedFuture("Cannot add permission " + ob
+                    + " not owned by operating user " + operatingUser);
+              }
             }
-            List<String> expandedSubs = new ArrayList<>();
-            Future<Void> future1 = Future.succeededFuture();
-            for (Object p : x.getPermissions()) {
-              String perm = (String) p;
-              List<String> subPerm = new ArrayList<>();
-              subPerm.add(perm);
-              expandedSubs.add(perm);
-              future1 = future1.compose(x1 -> PermsCache.expandPerms(subPerm, vertxContext, tenantId)
-                  .onSuccess(subs -> expandedSubs.addAll(subs))
-                  .mapEmpty());
-            }
-            return Future.succeededFuture(expandedSubs);
-          });
-    }
-    return future.compose(operatingPermissions -> {
-      if (operatingPermissions != null && !operatingPermissions.contains("perms.users.extra")) {
-        for (Object ob : missingFromOriginalList) {
-          if (!operatingPermissions.contains(ob)) {
-            return Future.failedFuture("Cannot add permission " + ob
-                + " not owned by operating user " + operatingUser);
           }
-        }
-      }
-      Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
-          connection, missingFromOriginalList.getList(), vertxContext,
-          tenantId, null);
-      return checkExistsResF.compose(checkExistsRes -> {
-        if (!checkExistsRes.isEmpty()) {
-          return Future.failedFuture(
-              new InvalidPermissionsException(String.format(
-                  "Attempting to add non-existent permissions %s to permission user with id %s",
-                  String.join(",", checkExistsRes), permUserId)));
-        }
-        List<FieldUpdateValues> fuvList = new ArrayList<>();
-        for (Object permissionNameOb : missingFromOriginalList) {
-          FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
-              (String) permissionNameOb,
-              PermissionField.GRANTED_TO,
-              Operation.ADD);
-          fuvList.add(fuv);
-        }
-        for (Object permissionNameOb : missingFromNewList) {
-          FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
-              (String) permissionNameOb,
-              PermissionField.GRANTED_TO,
-              Operation.DELETE);
-          fuvList.add(fuv);
-        }
-        return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
-      });
-    });
+          Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
+              connection, missingFromOriginalList.getList(), vertxContext,
+              tenantId, null);
+          return checkExistsResF.compose(checkExistsRes -> {
+            if (!checkExistsRes.isEmpty()) {
+              return Future.failedFuture(
+                  new InvalidPermissionsException(String.format(
+                      "Attempting to add non-existent permissions %s to permission user with id %s",
+                      String.join(",", checkExistsRes), permUserId)));
+            }
+            List<FieldUpdateValues> fuvList = new ArrayList<>();
+            for (Object permissionNameOb : missingFromOriginalList) {
+              FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
+                  (String) permissionNameOb,
+                  PermissionField.GRANTED_TO,
+                  Operation.ADD);
+              fuvList.add(fuv);
+            }
+            for (Object permissionNameOb : missingFromNewList) {
+              FieldUpdateValues fuv = new FieldUpdateValues(permUserId,
+                  (String) permissionNameOb,
+                  PermissionField.GRANTED_TO,
+                  Operation.DELETE);
+              fuvList.add(fuv);
+            }
+            return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
+          });
+        });
   }
+
+  private static Future<List<String>> getOperatingPermissions(Context vertxContext, String tenantId, String operatingUser) {
+    if (operatingUser == null) {
+      return Future.succeededFuture(null);
+    }
+    return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
+        .compose(x -> {
+          if (x == null) {
+            return Future.failedFuture("Cannot update permissions: operating user " + operatingUser + " not found");
+          }
+          List<String> expandedSubs = new ArrayList<>();
+          Future<Void> future = Future.succeededFuture();
+          for (Object p : x.getPermissions()) {
+            String perm = (String) p;
+            List<String> subPerm = new ArrayList<>();
+            subPerm.add(perm);
+            expandedSubs.add(perm);
+            future = future.compose(x1 -> PermsCache.expandPerms(subPerm, vertxContext, tenantId)
+                .onSuccess(subs -> expandedSubs.addAll(subs))
+                .mapEmpty());
+          }
+          return Future.succeededFuture(expandedSubs);
+        });
+  }
+
 
   /* If we are modifying (or creating) the subpermissions array of a permission
   object, check for any changes and for any newly declared subpermissions, add
