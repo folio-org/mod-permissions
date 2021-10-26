@@ -1263,7 +1263,8 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Da", null, context);
     context.assertEquals(response.code, 200);
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    // TODO: sometimes returns 2
+    context.assertEquals(1, response.body.getInteger("totalRecords"), response.body.encodePrettily());
 
     /**add a perm again 422 */
     response = send(HttpMethod.POST, "/perms/permissions", postPermRequest, context);
