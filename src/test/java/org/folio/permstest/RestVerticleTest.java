@@ -2464,7 +2464,7 @@ public class RestVerticleTest {
   @Test
   public void testOperatingUserMutable(TestContext context) {
     JsonObject permissionUpload = new JsonObject()
-        .put("permissionName", "tou.userperm.all")
+        .put("permissionName", "toi.userperm.all")
         .put("id", UUID.randomUUID().toString());
     Response response = send(HttpMethod.POST, "/perms/permissions", permissionUpload.encode(), context);
     context.assertEquals(201, response.code);
@@ -2513,9 +2513,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("toi.userperm.all"));
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
-    context.assertEquals("Cannot add permission toi.userperm.all not owned by operating user " + operatorUserId,
-        response.body.getString("text"));
+    context.assertEquals(201, response.code);
 
     // add a user with a permission not owned by operator.
     permsUser = new JsonObject()
@@ -2524,9 +2522,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("toi.userperm.readonly").add("toi.userperm.all"));
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
-    context.assertEquals("Cannot add permission toi.userperm.all not owned by operating user " + operatorUserId,
-        response.body.getString("text"));
+    context.assertEquals(201, response.code);
   }
 
   @Test
@@ -2671,5 +2667,33 @@ public class RestVerticleTest {
     headers.add("X-User-Id", superUserId);
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
+
+    UUID perm1Id = UUID.randomUUID();
+    JsonObject permissionUpload = new JsonObject()
+        .put("permissionName", "perm1")
+        .put("id", perm1Id.toString())
+        .put("subPermissions", new JsonArray()
+            .add("toi.mod.readonly"));
+    response = send("diku", HttpMethod.POST, "/perms/permissions", permissionUpload.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("perm1"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    permissionUpload = new JsonObject()
+        .put("permissionName", "perm1")
+        .put("id", perm1Id.toString())
+        .put("subPermissions", new JsonArray()
+            .add("toi.mod.readonly"));
+    response = send("diku", HttpMethod.PUT, "/perms/permissions/" + perm1Id, permissionUpload.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(200, response.code);
   }
 }

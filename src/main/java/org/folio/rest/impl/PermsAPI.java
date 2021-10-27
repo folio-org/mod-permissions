@@ -1517,6 +1517,33 @@ public class PermsAPI implements Perms {
     return promise.future();
   }
 
+  static Future<Void> checkOperatingPermissions(AsyncResult<SQLConnection> connection,
+      JsonArray addedPermissions, String tenantId, String operatingUser, Context vertxContext) {
+
+    return getOperatingPermissions(vertxContext, tenantId, operatingUser)
+        .compose(operatingPermissions -> {
+          if (operatingPermissions == null || operatingPermissions.contains("perms.users.extra")) {
+            return Future.succeededFuture();
+          }
+          Future<Void> future = Future.succeededFuture();
+          for (Object ob : addedPermissions) {
+            String newPerm = (String) ob;
+            if (!operatingPermissions.contains(newPerm)) {
+              future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
+                  .compose(permission -> {
+                    if (permission != null && Boolean.FALSE.equals(permission.getMutable())) {
+                      return Future.failedFuture("Cannot add permission " + newPerm
+                          + " not owned by operating user " + operatingUser);
+                    } else {
+                      return Future.succeededFuture();
+                    }
+                  }));
+            }
+          }
+          return future;
+        });
+  }
+
   /* If we are modifying a permissions user or creating a new one, we need to
   check for any changes to the permissions list. For any changes, we need to
   add or delete from the permission's "grantedTo" field
@@ -1537,16 +1564,8 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    return getOperatingPermissions(vertxContext, tenantId, operatingUser)
-        .compose(operatingPermissions -> {
-          if (operatingPermissions != null && !operatingPermissions.contains("perms.users.extra")) {
-            for (Object ob : missingFromOriginalList) {
-              if (!operatingPermissions.contains(ob)) {
-                return Future.failedFuture("Cannot add permission " + ob
-                    + " not owned by operating user " + operatingUser);
-              }
-            }
-          }
+    return checkOperatingPermissions(connection, missingFromOriginalList, tenantId,operatingUser, vertxContext)
+        .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList(), vertxContext,
               tenantId, null);
