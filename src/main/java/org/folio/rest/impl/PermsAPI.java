@@ -127,48 +127,10 @@ public class PermsAPI implements Perms {
                              Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      //Check for existing user
-      Criteria userIdCrit = new Criteria();
-      userIdCrit.addField(USER_ID_FIELD);
-      userIdCrit.setOperation("=");
-      userIdCrit.setVal(entity.getUserId());
-      Criterion criterion = new Criterion();
-      if (entity.getId() != null) {
-        Criteria idCrit = new Criteria();
-        idCrit.addField(ID_FIELD);
-        idCrit.setJSONB(false);
-        idCrit.setOperation("=");
-        idCrit.setVal(entity.getId());
-        criterion.addCriterion(idCrit, "OR", userIdCrit);
-      } else {
-        criterion.addCriterion(userIdCrit);
+      if (entity.getId() == null) {
+        entity.setId(UUID.randomUUID().toString());
       }
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMSUSERS, PermissionUser.class,
-          criterion, true, false, queryReply -> {
-            if (queryReply.failed()) {
-              String errStr = queryReply.cause().getMessage();
-              logger.error(errStr, queryReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(PostPermsUsersResponse.respond400WithTextPlain(errStr)));
-              return;
-            }
-            List<PermissionUser> userList = queryReply.result().getResults();
-            if (!userList.isEmpty()) {
-              //This means that we have an existing user matching this username, error 400
-              logger.warn("Constraint violated for userId or id field (or both)");
-              asyncResultHandler.handle(Future.succeededFuture(
-                  PostPermsUsersResponse.respond422WithApplicationJson(
-                      ValidationHelper.createValidationErrorMessage(
-                          ID_FIELD, entity.getId(),
-                          "userId and id fields must not match values for any existing records"))));
-              return;
-            }
-            //Proceed to POST new user
-            if (entity.getId() == null) {
-              entity.setId(UUID.randomUUID().toString());
-            }
-            postPermsUsersTrans(entity, vertxContext, tenantId, asyncResultHandler);
-          });
+      postPermsUsersTrans(entity, vertxContext, tenantId, asyncResultHandler);
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
@@ -258,7 +220,7 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void putPermsUsersById(String userid, PermissionUser entity, Map<String, String> okapiHeaders,
+  public void putPermsUsersById(String id, PermissionUser entity, Map<String, String> okapiHeaders,
                                 Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
@@ -278,12 +240,12 @@ public class PermsAPI implements Perms {
                         "Cannot add permissions flagged as 'dummy' to users")));
                 return;
               }
-              String query = "id==" + userid;
+              String query = "id==" + id;
               CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
 
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMSUSERS, PermissionUser.class, cqlFilter, true,
-                  putPermsUsersbyIdHandle(userid, entity, asyncResultHandler, vertxContext, tenantId, cqlFilter));
+                  putPermsUsersbyIdHandle(id, entity, asyncResultHandler, vertxContext, tenantId, cqlFilter));
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
@@ -298,7 +260,7 @@ public class PermsAPI implements Perms {
   }
 
   private Handler<AsyncResult<Results<PermissionUser>>> putPermsUsersbyIdHandle(
-      String userid, PermissionUser entity, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
+      String id, PermissionUser entity, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
       String tenantId, CQLWrapper cqlFilter) {
 
     return getReply -> {
@@ -313,7 +275,7 @@ public class PermsAPI implements Perms {
       if (userList.isEmpty()) {
         asyncResultHandler.handle(Future.succeededFuture(
             PutPermsUsersByIdResponse.respond404WithTextPlain(
-                "No permissions user found with id " + userid)));
+                "No permissions user found with id " + id)));
         return;
       }
       try {
@@ -333,7 +295,7 @@ public class PermsAPI implements Perms {
                   });
                   return;
                 }
-                updateUserPermissions(connection, userid,
+                updateUserPermissions(connection, id,
                     new JsonArray(originalUser.getPermissions()),
                     new JsonArray(entity.getPermissions()),
                     vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
@@ -375,11 +337,11 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void deletePermsUsersById(String userid, Map<String, String> okapiHeaders,
+  public void deletePermsUsersById(String id, Map<String, String> okapiHeaders,
                                    Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criterion idCrit = getIdCriterion(userid);
+      Criterion idCrit = getIdCriterion(id);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient.startTx(connection ->
         pgClient.get(connection, TABLE_NAME_PERMSUSERS, PermissionUser.class,
@@ -401,13 +363,13 @@ public class PermsAPI implements Perms {
                 pgClient.rollbackTx(connection, rollback ->
                   asyncResultHandler.handle(Future.succeededFuture(
                       DeletePermsUsersByIdResponse.respond404WithTextPlain(
-                          String.format("No permissions user found with id %s", userid))))
+                          String.format("No permissions user found with id %s", id))))
                 );
                 return;
               }
               PermissionUser permUser = permUsers.get(0);
               try {
-                updateUserPermissions(connection, userid,
+                updateUserPermissions(connection, id,
                     new JsonArray(permUser.getPermissions()), new JsonArray(),
                     vertxContext, tenantId, logger).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
@@ -421,7 +383,7 @@ public class PermsAPI implements Perms {
                     return;
                   }
                   pgClient.delete(connection, TABLE_NAME_PERMSUSERS,
-                      userid, deleteReply -> {
+                      id, deleteReply -> {
                         if (deleteReply.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
                             String errStr = String.format("Error deleting user: %s",
@@ -435,7 +397,7 @@ public class PermsAPI implements Perms {
                         if (deleteReply.result().rowCount() == 0) {
                           pgClient.rollbackTx(connection, rollback ->
                             asyncResultHandler.handle(Future.succeededFuture(
-                                DeletePermsUsersByIdResponse.respond404WithTextPlain(userid)))
+                                DeletePermsUsersByIdResponse.respond404WithTextPlain(id)))
                           );
                           return;
                         }

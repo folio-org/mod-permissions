@@ -35,13 +35,16 @@ import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
 import org.folio.rest.tools.utils.TenantInit;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
+import org.junit.runner.OrderWith;
 import org.junit.runner.RunWith;
+import org.junit.runner.manipulation.Alphanumeric;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
@@ -62,6 +65,7 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 
 @RunWith(VertxUnitRunner.class)
+@OrderWith(Alphanumeric.class)
 public class RestVerticleTest {
   private static final Logger logger = LogManager.getLogger(RestVerticleTest.class);
 
@@ -110,6 +114,15 @@ public class RestVerticleTest {
     vertx.close(context.asyncAssertSuccess( res-> {
       async.complete();
     }));
+  }
+
+  @After
+  public void after(TestContext context) {
+    // These tests hang (time out) unless we call closeAllClients():
+    // testPostPermsUsersPermissionsByIdUnknownPermission and
+    // testPostPermsUsersPermissionsByIdUnknownUser
+    // testPostPermsUsersPermissionsInvalidUUID
+    PostgresClient.closeAllClients();
   }
 
   /*
@@ -285,7 +298,7 @@ public class RestVerticleTest {
   public void testPostPermsUsersNoUserId(TestContext context) {
     String permsUsers = "{\"permissions\": [], \"id\" : \"1234\"}";
     Response response = send(HttpMethod.POST, "/perms/users", permsUsers, context);
-    context.assertEquals(400, response.code);
+    context.assertEquals(422, response.code);
   }
 
   @Test
@@ -652,9 +665,9 @@ public class RestVerticleTest {
 
   @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
-        "[], \"id\" : \"" + userId2 + "\"}";
-    Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
+    JsonObject permsUsers = new JsonObject().put("id",  userId2).put("userId", userUserId)
+        .put("permissions", new JsonArray());
+    Response response = send(HttpMethod.POST, "/perms/users", permsUsers.encode(), context);
     context.assertEquals(response.code, 201);
 
     // adummy.perm not defined so it becomes dummy
@@ -685,8 +698,8 @@ public class RestVerticleTest {
     context.assertEquals(200, response.code);
     context.assertEquals(0, response.body.getInteger("totalRecords"));
 
-    String permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
-    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
+    permsUsers.put("permissions", new JsonArray().add("adummy.perm"));
+    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers.encode(), context);
     context.assertEquals(400, response.code);
     context.assertEquals("Cannot add permissions flagged as 'dummy' to users", response.body.getString("text"));
 
@@ -703,26 +716,25 @@ public class RestVerticleTest {
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
-    permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"adummy.perm\"], \"id\" : \"1234\"}";
-    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
+    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers.encode(), context);
     context.assertEquals(200, response.code);
 
-    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, null, context);
     context.assertEquals(response.code, 204);
   }
 
   @Test
   public void testPutPermsUsersByIdNonExistingPerm(TestContext context) {
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
-        "[], \"id\" : \"" + userId2 + "\"}";
-    Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
+    JsonObject permsUsers = new JsonObject().put("id", userId2).put("userId", userUserId)
+      .put("permissions", new JsonArray());
+    Response response = send(HttpMethod.POST, "/perms/users", permsUsers.encode(), context);
     context.assertEquals(response.code, 201);
 
-    String permsUsers = "{\"userId\": \""+userId2+"\",\"permissions\": [\"non.existing\"], \"id\" : \"1234\"}";
-    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers, context);
+    permsUsers.put("permissions", new JsonArray().add("non.existing"));
+    response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers.encode(), context);
     context.assertEquals(422, response.code);
 
-    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, postPermUsersRequest, context);
+    response = send(HttpMethod.DELETE, "/perms/users/" + userId2, null, context);
     context.assertEquals(response.code, 204);
   }
 
@@ -804,6 +816,7 @@ public class RestVerticleTest {
 
   @Test
   public void testPostPermsUsersPermissionsByIdUnknownPermission(TestContext context) {
+
     String userId = UUID.randomUUID().toString();
     String userUserId = UUID.randomUUID().toString();
     String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
@@ -1283,7 +1296,7 @@ public class RestVerticleTest {
 
     /**add a perm user again 422 */
     response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
-    context.assertEquals(response.code, 422);
+    context.assertEquals(response.code, 400);
 
     /**add a perm  for a user */
     String postPermUserPermRequest = "{\"permissionName\":\"a\"}";
@@ -1384,9 +1397,9 @@ public class RestVerticleTest {
 
     /* Attempt to add the same user */
     response = send(HttpMethod.POST, "/perms/users", addNewUserObject.encode(), context);
-    context.assertEquals(response.code, 422);
-    /* Add the permission to the user */
+    context.assertEquals(response.code, 400);
 
+    /* Add the permission to the user */
     JsonObject addPermToUserObject = new JsonObject()
         .put("permissionName", "foo.all#");
     response = send(HttpMethod.POST, "/perms/users/" + newUserId + "/permissions", addPermToUserObject.encode(), context);
