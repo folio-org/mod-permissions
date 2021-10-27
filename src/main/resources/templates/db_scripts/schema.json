@@ -26,13 +26,7 @@
       "tableName" : "permissions_users",
       "fromModuleVersion" : "5.0",
       "withMetadata" : true,
-      "index" : [
-        {
-          "fieldName" : "id",
-          "tOps" : "ADD",
-          "caseSensitive": true,
-          "removeAccents": false
-        },
+      "uniqueIndex" : [
         {
           "fieldName" : "userId",
           "tOps" : "ADD",
