@@ -205,9 +205,14 @@
       "description": "Purge deprecated permissions"
     },
     {
-      "permissionName": "perms.users.extra",
+      "permissionName": "perms.users.assign.immutable",
       "displayName": "perms users extra",
-      "description": "Allow any permission to be added for user"
+      "description": "Allow any immutable permission to be added for user"
+    },
+    {
+      "permissionName": "perms.users.assign.mutable",
+      "displayName": "perms users extra",
+      "description": "Allow any mutable permission to be added for user"
     },
     {
       "permissionName": "perms.permissions",
