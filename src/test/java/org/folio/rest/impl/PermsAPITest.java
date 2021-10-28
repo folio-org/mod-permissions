@@ -15,8 +15,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
@@ -40,7 +42,7 @@ public class PermsAPITest {
 
   @AfterClass
   public static void tearDown(TestContext context) {
-    vertx.close();
+    vertx.close().onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -74,7 +76,10 @@ public class PermsAPITest {
     PermsAPI api = new PermsAPI();
     PermissionUser permissionUser = new PermissionUser();
 
-    api.postPermsUsersTrans(permissionUser, vertx.getOrCreateContext(), "badTenant", null,
+    Map<String,String> headers = new CaseInsensitiveMap<>();
+    headers.put(XOkapiHeaders.TENANT, "badTenant");
+
+    api.postPermsUsersTrans(permissionUser, vertx.getOrCreateContext(), headers,
         context.asyncAssertSuccess(res -> {
           context.assertEquals(400, res.getStatus());
         }));

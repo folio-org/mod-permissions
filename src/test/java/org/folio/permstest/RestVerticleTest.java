@@ -110,11 +110,8 @@ public class RestVerticleTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
     client.close();
-    vertx.close(context.asyncAssertSuccess(res -> {
-      async.complete();
-    }));
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @After

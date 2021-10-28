@@ -8,7 +8,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
@@ -76,10 +75,7 @@ public class RestVerticleWithCacheTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
-    vertx.close(context.asyncAssertSuccess(res -> {
-      async.complete();
-    }));
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test

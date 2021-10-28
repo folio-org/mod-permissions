@@ -127,11 +127,10 @@ public class PermsAPI implements Perms {
   public void postPermsUsers(PermissionUser entity, RoutingContext routingContext, Map<String, String> okapiHeaders,
                              Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
-      String tenantId = TenantTool.tenantId(okapiHeaders);
       if (entity.getId() == null) {
         entity.setId(UUID.randomUUID().toString());
       }
-      postPermsUsersTrans(entity, vertxContext, tenantId, getOperatingUser(okapiHeaders), asyncResultHandler);
+      postPermsUsersTrans(entity, vertxContext, okapiHeaders, asyncResultHandler);
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
@@ -139,9 +138,9 @@ public class PermsAPI implements Perms {
     }
   }
 
-
   void postPermsUsersTrans(PermissionUser entity, Context vertxContext,
-                           String tenantId, String operatingUserId, Handler<AsyncResult<Response>> asyncResultHandler) {
+                           Map<String,String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
+    String tenantId = TenantTool.tenantId(okapiHeaders);
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.startTx(beginTx -> {
       logger.debug("Starting transaction to save new permissions user");
@@ -156,7 +155,7 @@ public class PermsAPI implements Perms {
           }
           final PermissionUser permUser = entity;
           updateUserPermissions(beginTx, permUser.getId(), new JsonArray(),
-              new JsonArray(permUser.getPermissions()), vertxContext, tenantId, operatingUserId)
+              new JsonArray(permUser.getPermissions()), vertxContext, tenantId, okapiHeaders)
               .onFailure(cause ->
                   postgresClient.rollbackTx(beginTx, rollbackTx -> {
                     logger.error("Error updating derived fields: {}",
@@ -251,7 +250,7 @@ public class PermsAPI implements Perms {
               PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
                   TABLE_NAME_PERMSUSERS, PermissionUser.class, cqlFilter, true,
                   putPermsUsersbyIdHandle(id, entity, asyncResultHandler, vertxContext, tenantId,
-                      getOperatingUser(okapiHeaders), cqlFilter));
+                      okapiHeaders, cqlFilter));
             } catch (Exception e) {
               logger.error(e.getMessage(), e);
               asyncResultHandler.handle(Future.succeededFuture(
@@ -267,7 +266,7 @@ public class PermsAPI implements Perms {
 
   private Handler<AsyncResult<Results<PermissionUser>>> putPermsUsersbyIdHandle(
       String id, PermissionUser entity, Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext,
-      String tenantId, String operatingUserId, CQLWrapper cqlFilter) {
+      String tenantId, Map<String,String> okapiHeaders, CQLWrapper cqlFilter) {
 
     return getReply -> {
       if (getReply.failed()) {
@@ -304,7 +303,7 @@ public class PermsAPI implements Perms {
                 updateUserPermissions(connection, id,
                     new JsonArray(originalUser.getPermissions()),
                     new JsonArray(entity.getPermissions()),
-                    vertxContext, tenantId, operatingUserId).onComplete(updateUserPermsRes -> {
+                    vertxContext, tenantId, okapiHeaders).onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, done -> {
                       if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
@@ -377,7 +376,7 @@ public class PermsAPI implements Perms {
               try {
                 updateUserPermissions(connection, id,
                     new JsonArray(permUser.getPermissions()), new JsonArray(),
-                    vertxContext, tenantId, getOperatingUser(okapiHeaders))
+                    vertxContext, tenantId, okapiHeaders)
                     .onComplete(updateUserPermsRes -> {
                   if (updateUserPermsRes.failed()) {
                     pgClient.rollbackTx(connection, rollback -> {
@@ -531,7 +530,7 @@ public class PermsAPI implements Perms {
                                     + permissionName))));
                 return;
               }
-              updatePermissionsForUser(entity, vertxContext, tenantId, getOperatingUser(okapiHeaders),
+              updatePermissionsForUser(entity, vertxContext, tenantId, okapiHeaders,
                   permissionName, user, actualId, originalPermissions, asyncResultHandler);
             } catch (Exception e) {
               logger.error(
@@ -551,7 +550,7 @@ public class PermsAPI implements Perms {
 
   @SuppressWarnings({"squid:S00107"})   // Method has more than 7 parameters
   private void updatePermissionsForUser(PermissionNameObject entity,
-                                        Context vertxContext, String tenantId, String operatingUserId, String permissionName,
+                                        Context vertxContext, String tenantId, Map<String,String> okapiHeaders, String permissionName,
                                         PermissionUser user, String actualId, JsonArray originalPermissions,
                                         Handler<AsyncResult<Response>> asyncResultHandler) {
 
@@ -605,7 +604,7 @@ public class PermsAPI implements Perms {
                     //update metadata
                     updateUserPermissions(connection, actualId, originalPermissions,
                         new JsonArray(user.getPermissions()), vertxContext,
-                        tenantId, operatingUserId).onComplete(updateUserPermsRes -> {
+                        tenantId, okapiHeaders).onComplete(updateUserPermsRes -> {
                       if (updateUserPermsRes.failed()) {
                         //rollback
                         pgClient.rollbackTx(connection, rollback -> {
@@ -697,7 +696,7 @@ public class PermsAPI implements Perms {
                       }
                       updateUserPermissions(connection, user.getId(), originalPermissions,
                           new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, getOperatingUser(okapiHeaders))
+                          tenantId, okapiHeaders)
                           .onComplete(updateUserPermsRes -> {
                         if (updateUserPermsRes.failed()) {
                           pgClient.rollbackTx(connection, rollback -> {
@@ -1513,7 +1512,7 @@ public class PermsAPI implements Perms {
    */
   protected static Future<Void> updateUserPermissions(AsyncResult<SQLConnection> connection,
       String permUserId, JsonArray originalList, JsonArray newList,
-      Context vertxContext, String tenantId, String operatingUser) {
+      Context vertxContext, String tenantId, Map<String,String> okapiHeaders) {
 
     JsonArray missingFromOriginalList = new JsonArray();
     JsonArray missingFromNewList = new JsonArray();
@@ -1527,7 +1526,8 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    return checkOperatingPermissions(missingFromOriginalList, tenantId,operatingUser, vertxContext)
+    String operatingUser = getOperatingUser(okapiHeaders);
+    return checkOperatingPermissions(missingFromOriginalList, tenantId, operatingUser, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList(), vertxContext,
