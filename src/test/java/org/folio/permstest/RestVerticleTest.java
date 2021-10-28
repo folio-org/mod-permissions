@@ -26,6 +26,7 @@ import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermissionUtils;
 import org.folio.rest.impl.PermsCache;
 import org.folio.rest.impl.TenantPermsAPI;
 import org.folio.rest.jaxrs.model.OkapiPermission;
@@ -2571,7 +2572,7 @@ public class RestVerticleTest {
                 )
             )
             .add(new JsonObject()
-                .put("permissionName", "perms.users.extra")
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
             )
         );
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
@@ -2658,7 +2659,8 @@ public class RestVerticleTest {
     headers.add("Content-Type", CONTENT_TYPE_JSON);
     headers.add("X-Okapi-Tenant", "diku");
     headers.add("X-User-Id", operatorUserId);
-    headers.add("X-Okapi-Permissions", "[ \"perms.users.extra\" ]");
+    headers.add("X-Okapi-Permissions",
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE).encode());
 
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
@@ -2667,7 +2669,7 @@ public class RestVerticleTest {
     permsUser = new JsonObject()
         .put("id", UUID.randomUUID().toString())
         .put("userId", superUserId)
-        .put("permissions", new JsonArray().add("perms.users.extra"));
+        .put("permissions", new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE));
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
 

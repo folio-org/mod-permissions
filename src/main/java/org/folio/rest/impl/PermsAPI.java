@@ -481,7 +481,7 @@ public class PermsAPI implements Perms {
    */
   static String getOperatingUser(Map<String, String> okapiHeaders) {
     String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
-    if (perms != null && new JsonArray(perms).contains("perms.users.extra")) {
+    if (perms != null && new JsonArray(perms).contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)) {
       return null;
     }
     return okapiHeaders.get(XOkapiHeaders.USER_ID);
@@ -1479,12 +1479,13 @@ public class PermsAPI implements Perms {
     return promise.future();
   }
 
-  static Future<Void> checkOperatingPermissions(AsyncResult<SQLConnection> connection,
-      JsonArray addedPermissions, String tenantId, String operatingUser, Context vertxContext) {
+  static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
+      String operatingUser, Context vertxContext) {
 
     return getOperatingPermissions(vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
-          if (operatingPermissions == null || operatingPermissions.contains("perms.users.extra")) {
+          if (operatingPermissions == null
+              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)) {
             return Future.succeededFuture();
           }
           Future<Void> future = Future.succeededFuture();
@@ -1526,7 +1527,7 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    return checkOperatingPermissions(connection, missingFromOriginalList, tenantId,operatingUser, vertxContext)
+    return checkOperatingPermissions(missingFromOriginalList, tenantId,operatingUser, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList(), vertxContext,
