@@ -472,20 +472,6 @@ public class PermsAPI implements Perms {
     }
   }
 
-  /**
-   * Returns operating user.
-   * @param okapiHeaders Okapi headers
-   * @return operating user; null for no operating user in which case
-   * there is no check for permissions of operating user.
-   */
-  static String getOperatingUser(Map<String, String> okapiHeaders) {
-    String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
-    if (perms != null && new JsonArray(perms).contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)) {
-      return null;
-    }
-    return okapiHeaders.get(XOkapiHeaders.USER_ID);
-  }
-
   @Validate
   @Override
   public void postPermsUsersPermissionsById(String id, String indexField,
@@ -1479,26 +1465,41 @@ public class PermsAPI implements Perms {
   }
 
   static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
-      String operatingUser, Context vertxContext) {
+      Map<String,String> okapiHeaders, Context vertxContext) {
 
+    String operatingUser = okapiHeaders.get(XOkapiHeaders.USER_ID);
+    if (operatingUser == null) {
+      return Future.succeededFuture();
+    }
     return getOperatingPermissions(vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
-          if (operatingPermissions == null
-              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)) {
-            return Future.succeededFuture();
-          }
+          String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
+          JsonArray okapiPermissions = perms != null ? new JsonArray(perms) : new JsonArray();
+          boolean hasImmutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
+          boolean hasMutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
           Future<Void> future = Future.succeededFuture();
           for (Object ob : addedPermissions) {
             String newPerm = (String) ob;
             if (!operatingPermissions.contains(newPerm)) {
               future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
                   .compose(permission -> {
-                    if (permission != null && Boolean.FALSE.equals(permission.getMutable())) {
-                      return Future.failedFuture("Cannot add permission " + newPerm
-                          + " not owned by operating user " + operatingUser);
-                    } else {
-                      return Future.succeededFuture();
+                    if (permission != null) {
+                      boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+                      if (mutable) {
+                        if (!hasMutable) {
+                          return Future.failedFuture("Cannot add mutable permission " + newPerm
+                              + " not owned by operating user " + operatingUser);
+                        }
+                      } else {
+                        if (!hasImmutable) {
+                          return Future.failedFuture("Cannot add immutable permission " + newPerm
+                              + " not owned by operating user " + operatingUser);
+                        }
+                      }
                     }
+                    return Future.succeededFuture();
                   }));
             }
           }
@@ -1526,8 +1527,7 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    String operatingUser = getOperatingUser(okapiHeaders);
-    return checkOperatingPermissions(missingFromOriginalList, tenantId, operatingUser, vertxContext)
+    return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList(), vertxContext,
@@ -1560,9 +1560,6 @@ public class PermsAPI implements Perms {
   }
 
   private static Future<List<String>> getOperatingPermissions(Context vertxContext, String tenantId, String operatingUser) {
-    if (operatingUser == null) {
-      return Future.succeededFuture(null);
-    }
     return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
         .compose(x -> {
           if (x == null) {

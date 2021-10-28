@@ -230,8 +230,8 @@ public class PermsAPITest {
   public void testPostPermsPurgeDeprecatedBadTenant(TestContext context) {
     PermsAPI api = new PermsAPI();
 
-    Map<String, String> headers = new HashMap<>();
-    headers.put("x-okapi-tenant", "foo");
+    Map<String, String> headers = new CaseInsensitiveMap<>();
+    headers.put(XOkapiHeaders.TENANT, "foo");
     api.postPermsPurgeDeprecated(headers, context.asyncAssertSuccess(res -> {
       context.assertEquals(500, res.getStatus());
     }), vertx.getOrCreateContext());

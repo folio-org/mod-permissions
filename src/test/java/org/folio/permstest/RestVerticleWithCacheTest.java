@@ -15,6 +15,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
@@ -143,7 +145,7 @@ public class RestVerticleWithCacheTest {
 
   private Future<WrappedResponse> testSubPermExpansion(TestContext context, List<String> perms) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
+    headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expandSubs=true&query=(permissionName==" + P_ALL + ")",
         GET, headers, null, 200).onComplete(res -> {
@@ -181,7 +183,7 @@ public class RestVerticleWithCacheTest {
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
+    headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/" + permsUserId + "/permissions?expanded=true",
         GET, headers, null, 200).onComplete(res -> {
