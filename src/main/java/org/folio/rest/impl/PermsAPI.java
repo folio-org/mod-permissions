@@ -1485,18 +1485,20 @@ public class PermsAPI implements Perms {
             if (!operatingPermissions.contains(newPerm)) {
               future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
                   .compose(permission -> {
-                    if (permission != null) {
-                      boolean mutable = Boolean.TRUE.equals(permission.getMutable());
-                      if (mutable) {
-                        if (!hasMutable) {
-                          return Future.failedFuture("Cannot add mutable permission " + newPerm
-                              + " not owned by operating user " + operatingUser);
-                        }
-                      } else {
-                        if (!hasImmutable) {
-                          return Future.failedFuture("Cannot add immutable permission " + newPerm
-                              + " not owned by operating user " + operatingUser);
-                        }
+                    if (permission == null) {
+                      // unknown permission will eventually result in error, but not here
+                      return Future.succeededFuture();
+                    }
+                    boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+                    if (mutable) {
+                      if (!hasMutable) {
+                        return Future.failedFuture("Cannot add mutable permission " + newPerm
+                            + " not owned by operating user " + operatingUser);
+                      }
+                    } else {
+                      if (!hasImmutable) {
+                        return Future.failedFuture("Cannot add immutable permission " + newPerm
+                            + " not owned by operating user " + operatingUser);
                       }
                     }
                     return Future.succeededFuture();

@@ -2724,6 +2724,7 @@ public class RestVerticleTest {
         operatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(201, response.code);
 
+    // can add a mutable permission perm1 has perms.users.assign.mutable
     permsUser = new JsonObject()
         .put("id", UUID.randomUUID().toString())
         .put("userId", UUID.randomUUID().toString())
@@ -2733,6 +2734,17 @@ public class RestVerticleTest {
         operatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(201, response.code);
 
+    // try to add unknown permission .. fails otherwise..
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("perm-unknown"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(422, response.code);
+
+    // update perm1 already owned by user.. this time it's harmless
     permissionUpload = new JsonObject()
         .put("permissionName", "perm1")
         .put("id", perm1Id.toString())
@@ -2742,6 +2754,7 @@ public class RestVerticleTest {
         operatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(200, response.code);
 
+    // update perm1 with unknown permission
     permissionUpload = new JsonObject()
         .put("permissionName", "perm1")
         .put("id", perm1Id.toString())
@@ -2750,6 +2763,5 @@ public class RestVerticleTest {
     response = send("diku", HttpMethod.PUT, "/perms/permissions/" + perm1Id, permissionUpload.encode(),
         operatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(422, response.code);
-    context.assertEquals(null, response.body.getString("text")); // no error message is not good
   }
 }
