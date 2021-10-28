@@ -59,7 +59,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.HttpRequest;
@@ -1224,13 +1223,11 @@ public class RestVerticleTest {
     context.assertEquals(201, response.code);
 
     // call tenant init
-    Async async = context.async();
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     TenantAttributes ta = new TenantAttributes();
     ta.setModuleTo("mod-permissions-1.0.0");
     TestUtil.tenantOp(tenantClient, ta)
-        .onFailure(context::fail)
-        .onSuccess(v -> {
+        .onComplete(context.asyncAssertSuccess(v -> {
           // check that the system-defined perm was marked deprecated
           Response resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
           JsonObject perm = resp.body.getJsonArray("permissions").getJsonObject(0);
@@ -1253,8 +1250,7 @@ public class RestVerticleTest {
           logger.info(perm.encodePrettily());
           context.assertFalse(perm.getBoolean("deprecated"));
           context.assertFalse(perm.getString("displayName").startsWith("(deprecated)"));
-          async.complete();
-        });
+        }));
   }
 
   @Test
