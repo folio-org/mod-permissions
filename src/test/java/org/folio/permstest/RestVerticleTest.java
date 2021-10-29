@@ -2509,9 +2509,8 @@ public class RestVerticleTest {
 
     permsUser.put("permissions", new JsonArray().add("toi.userperm.all"));
     response = send("diku", HttpMethod.PUT, "/perms/users/" + id, permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
-    context.assertEquals("Error with derived field update: "
-        + "Cannot add mutable permission toi.userperm.all not owned by operating user "
+    context.assertEquals(400, response.code);
+    context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
 
     // add a user with unknown operator
@@ -2523,7 +2522,7 @@ public class RestVerticleTest {
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         unknownOperatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot update permissions: operating user " + unknownOperatorUserId + " not found",
         response.body.getString("text"));
 
@@ -2534,7 +2533,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("toi.userperm.all"));
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
 
     // add a user with a permission not owned by operator.
     permsUser = new JsonObject()
@@ -2543,7 +2542,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("toi.userperm.readonly").add("toi.userperm.all"));
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
 
@@ -2573,7 +2572,7 @@ public class RestVerticleTest {
         new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE).encode());
 
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
   }
@@ -2660,7 +2659,7 @@ public class RestVerticleTest {
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot add immutable permission toi.mod.post not owned by operating user "
         + operatorUserId, response.body.getString("text"));
 
@@ -2673,7 +2672,7 @@ public class RestVerticleTest {
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         unknownOperatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot update permissions: operating user "
         + unknownOperatorUserId + " not found", response.body.getString("text"));
 
@@ -2685,7 +2684,7 @@ public class RestVerticleTest {
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
 
@@ -2701,7 +2700,7 @@ public class RestVerticleTest {
     headers.set(XOkapiHeaders.USER_ID, operatorUserId);
     headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("okapi.all").encode());
 
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
     context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
 
@@ -2803,10 +2802,8 @@ public class RestVerticleTest {
     permissionUpload.getJsonArray("subPermissions").add("toi.mod.all");
     response = send("diku", HttpMethod.PUT, "/perms/permissions/"
         + permissionUpload.getString("id"), permissionUpload.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
-    context.assertEquals(500, response.code, response.body.encodePrettily());
-    context.assertEquals("Error with derived field update: "
-        + "Cannot add immutable permission toi.mod.all not owned by operating user "
+    context.assertEquals(400, response.code, response.body.encodePrettily());
+    context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
-
   }
 }

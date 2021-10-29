@@ -61,6 +61,13 @@ public class PermsAPI implements Perms {
     }
   }
 
+  public static class OperatingUserException extends Exception {
+
+    public OperatingUserException(String message) {
+      super(message);
+    }
+  }
+
   public static class FieldUpdateValues {
 
     private final String fieldValue;
@@ -166,6 +173,9 @@ public class PermsAPI implements Perms {
                               ValidationHelper.createValidationErrorMessage(
                                   ID_FIELD, permUser.getId(),
                                   UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
+                    } else if (cause instanceof OperatingUserException) {
+                      asyncResultHandler.handle(Future.succeededFuture(
+                        PostPermsUsersResponse.respond400WithTextPlain(cause.getMessage())));
                     } else {
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsUsersResponse.respond500WithTextPlain(
@@ -312,6 +322,9 @@ public class PermsAPI implements Perms {
                                 ValidationHelper.createValidationErrorMessage(
                                     ID_FIELD, entity.getId(),
                                     UNABLE_TO_UPDATE_DERIVED_FIELDS + updateUserPermsRes.cause().getMessage()))));
+                      } else if (updateUserPermsRes.cause() instanceof OperatingUserException) {
+                        asyncResultHandler.handle(Future.succeededFuture(
+                            PutPermsUsersByIdResponse.respond400WithTextPlain(updateUserPermsRes.cause().getMessage())));
                       } else {
                         String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
                         logger.error(errStr, updateUserPermsRes.cause());
@@ -899,6 +912,10 @@ public class PermsAPI implements Perms {
                                           ValidationHelper.createValidationErrorMessage(
                                               ID_FIELD, entity.getId(),
                                               UNABLE_TO_UPDATE_DERIVED_FIELDS + updateSubPermsRes.cause().getMessage()))));
+                                } else if (updateSubPermsRes.cause() instanceof OperatingUserException) {
+                                  asyncResultHandler.handle(Future.succeededFuture(
+                                      PutPermsPermissionsByIdResponse.respond400WithTextPlain(
+                                          updateSubPermsRes.cause().getMessage())));
                                 } else {
                                   String errStr = "Error with derived field update: "
                                       + updateSubPermsRes.cause().getMessage();
@@ -1495,13 +1512,14 @@ public class PermsAPI implements Perms {
                     boolean mutable = Boolean.TRUE.equals(permission.getMutable());
                     if (mutable) {
                       if (!hasMutable) {
-                        return Future.failedFuture("Cannot add mutable permission " + newPerm
-                            + " not owned by operating user " + operatingUser);
+                        return Future.failedFuture(new OperatingUserException("Cannot add mutable permission "
+                            + newPerm + " not owned by operating user " + operatingUser));
                       }
                     } else {
                       if (!hasImmutable) {
-                        return Future.failedFuture("Cannot add immutable permission " + newPerm
-                            + " not owned by operating user " + operatingUser);
+                        return Future.failedFuture(new OperatingUserException(
+                            "Cannot add immutable permission " + newPerm + " not owned by operating user "
+                                + operatingUser));
                       }
                     }
                     return Future.succeededFuture();
@@ -1568,7 +1586,8 @@ public class PermsAPI implements Perms {
     return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
         .compose(x -> {
           if (x == null) {
-            return Future.failedFuture("Cannot update permissions: operating user " + operatingUser + " not found");
+            return Future.failedFuture(new OperatingUserException(
+                "Cannot update permissions: operating user " + operatingUser + " not found"));
           }
           List<String> expandedSubs = new ArrayList<>();
           Future<Void> future = Future.succeededFuture();
