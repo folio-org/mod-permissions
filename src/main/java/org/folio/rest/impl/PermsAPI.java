@@ -1581,14 +1581,14 @@ public class PermsAPI implements Perms {
 
   private static Future<List<String>> getOperatingPermissions(Context vertxContext, String tenantId, String operatingUser) {
     return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
-        .compose(x -> {
-          if (x == null) {
+        .compose(permissionUser -> {
+          if (permissionUser == null) {
             return Future.failedFuture(new OperatingUserException(
                 "Cannot update permissions: operating user " + operatingUser + " not found"));
           }
           List<String> expandedSubs = new ArrayList<>();
           Future<Void> future = Future.succeededFuture();
-          for (Object p : x.getPermissions()) {
+          for (Object p : permissionUser.getPermissions()) {
             String perm = (String) p;
             List<String> subPerm = new ArrayList<>();
             subPerm.add(perm);
@@ -1597,7 +1597,7 @@ public class PermsAPI implements Perms {
                 .onSuccess(subs -> expandedSubs.addAll(subs))
                 .mapEmpty());
           }
-          return Future.succeededFuture(expandedSubs);
+          return future.map(expandedSubs);
         });
   }
 
