@@ -30,6 +30,7 @@ public class PermissionUtils {
 
   public static final String PERMS_USERS_ASSIGN_IMMUTABLE = "perms.users.assign.immutable";
   public static final String PERMS_USERS_ASSIGN_MUTABLE = "perms.users.assign.mutable";
+  public static final String PERMS_USERS_ASSIGN_OKAPI = "perms.users.assign.okapi";
 
   private PermissionUtils() {
 

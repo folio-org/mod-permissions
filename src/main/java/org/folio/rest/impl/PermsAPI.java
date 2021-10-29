@@ -1496,6 +1496,8 @@ public class PermsAPI implements Perms {
               || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
           boolean hasMutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
               || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+          boolean hasOkapi = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
           Future<Void> future = Future.succeededFuture();
           for (Object ob : addedPermissions) {
             String newPerm = (String) ob;
@@ -1507,6 +1509,10 @@ public class PermsAPI implements Perms {
                       return null;
                     }
                     boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+                    if (newPerm.startsWith("okapi.") && !hasOkapi) {
+                      throw new OperatingUserException("Cannot add okapi permission "
+                          + newPerm + " not owned by operating user " + operatingUser);
+                    }
                     if (mutable) {
                       if (!hasMutable) {
                         throw new OperatingUserException("Cannot add mutable permission "

@@ -2607,16 +2607,46 @@ public class RestVerticleTest {
                 )
             )
             .add(new JsonObject()
+                .put("permissionName", "okapi.all")
+            )
+            .add(new JsonObject()
                 .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
             )
             .add(new JsonObject()
                 .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
             )
         );
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
   }
 
+  @Test
+  public void testOperatingUserOkapi(TestContext context) {
+    setupModuleToi(context);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray()
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE));
+
+    Response response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    JsonObject permissionNameObject = new JsonObject().put("permissionName", "okapi.all");
+    response = send("diku", HttpMethod.POST, "/perms/users/"
+            + permsUser.getString("id") + "/permissions", permissionNameObject.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add okapi permission okapi.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+  }
 
   @Test
   public void testOperatingUserImmutable(TestContext context) {

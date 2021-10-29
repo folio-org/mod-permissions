@@ -12,6 +12,7 @@
           ],
           "pathPattern": "/perms/users*",
           "permissionsDesired": [
+            "perms.users.assign.okapi",
             "perms.users.assign.immutable",
             "perms.users.assign.mutable"
           ],
@@ -34,6 +35,7 @@
           ],
           "pathPattern": "/perms/users/{id}",
           "permissionsDesired": [
+            "perms.users.assign.okapi",
             "perms.users.assign.immutable",
             "perms.users.assign.mutable"
           ],
@@ -47,6 +49,7 @@
           ],
           "pathPattern": "/perms/users/{id}",
           "permissionsDesired": [
+            "perms.users.assign.okapi",
             "perms.users.assign.immutable",
             "perms.users.assign.mutable"
           ],
@@ -60,6 +63,7 @@
           ],
           "pathPattern": "/perms/users/{id}/permissions/{perm}",
           "permissionsDesired": [
+            "perms.users.assign.okapi",
             "perms.users.assign.immutable",
             "perms.users.assign.mutable"
           ],
@@ -91,6 +95,7 @@
           ],
           "pathPattern": "/perms/permissions/{id}",
           "permissionsDesired": [
+            "perms.users.assign.okapi",
             "perms.users.assign.immutable",
             "perms.users.assign.mutable"
           ],
@@ -209,13 +214,18 @@
       "description": "Purge deprecated permissions"
     },
     {
+      "permissionName": "perms.users.assign.okapi",
+      "displayName": "perms users assign okapi",
+      "description": "Allow any okapi permission to be added for user"
+    },
+    {
       "permissionName": "perms.users.assign.immutable",
-      "displayName": "perms users extra",
+      "displayName": "perms users assign immutable",
       "description": "Allow any immutable permission to be added for user"
     },
     {
       "permissionName": "perms.users.assign.mutable",
-      "displayName": "perms users extra",
+      "displayName": "perms users assign mutable",
       "description": "Allow any mutable permission to be added for user"
     },
     {
