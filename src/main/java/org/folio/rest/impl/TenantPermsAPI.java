@@ -510,9 +510,7 @@ public class TenantPermsAPI implements Tenantpermissions {
       }
       try {
         user.getPermissions().add(permissionName);
-        String query = String.format("id==%s", actualId);
-        CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
-        return pgClient.withConn(connection, con -> con.update(TABLE_NAME_PERMSUSERS, user, cqlFilter, true))
+        return pgClient.withConn(connection, con -> con.update(TABLE_NAME_PERMSUSERS, user, actualId))
             .mapEmpty();
       } catch (Exception e) {
         logger.error(e.getMessage(), e);
