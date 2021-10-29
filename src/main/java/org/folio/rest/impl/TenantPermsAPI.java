@@ -22,12 +22,12 @@ import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
@@ -108,7 +108,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           // A) the first time enabling this module, or
           // B) the permissions exist but don't yet have the moduleName field
           List<Permission> ret = new ArrayList<>();
-          List<Future> futures = new ArrayList<>(perms.size());
+          List<Future<Void>> futures = new ArrayList<>(perms.size());
           perms.forEach(perm ->
               futures.add(getModulePermByName(perm.getPermissionName(), vertxContext, tenantId)
                   .compose(dbPerm -> {
@@ -124,7 +124,8 @@ public class TenantPermsAPI implements Tenantpermissions {
                         (Boolean.TRUE.equals(dbPerm.getDeprecated())
                             || dbPerm.getModuleName() == null)) {
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
-                          .onSuccess(ret::add);
+                          .onSuccess(ret::add)
+                          .mapEmpty();
                     } else {
                       // Edge case of (A) where a permission with the same name already exists.
                       // We need to fail here as there isn't anything we can do.
@@ -135,7 +136,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                       return Future.failedFuture(msg);
                     }
                   })));
-          return CompositeFuture.all(futures).map(ret);
+          return GenericCompositeFuture.all(futures).map(ret);
         })
         .onFailure(t -> logger.error(t.getMessage(), t));
   }
@@ -398,7 +399,7 @@ public class TenantPermsAPI implements Tenantpermissions {
       Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
     return savePermList(moduleId, new ArrayList<>(permList.keySet()), vertxContext, tenantId)
         .compose(v -> {
-          List<Future> futures = new ArrayList<>(permList.size());
+          List<Future<Void>> futures = new ArrayList<>(permList.size());
           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
           permList.keySet().forEach(okapiPerm -> {
             String newPermName = okapiPerm.getPermissionName();
@@ -407,7 +408,7 @@ public class TenantPermsAPI implements Tenantpermissions {
               String oldPermName = replaced.getPermissionName();
                 futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(connection,
                     String.format(ADD_PERM_TO_SUB_PERMS, tenantId),
-                    Tuple.of(new JsonArray().add(newPermName), oldPermName, newPermName), p)));
+                    Tuple.of(new JsonArray().add(newPermName), oldPermName, newPermName), p)).mapEmpty());
 
               replaced.getGrantedTo().forEach(permUser -> {
                 String permissionName = okapiPerm.getPermissionName();
@@ -418,7 +419,7 @@ public class TenantPermsAPI implements Tenantpermissions {
               });
             });
           });
-          return CompositeFuture.all(futures);
+          return GenericCompositeFuture.all(futures);
         })
         .compose(cf -> softDeletePermList(connection,
             permList.values()
