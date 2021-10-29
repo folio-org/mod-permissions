@@ -1928,8 +1928,7 @@ public class PermsAPI implements Perms {
     perm.setPermissionName(entity.getPermissionName());
     perm.setDisplayName(entity.getDisplayName());
     perm.setDescription(entity.getDescription());
-    List<Object> subPerms = new ArrayList<>();
-    subPerms.addAll(entity.getSubPermissions());
+    List<Object> subPerms = new ArrayList<>(entity.getSubPermissions());
     perm.setSubPermissions(subPerms);
     perm.setMutable(entity.getMutable());
     perm.setVisible(entity.getVisible());
