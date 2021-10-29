@@ -61,7 +61,7 @@ public class PermsAPI implements Perms {
     }
   }
 
-  public static class OperatingUserException extends Exception {
+  public static class OperatingUserException extends RuntimeException {
 
     public OperatingUserException(String message) {
       super(message);
@@ -1503,25 +1503,25 @@ public class PermsAPI implements Perms {
             String newPerm = (String) ob;
             if (!operatingPermissions.contains(newPerm)) {
               future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
-                  .compose(permission -> {
+                  .map(permission -> {
                     if (permission == null) {
                       // unknown permission will eventually result in error, but not here
-                      return Future.succeededFuture();
+                      return null;
                     }
                     boolean mutable = Boolean.TRUE.equals(permission.getMutable());
                     if (mutable) {
                       if (!hasMutable) {
-                        return Future.failedFuture(new OperatingUserException("Cannot add mutable permission "
-                            + newPerm + " not owned by operating user " + operatingUser));
+                        throw new OperatingUserException("Cannot add mutable permission "
+                            + newPerm + " not owned by operating user " + operatingUser);
                       }
                     } else {
                       if (!hasImmutable) {
-                        return Future.failedFuture(new OperatingUserException(
+                        throw new OperatingUserException(
                             "Cannot add immutable permission " + newPerm + " not owned by operating user "
-                                + operatingUser));
+                                + operatingUser);
                       }
                     }
-                    return Future.succeededFuture();
+                    return null;
                   }));
             }
           }
