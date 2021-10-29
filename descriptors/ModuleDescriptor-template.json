@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "permissions",
-      "version": "5.3",
+      "version": "5.4",
       "handlers": [
         {
           "methods": [

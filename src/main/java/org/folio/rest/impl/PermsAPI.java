@@ -175,7 +175,7 @@ public class PermsAPI implements Perms {
                                   UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
                     } else if (cause instanceof OperatingUserException) {
                       asyncResultHandler.handle(Future.succeededFuture(
-                        PostPermsUsersResponse.respond400WithTextPlain(cause.getMessage())));
+                        PostPermsUsersResponse.respond403WithTextPlain(cause.getMessage())));
                     } else {
                       asyncResultHandler.handle(Future.succeededFuture(
                           PostPermsUsersResponse.respond500WithTextPlain(
@@ -322,7 +322,7 @@ public class PermsAPI implements Perms {
                                       UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
                         } else if (cause instanceof OperatingUserException) {
                           asyncResultHandler.handle(Future.succeededFuture(
-                              PutPermsUsersByIdResponse.respond400WithTextPlain(cause.getMessage())));
+                              PutPermsUsersByIdResponse.respond403WithTextPlain(cause.getMessage())));
                         } else {
                           String errStr = "Error with derived field update: " + cause.getMessage();
                           logger.error(errStr, cause);
@@ -604,13 +604,20 @@ public class PermsAPI implements Perms {
                       if (updateUserPermsRes.failed()) {
                         //rollback
                         pgClient.rollbackTx(connection, rollback -> {
-                          String errStr = String.format(
-                              "Error attempting to update permissions metadata: %s",
-                              updateUserPermsRes.cause().getMessage());
-                          logger.error(errStr, updateUserPermsRes.cause());
-                          asyncResultHandler.handle(Future.succeededFuture(
-                              PostPermsUsersPermissionsByIdResponse
-                                  .respond500WithTextPlain(errStr)));
+                          if (updateUserPermsRes.cause() instanceof OperatingUserException) {
+                           asyncResultHandler.handle(Future.succeededFuture(
+                               PostPermsUsersPermissionsByIdResponse
+                                   .respond403WithTextPlain(updateUserPermsRes.cause().getMessage())
+                           ));
+                          } else {
+                            String errStr = String.format(
+                                "Error attempting to update permissions metadata: %s",
+                                updateUserPermsRes.cause().getMessage());
+                            logger.error(errStr, updateUserPermsRes.cause());
+                            asyncResultHandler.handle(Future.succeededFuture(
+                                PostPermsUsersPermissionsByIdResponse
+                                    .respond500WithTextPlain(errStr)));
+                          }
                         });
                         return;
                       }
@@ -910,7 +917,7 @@ public class PermsAPI implements Perms {
                                               UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
                                 } else if (cause instanceof OperatingUserException) {
                                   asyncResultHandler.handle(Future.succeededFuture(
-                                      PutPermsPermissionsByIdResponse.respond400WithTextPlain(
+                                      PutPermsPermissionsByIdResponse.respond403WithTextPlain(
                                           cause.getMessage())));
                                 } else {
                                   String errStr = "Error with derived field update: "
