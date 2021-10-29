@@ -310,39 +310,36 @@ public class PermsAPI implements Perms {
                   });
                   return;
                 }
-                updateUserPermissions(connection, id,
-                    new JsonArray(originalUser.getPermissions()),
-                    new JsonArray(entity.getPermissions()),
-                    vertxContext, tenantId, okapiHeaders).onComplete(updateUserPermsRes -> {
-                  if (updateUserPermsRes.failed()) {
-                    pgClient.rollbackTx(connection, done -> {
-                      if (updateUserPermsRes.cause() instanceof InvalidPermissionsException) {
+                updateUserPermissions(connection, id, new JsonArray(originalUser.getPermissions()),
+                    new JsonArray(entity.getPermissions()), vertxContext, tenantId, okapiHeaders)
+                    .onFailure(cause -> {
+                      pgClient.rollbackTx(connection, done -> {
+                        if (cause instanceof InvalidPermissionsException) {
+                          asyncResultHandler.handle(Future.succeededFuture(
+                              PutPermsUsersByIdResponse.respond422WithApplicationJson(
+                                  ValidationHelper.createValidationErrorMessage(
+                                      ID_FIELD, entity.getId(),
+                                      UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
+                        } else if (cause instanceof OperatingUserException) {
+                          asyncResultHandler.handle(Future.succeededFuture(
+                              PutPermsUsersByIdResponse.respond400WithTextPlain(cause.getMessage())));
+                        } else {
+                          String errStr = "Error with derived field update: " + cause.getMessage();
+                          logger.error(errStr, cause);
+                          asyncResultHandler.handle(Future.succeededFuture(
+                              PutPermsUsersByIdResponse.respond500WithTextPlain(errStr)));
+                        }
+                      });
+                    })
+                    .onSuccess(res -> {
+                      pgClient.endTx(connection, done -> {
+                        // https://issues.folio.org/browse/MODPERMS-99
+                        // Remove inconsistent metadata - the update trigger uses different data
+                        entity.setMetadata(null);
                         asyncResultHandler.handle(Future.succeededFuture(
-                            PutPermsUsersByIdResponse.respond422WithApplicationJson(
-                                ValidationHelper.createValidationErrorMessage(
-                                    ID_FIELD, entity.getId(),
-                                    UNABLE_TO_UPDATE_DERIVED_FIELDS + updateUserPermsRes.cause().getMessage()))));
-                      } else if (updateUserPermsRes.cause() instanceof OperatingUserException) {
-                        asyncResultHandler.handle(Future.succeededFuture(
-                            PutPermsUsersByIdResponse.respond400WithTextPlain(updateUserPermsRes.cause().getMessage())));
-                      } else {
-                        String errStr = "Error with derived field update: " + updateUserPermsRes.cause().getMessage();
-                        logger.error(errStr, updateUserPermsRes.cause());
-                        asyncResultHandler.handle(Future.succeededFuture(
-                            PutPermsUsersByIdResponse.respond500WithTextPlain(errStr)));
-                      }
+                            PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
+                      });
                     });
-                    return;
-                  }
-                  //close Tx
-                  pgClient.endTx(connection, done -> {
-                    // https://issues.folio.org/browse/MODPERMS-99
-                    // Remove inconsistent metadata - the update trigger uses different data
-                    entity.setMetadata(null);
-                    asyncResultHandler.handle(Future.succeededFuture(
-                        PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
-                  });
-                });
               })
         );
       } catch (Exception e) {
@@ -903,36 +900,33 @@ public class PermsAPI implements Perms {
                           new JsonArray(perm.getSubPermissions()),
                           new JsonArray(entity.getSubPermissions()),
                           okapiHeaders, vertxContext, tenantId)
-                          .onComplete(updateSubPermsRes -> {
-                            if (updateSubPermsRes.failed()) {
+                          .onFailure(cause ->
                               pgClient.rollbackTx(connection, done -> {
-                                if (updateSubPermsRes.cause() instanceof InvalidPermissionsException) {
+                                if (cause instanceof InvalidPermissionsException) {
                                   asyncResultHandler.handle(Future.succeededFuture(
                                       PutPermsPermissionsByIdResponse.respond422WithApplicationJson(
                                           ValidationHelper.createValidationErrorMessage(
                                               ID_FIELD, entity.getId(),
-                                              UNABLE_TO_UPDATE_DERIVED_FIELDS + updateSubPermsRes.cause().getMessage()))));
-                                } else if (updateSubPermsRes.cause() instanceof OperatingUserException) {
+                                              UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
+                                } else if (cause instanceof OperatingUserException) {
                                   asyncResultHandler.handle(Future.succeededFuture(
                                       PutPermsPermissionsByIdResponse.respond400WithTextPlain(
-                                          updateSubPermsRes.cause().getMessage())));
+                                          cause.getMessage())));
                                 } else {
                                   String errStr = "Error with derived field update: "
-                                      + updateSubPermsRes.cause().getMessage();
-                                  logger.error(errStr, updateSubPermsRes.cause());
+                                      + cause.getMessage();
+                                  logger.error(errStr, cause);
                                   asyncResultHandler.handle(Future.succeededFuture(
-                                      PutPermsPermissionsByIdResponse.respond500WithTextPlain(
-                                          errStr)));
+                                      PutPermsPermissionsByIdResponse.respond500WithTextPlain(errStr)));
                                 }
-                              });
-                              return;
-                            }
-                            //close connection
-                            pgClient.endTx(connection, done -> {
-                              asyncResultHandler.handle(Future.succeededFuture(
-                                  PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)));
-                            });
-                          });
+                              }))
+                          .onSuccess(updateSubPermsRes ->
+                              //close connection
+                              pgClient.endTx(connection, done -> {
+                                asyncResultHandler.handle(Future.succeededFuture(
+                                    PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)));
+                              })
+                          );
                     });
               });
             } catch (Exception e) {
