@@ -600,35 +600,33 @@ public class PermsAPI implements Perms {
                     //update metadata
                     updateUserPermissions(connection, actualId, originalPermissions,
                         new JsonArray(user.getPermissions()), vertxContext,
-                        tenantId, okapiHeaders).onComplete(updateUserPermsRes -> {
-                      if (updateUserPermsRes.failed()) {
-                        //rollback
-                        pgClient.rollbackTx(connection, rollback -> {
-                          if (updateUserPermsRes.cause() instanceof OperatingUserException) {
-                           asyncResultHandler.handle(Future.succeededFuture(
-                               PostPermsUsersPermissionsByIdResponse
-                                   .respond403WithTextPlain(updateUserPermsRes.cause().getMessage())
-                           ));
-                          } else {
-                            String errStr = String.format(
-                                "Error attempting to update permissions metadata: %s",
-                                updateUserPermsRes.cause().getMessage());
-                            logger.error(errStr, updateUserPermsRes.cause());
-                            asyncResultHandler.handle(Future.succeededFuture(
-                                PostPermsUsersPermissionsByIdResponse
-                                    .respond500WithTextPlain(errStr)));
-                          }
-                        });
-                        return;
-                      }
-                      //close the transaction
-                      pgClient.endTx(connection, done ->
-                        asyncResultHandler.handle(Future.
-                            succeededFuture(
-                                PostPermsUsersPermissionsByIdResponse
-                                    .respond200WithApplicationJson(entity)))
-                      );
-                    });
+                        tenantId, okapiHeaders)
+                        .onFailure(cause ->
+                          pgClient.rollbackTx(connection, rollback -> {
+                            if (cause instanceof OperatingUserException) {
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                  PostPermsUsersPermissionsByIdResponse
+                                      .respond403WithTextPlain(cause.getMessage())
+                              ));
+                            } else {
+                              String errStr = String.format(
+                                  "Error attempting to update permissions metadata: %s",
+                                  cause.getMessage());
+                              logger.error(errStr, cause);
+                              asyncResultHandler.handle(Future.succeededFuture(
+                                  PostPermsUsersPermissionsByIdResponse
+                                      .respond500WithTextPlain(errStr)));
+                            }
+                          })
+                        )
+                        .onSuccess(res ->
+                          pgClient.endTx(connection, done ->
+                              asyncResultHandler.handle(Future.
+                                  succeededFuture(
+                                      PostPermsUsersPermissionsByIdResponse
+                                          .respond200WithApplicationJson(entity)))
+                          )
+                        );
                   })
             );
           } catch (Exception e) {
