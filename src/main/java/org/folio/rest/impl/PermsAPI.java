@@ -1119,8 +1119,7 @@ public class PermsAPI implements Perms {
                   Future<List<String>> expandedSubPerms = PermsCache.expandPerms(subperms, vertxContext, tenantId);
                   expandedSubPerms.onComplete(ar -> {
                     if (ar.succeeded()) {
-                      List<Object> list = new ArrayList<>(ar.result().size());
-                      list.addAll(ar.result());
+                      List<Object> list = new ArrayList<>(ar.result());
                       permission.setSubPermissions(list);
                       promise.complete(permission);
                     } else {
@@ -1422,8 +1421,7 @@ public class PermsAPI implements Perms {
               }
               if (!full) {
                 PermissionNameListObject pnlo = new PermissionNameListObject();
-                List<Object> objectList = new ArrayList();
-                objectList.addAll(res.result());
+                List<Object> objectList = new ArrayList(res.result());
                 pnlo.setPermissionNames(objectList);
                 pnlo.setTotalRecords(res.result().size());
                 promise.complete(pnlo);
