@@ -756,7 +756,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                         }
                         PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
                             new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                            vertxContext, tenantId).onComplete(updateSubsRes -> {
+                            null, vertxContext, tenantId).onComplete(updateSubsRes -> {
                           if (updateSubsRes.failed()) {
                             pgClient.rollbackTx(connection, rollback -> {
                               logger.debug(String.format("Error updating permission metadata: %s",

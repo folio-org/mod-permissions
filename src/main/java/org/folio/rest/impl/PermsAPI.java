@@ -779,7 +779,7 @@ public class PermsAPI implements Perms {
                     return;
                   }
                   updateSubPermissions(connection, entity.getPermissionName(), new JsonArray(),
-                      new JsonArray(entity.getSubPermissions()), vertxContext,
+                      new JsonArray(entity.getSubPermissions()), null, vertxContext,
                       tenantId).onComplete(updateSubPermsRes -> {
                     if (updateSubPermsRes.failed()) {
                       postgresClient.rollbackTx(connection, done -> {
@@ -889,7 +889,7 @@ public class PermsAPI implements Perms {
                       updateSubPermissions(connection, entity.getPermissionName(),
                           new JsonArray(perm.getSubPermissions()),
                           new JsonArray(entity.getSubPermissions()),
-                          vertxContext, tenantId)
+                          okapiHeaders, vertxContext, tenantId)
                           .onComplete(updateSubPermsRes -> {
                             if (updateSubPermsRes.failed()) {
                               pgClient.rollbackTx(connection, done -> {
@@ -1467,6 +1467,9 @@ public class PermsAPI implements Perms {
   static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
       Map<String,String> okapiHeaders, Context vertxContext) {
 
+    if (okapiHeaders == null) { // when POSTing permission sets
+      return Future.succeededFuture();
+    }
     String operatingUser = okapiHeaders.get(XOkapiHeaders.USER_ID);
     if (operatingUser == null) {
       return Future.succeededFuture();
@@ -1588,7 +1591,7 @@ public class PermsAPI implements Perms {
   the permission name to the the 'childOf' field for those permisisons
    */
   protected static Future<Void> updateSubPermissions(AsyncResult<SQLConnection> connection,
-      String permissionName, JsonArray originalList, JsonArray newList,
+      String permissionName, JsonArray originalList, JsonArray newList, Map<String,String> okapiHeaders,
       Context vertxContext, String tenantId) {
 
     try {
@@ -1604,34 +1607,37 @@ public class PermsAPI implements Perms {
           missingFromNewList.add(ob);
         }
       }
-      Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
-          connection, missingFromOriginalList.getList(), vertxContext,
-          tenantId, null);
-      return checkExistsFuture.compose(res -> {
-        if (!res.isEmpty()) {
-          return Future.failedFuture(new InvalidPermissionsException(String.format(
-              "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
-              String.join(",", res), permissionName)));
-        }
-        List<FieldUpdateValues> fuvList = new ArrayList<>();
-        for (Object childPermissionNameOb : missingFromOriginalList) {
-          FieldUpdateValues fuv = new FieldUpdateValues(
-              permissionName,
-              (String) childPermissionNameOb,
-              PermissionField.CHILD_OF,
-              Operation.ADD);
-          fuvList.add(fuv);
-        }
-        for (Object childPermissionNameOb : missingFromNewList) {
-          FieldUpdateValues fuv = new FieldUpdateValues(
-              permissionName,
-              (String) childPermissionNameOb,
-              PermissionField.CHILD_OF,
-              Operation.DELETE);
-          fuvList.add(fuv);
-        }
-        return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
-      });
+      return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
+          .compose(x -> {
+            Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
+                connection, missingFromOriginalList.getList(), vertxContext,
+                tenantId, null);
+            return checkExistsFuture.compose(res -> {
+              if (!res.isEmpty()) {
+                return Future.failedFuture(new InvalidPermissionsException(String.format(
+                    "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
+                    String.join(",", res), permissionName)));
+              }
+              List<FieldUpdateValues> fuvList = new ArrayList<>();
+              for (Object childPermissionNameOb : missingFromOriginalList) {
+                FieldUpdateValues fuv = new FieldUpdateValues(
+                    permissionName,
+                    (String) childPermissionNameOb,
+                    PermissionField.CHILD_OF,
+                    Operation.ADD);
+                fuvList.add(fuv);
+              }
+              for (Object childPermissionNameOb : missingFromNewList) {
+                FieldUpdateValues fuv = new FieldUpdateValues(
+                    permissionName,
+                    (String) childPermissionNameOb,
+                    PermissionField.CHILD_OF,
+                    Operation.DELETE);
+                fuvList.add(fuv);
+              }
+              return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
+            });
+          });
     } catch (Exception e) {
       return Future.failedFuture(e);
     }

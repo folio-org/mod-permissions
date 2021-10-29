@@ -90,6 +90,10 @@
             "PUT"
           ],
           "pathPattern": "/perms/permissions/{id}",
+          "permissionsDesired": [
+            "perms.users.assign.immutable",
+            "perms.users.assign.mutable"
+          ],
           "permissionsRequired": [
             "perms.permissions.item.put"
           ]
