@@ -2646,6 +2646,17 @@ public class RestVerticleTest {
     context.assertEquals(403, response.code);
     context.assertEquals("Cannot add okapi permission okapi.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
+
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, operatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray()
+           .add(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+           .encode());
+    response = send(headers, HttpMethod.POST, "/perms/users/" + permsUser.getString("id") + "/permissions",
+        permissionNameObject.encode(), context);
+    context.assertEquals(200, response.code);
   }
 
   @Test
