@@ -2657,6 +2657,24 @@ public class RestVerticleTest {
     response = send(headers, HttpMethod.POST, "/perms/users/" + permsUser.getString("id") + "/permissions",
         permissionNameObject.encode(), context);
     context.assertEquals(200, response.code);
+
+    operatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray()
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    permissionNameObject = new JsonObject().put("permissionName", "okapi.all");
+    response = send("diku", HttpMethod.POST, "/perms/users/"
+            + permsUser.getString("id") + "/permissions", permissionNameObject.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(200, response.code);
   }
 
   @Test
