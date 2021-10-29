@@ -1628,31 +1628,32 @@ public class PermsAPI implements Perms {
             Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
                 connection, missingFromOriginalList.getList(), vertxContext,
                 tenantId, null);
-            return checkExistsFuture.compose(res -> {
-              if (!res.isEmpty()) {
-                return Future.failedFuture(new InvalidPermissionsException(String.format(
-                    "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
-                    String.join(",", res), permissionName)));
-              }
-              List<FieldUpdateValues> fuvList = new ArrayList<>();
-              for (Object childPermissionNameOb : missingFromOriginalList) {
-                FieldUpdateValues fuv = new FieldUpdateValues(
-                    permissionName,
-                    (String) childPermissionNameOb,
-                    PermissionField.CHILD_OF,
-                    Operation.ADD);
-                fuvList.add(fuv);
-              }
-              for (Object childPermissionNameOb : missingFromNewList) {
-                FieldUpdateValues fuv = new FieldUpdateValues(
-                    permissionName,
-                    (String) childPermissionNameOb,
-                    PermissionField.CHILD_OF,
-                    Operation.DELETE);
-                fuvList.add(fuv);
-              }
-              return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
-            });
+            return checkExistsFuture;
+          })
+          .compose(res -> {
+            if (!res.isEmpty()) {
+              return Future.failedFuture(new InvalidPermissionsException(String.format(
+                  "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
+                  String.join(",", res), permissionName)));
+            }
+            List<FieldUpdateValues> fuvList = new ArrayList<>();
+            for (Object childPermissionNameOb : missingFromOriginalList) {
+              FieldUpdateValues fuv = new FieldUpdateValues(
+                  permissionName,
+                  (String) childPermissionNameOb,
+                  PermissionField.CHILD_OF,
+                  Operation.ADD);
+              fuvList.add(fuv);
+            }
+            for (Object childPermissionNameOb : missingFromNewList) {
+              FieldUpdateValues fuv = new FieldUpdateValues(
+                  permissionName,
+                  (String) childPermissionNameOb,
+                  PermissionField.CHILD_OF,
+                  Operation.DELETE);
+              fuvList.add(fuv);
+            }
+            return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
           });
     } catch (Exception e) {
       return Future.failedFuture(e);
