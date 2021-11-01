@@ -31,7 +31,7 @@ User management is also part of the [permissions](ramls/permissions.raml)
 interface.
 
 As for any module in FOLIO, normal permission restrictions apply: either
-user must have permissions to access and interface or the modulePermissions
+user must have permissions to access an interface or the modulePermissions
 includes it for the request.
 
 On top of that, and to prevent users from getting arbitrary permissions,
