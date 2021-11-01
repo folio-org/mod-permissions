@@ -24,11 +24,12 @@ There are two types of permissions:
    [permissions](ramls/permissions.raml) interface.
 
 Mod-permission also has the notion of users and permissions associated
-with them. There are two identifiers for each user - the external identifier
-of users in the users interface and the internal identifier of the user
-in mod-permissions. Having the two is confusing, they could be the same.
-User management is also part of the [permissions](ramls/permissions.raml)
-interface.
+with them. The `/perms/users` API has two user identifiers:
+`id` and `userId`. `id` is the mod-permissions identifier for the user
+while `userId` points to the `id` field of the mod-users `/users` API.
+Having the two is confusing, they could be the same.
+User management is also part of the
+[permissions](ramls/permissions.raml) interface.
 
 As for any module in FOLIO, normal permission restrictions apply: either
 user must have permissions to access an interface or the modulePermissions
