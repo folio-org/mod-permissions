@@ -22,10 +22,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.permstest.TestUtil.WrappedResponse;
 import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermissionUtils;
 import org.folio.rest.impl.PermsCache;
 import org.folio.rest.impl.TenantPermsAPI;
 import org.folio.rest.jaxrs.model.OkapiPermission;
@@ -58,7 +60,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.HttpRequest;
@@ -89,31 +90,28 @@ public class RestVerticleTest {
   public static void setup(TestContext context) {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     port = NetworkUtils.nextFreePort();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku",  null);
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     vertx = Vertx.vertx();
     client = WebClient.create(vertx);
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
         .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
-    .compose(res -> TenantInit.purge(tenantClient, 10000))  // purge old data when reusing external database
-    .compose(res -> {
-      TenantAttributes ta = new TenantAttributes();
-      ta.setModuleTo("mod-permissions-1.0.0");
-      List<Parameter> parameters = new LinkedList<>();
-      parameters.add(new Parameter().withKey("loadSample").withValue("true"));
-      ta.setParameters(parameters);
-      return TestUtil.tenantOp(tenantClient, ta);
-    }).onComplete(context.asyncAssertSuccess());
+        .compose(res -> TenantInit.purge(tenantClient, 10000))  // purge old data when reusing external database
+        .compose(res -> {
+          TenantAttributes ta = new TenantAttributes();
+          ta.setModuleTo("mod-permissions-1.0.0");
+          List<Parameter> parameters = new LinkedList<>();
+          parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+          ta.setParameters(parameters);
+          return TestUtil.tenantOp(tenantClient, ta);
+        }).onComplete(context.asyncAssertSuccess());
   }
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
     client.close();
-    vertx.close(context.asyncAssertSuccess( res-> {
-      async.complete();
-    }));
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @After
@@ -137,19 +135,19 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testPostPermission(context); // add user-defined perm to cause collision later
     }).compose(w -> {
-      return removeModuleContext(context, new String[] {"dummy.all", "dummy.write",
+      return removeModuleContext(context, new String[]{"dummy.all", "dummy.write",
           "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update",
           "dummy.delete"});
     }).compose(w -> {
       return sendInitialPermissionSet(context); // simulate perm refresh
     }).compose(w -> {
-      return testModuleContextWasAdded(context, new String[] {"dummy.all", "dummy.write",
+      return testModuleContextWasAdded(context, new String[]{"dummy.all", "dummy.write",
           "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update"});
     }).compose(w -> {
       return postPermUser(context, userId1, permUserId1,
-          new String[] {"dummy.all", "dummy.collection.get", "dummy.collection.item.get"});
+          new String[]{"dummy.all", "dummy.collection.get", "dummy.collection.item.get"});
     }).compose(w -> {
-      return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
+      return testUserPerms(context, permUserId1, new String[]{"dummy.all", "dummy.write",
           "dummy.read", "dummy.collection.get", "dummy.collection.item.get", "dummy.update"});
     }).compose(w -> {
       return testPermissionExists(context, "dummy.collection.get");
@@ -166,7 +164,7 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testPermissionRename(context);
     }).compose(w -> {
-      return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
+      return testUserPerms(context, permUserId1, new String[]{"dummy.all", "dummy.write",
           "dummy.read", "dummy.collection.read", "dummy.delete"});
     }).compose(w -> {
       return testPermissionExists(context, "dummy.collection.read");
@@ -177,12 +175,12 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testUpdateChildPermission(context);
     }).compose(w -> {
-      return postPermUser(context, userId2, new String[] {"dummy.all"});
+      return postPermUser(context, userId2, new String[]{"dummy.all"});
     }).compose(w -> {
       return testUserPerms(context, w.getJson().getString("id"),
-          new String[] {"dummy.write", "dummy.read"});
+          new String[]{"dummy.write", "dummy.read"});
     }).compose(w -> {
-      return postPermUser(context, userId3, new String[] {"dummy.all"});
+      return postPermUser(context, userId3, new String[]{"dummy.all"});
     }).compose(w -> {
       return putPermUserBad(context, w.getJson().getString("id"));
     }).compose(w -> {
@@ -228,7 +226,7 @@ public class RestVerticleTest {
     }).compose(w -> {
       return testGrantedTo(context, w, permUserId1);
     }).compose(w -> {
-      return testUserPerms(context, permUserId1, new String[] {"dummy.all", "dummy.write",
+      return testUserPerms(context, permUserId1, new String[]{"dummy.all", "dummy.write",
           "dummy.read", "dummy.collection.get", "dummy.update"});
     }).compose(w -> {
       return testSoftDeleteOfRemovedPermission(context, "dummy.collection.read");
@@ -251,7 +249,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.GET, "/perms/users/12%2334?indexField=id", null, context);
     context.assertEquals(400, response.code);
     Assert.assertThat(response.body.getString("text"),
-    containsString("invalid input syntax for type uuid: \\\"12#34\\\""));
+        containsString("invalid input syntax for type uuid: \\\"12#34\\\""));
   }
 
   @Test
@@ -303,7 +301,7 @@ public class RestVerticleTest {
 
   @Test
   public void testPostPermsUsersBadTenant(TestContext context) {
-    String permsUsers = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+    String permsUsers = "{\"userId\": \"" + userUserId + "\",\"permissions\": " +
         "[], \"id\" : \"1234\"}";
     Response response = send("badTenant", HttpMethod.POST, "/perms/users",
         permsUsers, context);
@@ -312,7 +310,7 @@ public class RestVerticleTest {
 
   @Test
   public void testPutPermsUsersInvalidUUID(TestContext context) {
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+    String postPermUsersRequest = "{\"userId\": \"" + userUserId + "\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";
     Response response = send(HttpMethod.PUT, "/perms/users/123", postPermUsersRequest, context);
     context.assertEquals(404, response.code);
@@ -350,26 +348,26 @@ public class RestVerticleTest {
   public void testPermissionsOnTheMove(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA0")
+        .put("moduleId", "moduleA0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
                 .put("displayName", "Description A")
-                )
-            );
+            )
+        );
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
     // remove permissions for it / OKAPI-982
     permissionSet = new JsonObject()
-        .put("moduleId","moduleA0")
+        .put("moduleId", "moduleA0")
         .put("perms", new JsonArray());
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
     // use same permission again in other module with new definition
     permissionSet = new JsonObject()
-        .put("moduleId","moduleB0")
+        .put("moduleId", "moduleB0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -384,7 +382,7 @@ public class RestVerticleTest {
   public void testPermissionsChangingInMultipleModules(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA1-1.0.0")
+        .put("moduleId", "moduleA1-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -396,7 +394,7 @@ public class RestVerticleTest {
 
     // use same permission in other module with same definition
     permissionSet = new JsonObject()
-        .put("moduleId","moduleB1-1.0.0")
+        .put("moduleId", "moduleB1-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -412,7 +410,7 @@ public class RestVerticleTest {
   public void testSameModuleCanChangeDefinition(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA2-1.0.0")
+        .put("moduleId", "moduleA2-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -424,7 +422,7 @@ public class RestVerticleTest {
 
     // update the module with an updated permission definition
     permissionSet = new JsonObject()
-        .put("moduleId","moduleA2-1.0.1")
+        .put("moduleId", "moduleA2-1.0.1")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -439,7 +437,7 @@ public class RestVerticleTest {
   public void testOtherModuleCanNotChangeDefinition(TestContext context) {
     String perm = "perm" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA3-1.0.0")
+        .put("moduleId", "moduleA3-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -451,7 +449,7 @@ public class RestVerticleTest {
 
     // use same permission in other module with same definition
     permissionSet = new JsonObject()
-        .put("moduleId","moduleB3-1.0.0")
+        .put("moduleId", "moduleB3-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm)
@@ -468,7 +466,7 @@ public class RestVerticleTest {
     String perm2 = "permB" + UUID.randomUUID().toString();
     String dummy = "dummy" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleA4-1.0.0")
+        .put("moduleId", "moduleA4-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm1)
@@ -497,7 +495,7 @@ public class RestVerticleTest {
     context.assertFalse(permObject.getBoolean("dummy"), permObject.encode());
 
     permissionSet = new JsonObject()
-        .put("moduleId","moduleB4-1.0.0")
+        .put("moduleId", "moduleB4-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", perm2)
@@ -510,7 +508,7 @@ public class RestVerticleTest {
     context.assertEquals(201, response.code);
 
     permissionSet = new JsonObject()
-        .put("moduleId","moduleA5-1.0.0")
+        .put("moduleId", "moduleA5-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", dummy)
@@ -541,7 +539,7 @@ public class RestVerticleTest {
     JsonArray b = new JsonArray().add(permB);
     JsonArray ab = new JsonArray().add(permA).add(permB);
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleTestDeprecated-1.0.0")
+        .put("moduleId", "moduleTestDeprecated-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject().put("permissionName", permA).put("subPermissions", b))
             .add(new JsonObject().put("permissionName", permB)));
@@ -572,7 +570,7 @@ public class RestVerticleTest {
 
     // update module version and deprecate permB
     permissionSet = new JsonObject()
-        .put("moduleId","moduleTestDeprecated-2.0.0")
+        .put("moduleId", "moduleTestDeprecated-2.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject().put("permissionName", permA).put("subPermissions", b)));
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
@@ -613,7 +611,7 @@ public class RestVerticleTest {
     String permA = "permA" + UUID.randomUUID().toString();
     String permB = "permB" + UUID.randomUUID().toString();
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleTestReplaceX-1.0.0")
+        .put("moduleId", "moduleTestReplaceX-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject().put("permissionName", permA))
             .add(new JsonObject().put("permissionName", permB)));
@@ -623,7 +621,7 @@ public class RestVerticleTest {
     // seed modB with perm3 that has perm1 and perm2 in subperms
     String permC = "permC" + UUID.randomUUID().toString();
     permissionSet = new JsonObject()
-        .put("moduleId","moduleTestReplaceY-1.0.0")
+        .put("moduleId", "moduleTestReplaceY-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", permC)
@@ -644,7 +642,7 @@ public class RestVerticleTest {
     // update modA, and replace permA and permB with permD
     String permD = "permD" + UUID.randomUUID().toString();
     permissionSet = new JsonObject()
-        .put("moduleId","moduleTestReplaceX-2.0.0")
+        .put("moduleId", "moduleTestReplaceX-2.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", permD)
@@ -665,14 +663,14 @@ public class RestVerticleTest {
 
   @Test
   public void testPutPermsUsersByIdDummyPerm(TestContext context) {
-    JsonObject permsUsers = new JsonObject().put("id",  userId2).put("userId", userUserId)
+    JsonObject permsUsers = new JsonObject().put("id", userId2).put("userId", userUserId)
         .put("permissions", new JsonArray());
     Response response = send(HttpMethod.POST, "/perms/users", permsUsers.encode(), context);
     context.assertEquals(response.code, 201);
 
     // adummy.perm not defined so it becomes dummy
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","amodule")
+        .put("moduleId", "amodule")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "adummy.all")
@@ -700,12 +698,13 @@ public class RestVerticleTest {
 
     permsUsers.put("permissions", new JsonArray().add("adummy.perm"));
     response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers.encode(), context);
+
     context.assertEquals(400, response.code);
     context.assertEquals("Cannot add permissions flagged as 'dummy' to users", response.body.getString("text"));
 
     // adummy.perm becomes non-dummy
     permissionSet = new JsonObject()
-        .put("moduleId","bmodule")
+        .put("moduleId", "bmodule")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "adummy.perm")
@@ -717,6 +716,7 @@ public class RestVerticleTest {
     context.assertEquals(201, response.code);
 
     response = send(HttpMethod.PUT, "/perms/users/" + userId2, permsUsers.encode(), context);
+
     context.assertEquals(200, response.code);
 
     response = send(HttpMethod.DELETE, "/perms/users/" + userId2, null, context);
@@ -726,7 +726,7 @@ public class RestVerticleTest {
   @Test
   public void testPutPermsUsersByIdNonExistingPerm(TestContext context) {
     JsonObject permsUsers = new JsonObject().put("id", userId2).put("userId", userUserId)
-      .put("permissions", new JsonArray());
+        .put("permissions", new JsonArray());
     Response response = send(HttpMethod.POST, "/perms/users", permsUsers.encode(), context);
     context.assertEquals(response.code, 201);
 
@@ -819,7 +819,7 @@ public class RestVerticleTest {
 
     String userId = UUID.randomUUID().toString();
     String userUserId = UUID.randomUUID().toString();
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+    String postPermUsersRequest = "{\"userId\": \"" + userUserId + "\",\"permissions\": " +
         "[ ], \"id\" : \"" + userId + "\"}";
     Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
     context.assertEquals(response.code, 201);
@@ -832,7 +832,7 @@ public class RestVerticleTest {
 
     // adummy.perm not defined so it becomes dummy
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","amodule")
+        .put("moduleId", "amodule")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "adummy.all")
@@ -977,13 +977,13 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.DELETE, "/perms/users/" + uuid + "/permissions/name",
         null, context);
     context.assertEquals(response.code, 404);
-    context.assertEquals("User with id " + uuid +" does not exist", response.body.getString("text"));
+    context.assertEquals("User with id " + uuid + " does not exist", response.body.getString("text"));
   }
 
   @Test
   public void testDeletePermsUsersPermissionsByIdAndPermissionnameMissingPermissionName(TestContext context) {
     /**add a perm user */
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+    String postPermUsersRequest = "{\"userId\": \"" + userUserId + "\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";
     Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
     context.assertEquals(response.code, 201);
@@ -1007,7 +1007,7 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 201);
     context.assertEquals(uuid, response.body.getString("id")); // MODPERMS-84
 
-    response = send(HttpMethod.DELETE, "/perms/permissions/" + uuid,null, context);
+    response = send(HttpMethod.DELETE, "/perms/permissions/" + uuid, null, context);
     context.assertEquals(response.code, 204);
   }
 
@@ -1049,9 +1049,9 @@ public class RestVerticleTest {
     context.assertEquals("cannot delete an immutable permission", response.body.getString("text"));
 
     JsonObject userDefinedPerm = new JsonObject()
-         .put("permissionName", userDefined)
-         .put("id", userDefinedId)
-         .put("mutable", false);
+        .put("permissionName", userDefined)
+        .put("id", userDefinedId)
+        .put("mutable", false);
 
     // Create a user-defined permission - mutable will be ignored. These are always mutable.
     response = send(HttpMethod.POST, "/perms/permissions", userDefinedPerm.encode(), context);
@@ -1091,7 +1091,7 @@ public class RestVerticleTest {
 
     String userId = UUID.randomUUID().toString();
     String id = UUID.randomUUID().toString();
-    String postPermUsersRequest = "{\"userId\": \""+ userId +"\",\"permissions\": [], \"id\" : \"" + id + "\"}";
+    String postPermUsersRequest = "{\"userId\": \"" + userId + "\",\"permissions\": [], \"id\" : \"" + id + "\"}";
 
     Response response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
     context.assertEquals(response.code, 201);
@@ -1141,7 +1141,7 @@ public class RestVerticleTest {
   }
 
   @Test
-    public void testPostTenantPermissionsMutual1(TestContext context) {
+  public void testPostTenantPermissionsMutual1(TestContext context) {
     String permName1 = "perm" + UUID.randomUUID().toString();
     String permName2 = "perm" + UUID.randomUUID().toString();
     List<OkapiPermission> perms = new LinkedList<>();
@@ -1204,13 +1204,13 @@ public class RestVerticleTest {
 
     // create a system-defined permission - this should be marked deprecated by the tenant init call.
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","moduleFoo")
+        .put("moduleId", "moduleFoo")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", permFoo)
                 .put("displayName", "Description Foo")
-                )
-            );
+            )
+        );
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
     context.assertEquals(201, response.code);
 
@@ -1224,37 +1224,34 @@ public class RestVerticleTest {
     context.assertEquals(201, response.code);
 
     // call tenant init
-    Async async = context.async();
-    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku",  null);
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     TenantAttributes ta = new TenantAttributes();
     ta.setModuleTo("mod-permissions-1.0.0");
     TestUtil.tenantOp(tenantClient, ta)
-      .onFailure(context::fail)
-      .onSuccess(v -> {
-        // check that the system-defined perm was marked deprecated
-        Response resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
-        JsonObject perm = resp.body.getJsonArray("permissions").getJsonObject(0);
-        logger.info(perm.encodePrettily());
-        context.assertTrue(perm.getBoolean("deprecated"));
-        context.assertTrue(perm.getString("displayName").startsWith("(deprecated)"));
+        .onComplete(context.asyncAssertSuccess(v -> {
+          // check that the system-defined perm was marked deprecated
+          Response resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
+          JsonObject perm = resp.body.getJsonArray("permissions").getJsonObject(0);
+          logger.info(perm.encodePrettily());
+          context.assertTrue(perm.getBoolean("deprecated"));
+          context.assertTrue(perm.getString("displayName").startsWith("(deprecated)"));
 
-        // check that the user-defined perm was not marked deprecated
-        resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permUserDef, null, context);
-        logger.info(resp.body.encodePrettily());
+          // check that the user-defined perm was not marked deprecated
+          resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permUserDef, null, context);
+          logger.info(resp.body.encodePrettily());
           context.assertFalse(
               resp.body.getJsonArray("permissions").getJsonObject(0).getBoolean("deprecated"));
 
-        resp = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
-        context.assertEquals(201, resp.code);
+          resp = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+          context.assertEquals(201, resp.code);
 
-        // check that the system-defined perm was unmarked deprecated
-        resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
-        perm = resp.body.getJsonArray("permissions").getJsonObject(0);
-        logger.info(perm.encodePrettily());
-        context.assertFalse(perm.getBoolean("deprecated"));
-        context.assertFalse(perm.getString("displayName").startsWith("(deprecated)"));
-        async.complete();
-      });
+          // check that the system-defined perm was unmarked deprecated
+          resp = send(HttpMethod.GET, "/perms/permissions?query=permissionName==" + permFoo, null, context);
+          perm = resp.body.getJsonArray("permissions").getJsonObject(0);
+          logger.info(perm.encodePrettily());
+          context.assertFalse(perm.getBoolean("deprecated"));
+          context.assertFalse(perm.getString("displayName").startsWith("(deprecated)"));
+        }));
   }
 
   @Test
@@ -1272,11 +1269,11 @@ public class RestVerticleTest {
     /* get it back */
     response = send(HttpMethod.GET, "/perms/permissions", null, context);
     context.assertEquals(response.code, 200);
-    context.assertTrue( response.body.getInteger("totalRecords") > 0);
+    context.assertTrue(response.body.getInteger("totalRecords") > 0);
 
-    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Da", null, context);
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3D%3Da", null, context);
     context.assertEquals(response.code, 200);
-    context.assertEquals(1, response.body.getInteger("totalRecords"));
+    context.assertEquals(1, response.body.getInteger("totalRecords"), response.body.encodePrettily());
 
     /**add a perm again 422 */
     response = send(HttpMethod.POST, "/perms/permissions", postPermRequest, context);
@@ -1289,7 +1286,7 @@ public class RestVerticleTest {
     context.assertEquals(response.code, 422);
 
     /**add a perm user */
-    String postPermUsersRequest = "{\"userId\": \""+ userUserId +"\",\"permissions\": " +
+    String postPermUsersRequest = "{\"userId\": \"" + userUserId + "\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";
     response = send(HttpMethod.POST, "/perms/users", postPermUsersRequest, context);
     context.assertEquals(response.code, 201);
@@ -1441,25 +1438,25 @@ public class RestVerticleTest {
       boolean allFound = false;
       boolean whizzFound = false;
       JsonArray perms = response.body.getJsonArray("permissionNames");
-      for(Object ob : perms) {
-        JsonObject perm = (JsonObject)ob;
-        if(perm.getString("permissionName").equals("foo.all#")) {
+      for (Object ob : perms) {
+        JsonObject perm = (JsonObject) ob;
+        if (perm.getString("permissionName").equals("foo.all#")) {
           JsonArray subs = perm.getJsonArray("subPermissions");
-          if(subs.contains("foo.whizz")) {
+          if (subs.contains("foo.whizz")) {
             allFound = true;
           }
-        } else if(perm.getString("permissionName").equals("foo.whizz")) {
+        } else if (perm.getString("permissionName").equals("foo.whizz")) {
           whizzFound = true;
         } else {
           continue;
         }
       }
-      if(!allFound) {
+      if (!allFound) {
         context.fail("Did not locate permission for 'foo.all#'");
-      } else if(!whizzFound) {
+      } else if (!whizzFound) {
         context.fail("Did not locate permission for 'foo.whizz'");
       }
-    } catch(Exception e) {
+    } catch (Exception e) {
       context.fail(e);
     }
 
@@ -1559,10 +1556,28 @@ public class RestVerticleTest {
   }
 
   private Response send(String tenant, HttpMethod method, String path, String content, TestContext context) {
+    return send(tenant, method, path, content, null, CONTENT_TYPE_JSON, context);
+  }
+
+  private Response send(
+      String tenant, HttpMethod method, String path, String content,
+      String okapiUserId, String contentType, TestContext context) {
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap()
+        .set(XOkapiHeaders.TENANT, tenant)
+        .set("Accept", CONTENT_TYPE_TEXT_JSON)
+        .set("Content-type", contentType);
+    if (okapiUserId != null) {
+      headers.add(XOkapiHeaders.USER_ID, okapiUserId);
+    }
+    return send(headers, method, path, content, context);
+  }
+
+  private Response send(
+      MultiMap headers, HttpMethod method, String path, String content, TestContext context) {
     try {
       CompletableFuture<Response> futureResponse = new CompletableFuture();
-      send(tenant, "http://localhost:" + port + path, context, method, content,
-          CONTENT_TYPE_JSON, new HTTPResponseHandler(futureResponse));
+      send("http://localhost:" + port + path, context, method, content,
+          headers, new HTTPResponseHandler(futureResponse));
       return futureResponse.get(10000, TimeUnit.SECONDS);
     } catch (Exception e) {
       context.fail(e);
@@ -1570,23 +1585,22 @@ public class RestVerticleTest {
     }
   }
 
-  private void send(String tenant, String url, TestContext context, HttpMethod method, String content,
-                    String contentType, Handler<HttpResponse<Buffer>> handler) {
+  private void send(
+      String url, TestContext context, HttpMethod method, String content,
+      MultiMap headers, Handler<HttpResponse<Buffer>> handler) {
     HttpRequest<Buffer> request = client.requestAbs(method, url)
-      .putHeader("x-okapi-tenant", tenant)
-      .putHeader("Accept", CONTENT_TYPE_TEXT_JSON)
-      .putHeader("Content-type", contentType);
+        .putHeaders(headers);
 
     if (content == null) {
       request.send(res -> {
-        if(res.failed()) {
+        if (res.failed()) {
           context.fail(res.cause());
         }
         handler.handle(res.result());
       });
     } else {
       request.sendBuffer(io.vertx.core.buffer.Buffer.buffer(content), res -> {
-        if(res.failed()) {
+        if (res.failed()) {
           context.fail(res.cause());
         }
         handler.handle(res.result());
@@ -1596,43 +1610,48 @@ public class RestVerticleTest {
         url + " with content '" + content + "'");
   }
 
+
   class HTTPResponseHandler implements Handler<HttpResponse<Buffer>> {
 
     CompletableFuture<Response> event;
-    public HTTPResponseHandler(CompletableFuture<Response> cf){
+
+    public HTTPResponseHandler(CompletableFuture<Response> cf) {
       event = cf;
     }
+
     @Override
     public void handle(HttpResponse hcr) {
+      try {
+        Response r = new Response();
+        r.code = hcr.statusCode();
         try {
-          Response r = new Response();
-          r.code = hcr.statusCode();
-          try {
-            if (CONTENT_TYPE_JSON.equals(hcr.getHeader("Content-Type"))) {
-              r.body = hcr.bodyAsJsonObject();
-            } else if (CONTENT_TYPE_TEXT.equals(hcr.getHeader("Content-Type"))) {
-              r.body = new JsonObject().put("text", hcr.bodyAsString());
-            } else {
-              r.body = null;
-            }
-          } catch (Exception e) {
-            logger.warn("Warning: '" + hcr.toString() + "' cannot be parsed as JSON");
-            r.body = new JsonObject(); //Or should it be null?
+          if (CONTENT_TYPE_JSON.equals(hcr.getHeader("Content-Type"))) {
+            r.body = hcr.bodyAsJsonObject();
+          } else if (CONTENT_TYPE_TEXT.equals(hcr.getHeader("Content-Type"))) {
+            r.body = new JsonObject().put("text", hcr.bodyAsString());
+          } else {
+            r.body = null;
           }
-          logger.debug("Got code '" + hcr.statusCode() + "' and body '" +
-              hcr.toString() + "'");
-          event.complete(r);
-        } catch(Exception e) {
-          event.completeExceptionally(e);
+        } catch (Exception e) {
+          logger.warn("Warning: '" + hcr.toString() + "' cannot be parsed as JSON");
+          r.body = new JsonObject(); //Or should it be null?
         }
+        logger.debug("Got code '" + hcr.statusCode() + "' and body '" +
+            hcr.toString() + "'");
+        event.complete(r);
+      } catch (Exception e) {
+        event.completeExceptionally(e);
+      }
     }
   }
 
   class HTTPNoBodyResponseHandler implements Handler<HttpClientResponse> {
     CompletableFuture<Response> event;
-    public HTTPNoBodyResponseHandler(CompletableFuture<Response> cf){
+
+    public HTTPNoBodyResponseHandler(CompletableFuture<Response> cf) {
       event = cf;
     }
+
     @Override
     public void handle(HttpClientResponse hcr) {
       Response r = new Response();
@@ -1689,7 +1708,8 @@ public class RestVerticleTest {
     return sendPermissionSet(context, permissionSet, 201);
   }
 
-  private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet,
+  private Future<WrappedResponse> sendPermissionSet(
+      TestContext context, JsonObject permissionSet,
       int expectedCode) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     headers.add("accept", CONTENT_TYPE_TEXT_JSON);
@@ -1699,7 +1719,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendInitialPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","dummy-1.0.0")
+        .put("moduleId", "dummy-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "dummy.read")
@@ -1745,7 +1765,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendPermissionSetWithCollision(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","collision-1.0.0")
+        .put("moduleId", "collision-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "dummy.read")
@@ -1803,7 +1823,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendOtherPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","silly")
+        .put("moduleId", "silly")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "silly.all")
@@ -1840,7 +1860,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendBadPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","bad")
+        .put("moduleId", "bad")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "bad.read")
@@ -1870,20 +1890,20 @@ public class RestVerticleTest {
   //need test to find bad.delete and verify that it is a dummy perm
   private Future<WrappedResponse> testBadPermissionSet(TestContext context) {
     return testPermissionExists(context, "bad.delete", true)
-      .compose(wr -> {
-        JsonObject json = new JsonObject(wr.getBody());
-        boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
-          .getBoolean("dummy");
-        if (!dummy) {
-          return Future.failedFuture("bad.delete is not flagged as a dummy perm");
-        }
-        return Future.succeededFuture(wr);
-      });
+        .compose(wr -> {
+          JsonObject json = new JsonObject(wr.getBody());
+          boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
+              .getBoolean("dummy");
+          if (!dummy) {
+            return Future.failedFuture("bad.delete is not flagged as a dummy perm");
+          }
+          return Future.succeededFuture(wr);
+        });
   }
 
   private Future<WrappedResponse> sendOtherBadPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","otherbad")
+        .put("moduleId", "otherbad")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "otherbad.read")
@@ -1920,7 +1940,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendAlienPermissionSet(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","alien")
+        .put("moduleId", "alien")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "alien.woo")
@@ -1946,12 +1966,12 @@ public class RestVerticleTest {
       JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
       if (!perm.getBoolean("deprecated")) {
         return Future.failedFuture(permName + " should be deprecated");
-        }
-        if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
-            return Future.failedFuture("the displayName of deprecated permission " + permName
-              + " was not updated to indicate it was deprecated");
-        }
-       return Future.succeededFuture(wr);
+      }
+      if (!perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
+        return Future.failedFuture("the displayName of deprecated permission " + permName
+            + " was not updated to indicate it was deprecated");
+      }
+      return Future.succeededFuture(wr);
     });
   }
 
@@ -1961,13 +1981,13 @@ public class RestVerticleTest {
       JsonObject perm = new JsonObject(wr.getBody()).getJsonArray("permissions").getJsonObject(0);
       if (perm.getBoolean("deprecated")) {
         return Future.failedFuture("dummy.update should no longer be deprecated");
-        }
-        if (perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
-          return Future.failedFuture(
-              "downgrade should have removed the deprecated prefix from the displayName of dummy.update");
+      }
+      if (perm.getString("displayName").startsWith(TenantPermsAPI.DEPRECATED_PREFIX)) {
+        return Future.failedFuture(
+            "downgrade should have removed the deprecated prefix from the displayName of dummy.update");
       }
       return Future.succeededFuture(wr);
-      });
+    });
   }
 
   // test permission rename
@@ -1990,7 +2010,8 @@ public class RestVerticleTest {
         });
   }
 
-  private Future<WrappedResponse> testGrantedTo(TestContext context, WrappedResponse perm,
+  private Future<WrappedResponse> testGrantedTo(
+      TestContext context, WrappedResponse perm,
       String permUserId) {
     if (!perm.getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("grantedTo")
         .contains(permUserId)) {
@@ -2005,10 +2026,10 @@ public class RestVerticleTest {
     return testPermissionExists(context, "dummy.all", true).compose(wr -> {
       JsonObject json = new JsonObject(wr.getBody());
       JsonArray subPermissions = json.getJsonArray("permissions").getJsonObject(0)
-        .getJsonArray("subPermissions");
+          .getJsonArray("subPermissions");
       if (subPermissions.size() != 4 || !subPermissions.contains("dummy.delete")) {
         return Future.failedFuture("dummy.all should contain three " + subPermissions.toString() +
-          " subPermissions including dummy.delete");
+            " subPermissions including dummy.delete");
       } else {
         return Future.succeededFuture(wr);
       }
@@ -2017,15 +2038,15 @@ public class RestVerticleTest {
 
   // test update for child permission
   private Future<WrappedResponse> testUpdateChildPermission(TestContext context) {
-    return testPermissionExists(context, "dummy.delete", true).compose( wr -> {
-        JsonObject json = new JsonObject(wr.getBody());
-        JsonArray childOf = json.getJsonArray("permissions").getJsonObject(0)
-            .getJsonArray("childOf");
-        if (childOf.size() != 1 || !childOf.contains("dummy.all")) {
-          return Future.failedFuture("dummy.delete should be child of dummy.all");
-        } else {
-          return Future.succeededFuture(wr);
-        }
+    return testPermissionExists(context, "dummy.delete", true).compose(wr -> {
+      JsonObject json = new JsonObject(wr.getBody());
+      JsonArray childOf = json.getJsonArray("permissions").getJsonObject(0)
+          .getJsonArray("childOf");
+      if (childOf.size() != 1 || !childOf.contains("dummy.all")) {
+        return Future.failedFuture("dummy.delete should be child of dummy.all");
+      } else {
+        return Future.succeededFuture(wr);
+      }
     });
   }
 
@@ -2035,7 +2056,7 @@ public class RestVerticleTest {
     return testPermissionExists(context, "alien.woo").compose(wr -> {
       JsonObject json = new JsonObject(wr.getBody());
       boolean dummy = json.getJsonArray("permissions").getJsonObject(0)
-        .getBoolean("dummy");
+          .getBoolean("dummy");
       if (dummy) {
         return Future.failedFuture("alien.woo is flagged as a dummy perm");
       } else {
@@ -2048,47 +2069,49 @@ public class RestVerticleTest {
     return postPermUser(context, userId, UUID.randomUUID().toString(), permsToAdd);
   }
 
-  private Future<WrappedResponse> postPermUser(TestContext context, String userId,
-    String permUserId, String[] permsToAdd) {
+  private Future<WrappedResponse> postPermUser(
+      TestContext context, String userId,
+      String permUserId, String[] permsToAdd) {
     JsonArray perms = new JsonArray();
     Arrays.stream(permsToAdd).forEach(perms::add);
     JsonObject newUser = new JsonObject()
-      .put("id", permUserId)
-      .put("userId", userId)
-      .put("permissions", perms);
+        .put("id", permUserId)
+        .put("userId", userId)
+        .put("permissions", perms);
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users",
-      HttpMethod.POST, null, newUser.encode(), 201);
+        HttpMethod.POST, null, newUser.encode(), 201);
   }
 
-  private Future<WrappedResponse> putPermUserBad(TestContext context,
-    String permsUserId) {
+  private Future<WrappedResponse> putPermUserBad(
+      TestContext context,
+      String permsUserId) {
     JsonObject modifiedUser = new JsonObject()
-      .put("id", permsUserId)
-      .put("userId", userId1)
-      .put("permissions", new JsonArray().add("spurious.all"));
+        .put("id", permsUserId)
+        .put("userId", userId1)
+        .put("permissions", new JsonArray().add("spurious.all"));
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/123",
-      HttpMethod.PUT, null, modifiedUser.encode(), 404);
+        HttpMethod.PUT, null, modifiedUser.encode(), 404);
   }
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId, String[] expected) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
-    return TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/users/" + permsUserId +
+    headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/" + permsUserId +
         "/permissions?expanded=true", HttpMethod.GET, headers, null, 200).compose(res -> {
       try {
-          JsonArray nameList = res.getJson().getJsonArray("permissionNames");
-          if(nameList == null) {
-            return Future.failedFuture("Could not find 'permissionNames' in " + res.getBody());
-          } else {
-            for (String exp : expected) {
-              if (!nameList.contains(exp)) {
-                return Future.failedFuture("Namelist does not contain '" + exp + "' " + "( "
+        JsonArray nameList = res.getJson().getJsonArray("permissionNames");
+        if (nameList == null) {
+          return Future.failedFuture("Could not find 'permissionNames' in " + res.getBody());
+        } else {
+          for (String exp : expected) {
+            if (!nameList.contains(exp)) {
+              return Future.failedFuture("Namelist does not contain '" + exp + "' " + "( "
                   + res.getBody() + " )");
-              }
             }
-            return Future.succeededFuture(res);
           }
-      } catch(Exception e) {
+          return Future.succeededFuture(res);
+        }
+      } catch (Exception e) {
         return Future.failedFuture(e);
       }
     });
@@ -2099,15 +2122,15 @@ public class RestVerticleTest {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String url;
     try {
-      headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
+      headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
       url = "http://localhost:" + port + "/perms/users?query=" +
           URLEncoder.encode("permissions=dummy*", "UTF-8");
-    } catch(Exception e) {
+    } catch (Exception e) {
       promise.fail(e);
       return promise.future();
     }
     TestUtil.doRequest(vertx, url, HttpMethod.GET, headers, null, 200).onComplete(res -> {
-      if(res.failed()) {
+      if (res.failed()) {
         promise.fail(res.cause());
       } else {
         try {
@@ -2127,7 +2150,7 @@ public class RestVerticleTest {
           } else {
             promise.complete(res.result());
           }
-        } catch(Exception e) {
+        } catch (Exception e) {
           promise.fail(e);
         }
       }
@@ -2141,14 +2164,16 @@ public class RestVerticleTest {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String url;
     try {
-      headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
-      url = "http://localhost:"+port+ "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", "UTF-8");
-    } catch(Exception e) {
+      headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
+      url = "http://localhost:" + port + "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", "UTF-8");
+    } catch (Exception e) {
       promise.fail(e);
       return promise.future();
     }
     TestUtil.doRequest(vertx, url, HttpMethod.GET, headers, null, 200).onComplete(res -> {
-      if(res.failed()) { promise.fail(res.cause()); } else {
+      if (res.failed()) {
+        promise.fail(res.cause());
+      } else {
         try {
           JsonArray permList = res.result().getJson().getJsonArray("permissions");
           boolean dummyReadFound = false;
@@ -2176,7 +2201,7 @@ public class RestVerticleTest {
           } else {
             promise.fail(new Exception("Resultset does not contain 'dummy.read' and 'dummy.write'"));
           }
-        } catch(Exception e) {
+        } catch (Exception e) {
           promise.fail(e);
         }
       }
@@ -2187,9 +2212,9 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> resolvePermNameConflict(TestContext context) {
     return TestUtil
-      .doRequest(vertx, "http://localhost:" + port + "/perms/permissions/" + userDefinedPermId,
-        HttpMethod.DELETE,
-        MultiMap.caseInsensitiveMultiMap().add(HttpHeaders.ACCEPT, "text/plain"), null, 204);
+        .doRequest(vertx, "http://localhost:" + port + "/perms/permissions/" + userDefinedPermId,
+            HttpMethod.DELETE,
+            MultiMap.caseInsensitiveMultiMap().add(HttpHeaders.ACCEPT, "text/plain"), null, 204);
   }
 
   private Future<WrappedResponse> testPostPermission(TestContext context) {
@@ -2215,13 +2240,13 @@ public class RestVerticleTest {
             )
         );
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions", HttpMethod.POST,
-      null, badPermission.encode(), 400);
+        null, badPermission.encode(), 400);
   }
 
   private Future<WrappedResponse> testPostNullPermissionName(TestContext context) {
     JsonObject nullPermission = new JsonObject()
         .put("displayName", "nullPermName");
-    return TestUtil.doRequest(vertx, "http://localhost:"+port+"/perms/permissions", HttpMethod.POST,
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions", HttpMethod.POST,
         null, nullPermission.encode(), 201).compose(Future::succeededFuture);
   }
 
@@ -2234,16 +2259,20 @@ public class RestVerticleTest {
         .put("username", "sschönberger")
         .put("permissions", new JsonArray());
     try {
-      headers.add("X-Okapi-Permissions", new JsonArray().add("perms.users.get").encode());
-      url2 = "http://localhost:"+port+"/perms/users" + URLEncoder.encode("sschönberger", "UTF-8");
-    } catch(Exception e) {
+      headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
+      url2 = "http://localhost:" + port + "/perms/users" + URLEncoder.encode("sschönberger", "UTF-8");
+    } catch (Exception e) {
       promise.fail(e);
       return promise.future();
     }
     TestUtil.doRequest(vertx, url, HttpMethod.POST, null, newUser.encode(), 201).onComplete(res -> {
-      if(res.failed()) { promise.fail(res.cause()); } else {
-        TestUtil.doRequest(vertx, url2, HttpMethod.GET, headers, null, 200 ).onComplete(res2 -> {
-          if(res2.failed()) { promise.fail(res2.cause()); } else {
+      if (res.failed()) {
+        promise.fail(res.cause());
+      } else {
+        TestUtil.doRequest(vertx, url2, HttpMethod.GET, headers, null, 200).onComplete(res2 -> {
+          if (res2.failed()) {
+            promise.fail(res2.cause());
+          } else {
             promise.complete(res2.result());
           }
         });
@@ -2252,18 +2281,19 @@ public class RestVerticleTest {
     return promise.future();
   }
 
-  private Future<WrappedResponse> testPermissionExists(TestContext context, String permissionName,
+  private Future<WrappedResponse> testPermissionExists(
+      TestContext context, String permissionName,
       boolean includeDummies) {
     String dummyFlag = includeDummies ? "includeDummy=true&" : "";
 
     String url = "http://localhost:" + port + "/perms/permissions?" + dummyFlag
         + "query=permissionName==" + permissionName;
     return TestUtil.doRequest(vertx, url, HttpMethod.GET, null, null, 200).compose(wr -> {
-        JsonObject json = new JsonObject(wr.getBody());
-        if(json.getInteger("totalRecords") < 1) {
-         return Future.failedFuture("permission " + permissionName + " not found");
-        } else {
-          return Future.succeededFuture(wr);
+      JsonObject json = new JsonObject(wr.getBody());
+      if (json.getInteger("totalRecords") < 1) {
+        return Future.failedFuture("permission " + permissionName + " not found");
+      } else {
+        return Future.succeededFuture(wr);
       }
     });
   }
@@ -2275,75 +2305,74 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testPermUserMetadata(TestContext context) {
     String url = "http://localhost:" + port + "/perms/users";
     JsonObject newUser = new JsonObject()
-      .put("userId", UUID.randomUUID().toString())
-      .put("permissions", new JsonArray());
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray());
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
-    headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
-    headers.add("X-Okapi-User-Id", fakeUserId);
+    headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("mcdonald", fakeUserId, "diku"));
     return TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newUser.encode(), 201).compose(
-      res -> {
-        try {
-          String newUserId = res.getJson().getString("id");
-          String url2 = String.format("http://localhost:%s/perms/users/%s", port,
-            newUserId);
-          return TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).compose(res2 -> {
-            try {
-              JsonObject metadata = res2.getJson().getJsonObject("metadata");
-              if (metadata == null) {
-                return Future
-                  .failedFuture("No metadata found in result: " + res2.getJson().encode());
-              } else {
-                return Future.succeededFuture(res2);
+        res -> {
+          try {
+            String newUserId = res.getJson().getString("id");
+            String url2 = String.format("http://localhost:%s/perms/users/%s", port,
+                newUserId);
+            return TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).compose(res2 -> {
+              try {
+                JsonObject metadata = res2.getJson().getJsonObject("metadata");
+                if (metadata == null) {
+                  return Future
+                      .failedFuture("No metadata found in result: " + res2.getJson().encode());
+                } else {
+                  return Future.succeededFuture(res2);
+                }
+              } catch (Exception e) {
+                return Future.failedFuture(e);
               }
-            } catch (Exception e) {
-              return Future.failedFuture(e);
-            }
-          });
-        } catch (Exception e) {
-          return Future.failedFuture(e);
-        }
-      });
+            });
+          } catch (Exception e) {
+            return Future.failedFuture(e);
+          }
+        });
   }
 
   private Future<WrappedResponse> testPermMetadata(TestContext context) {
     String url = "http://localhost:" + port + "/perms/permissions";
     JsonObject newPerm = new JsonObject()
-      .put("permissionName", "testmeta.test")
-      .put("description", "a permission to test metadata create")
-      .put("displayName", "testmeta test");
+        .put("permissionName", "testmeta.test")
+        .put("description", "a permission to test metadata create")
+        .put("displayName", "testmeta test");
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
-    headers.add("X-Okapi-Token", makeFakeJWT("mcdonald", fakeUserId, "diku"));
-    headers.add("X-Okapi-User-Id", fakeUserId);
+    headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("mcdonald", fakeUserId, "diku"));
+    headers.add(XOkapiHeaders.USER_ID, fakeUserId);
     return TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newPerm.encode(), 201).compose(
-      res -> {
-        try {
-          String newPermId = res.getJson().getString("id");
-          String url2 = String.format("http://localhost:%s/perms/permissions/%s", port,
-            newPermId);
-          return TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).compose(res2 -> {
-            try {
-              JsonObject metadata = res2.getJson().getJsonObject("metadata");
-              if (metadata == null) {
-                return Future
-                  .failedFuture("No metadata found in result: " + res2.getJson().encode());
-              } else {
-                return Future.succeededFuture(res2);
+        res -> {
+          try {
+            String newPermId = res.getJson().getString("id");
+            String url2 = String.format("http://localhost:%s/perms/permissions/%s", port,
+                newPermId);
+            return TestUtil.doRequest(vertx, url2, HttpMethod.GET, null, null, 200).compose(res2 -> {
+              try {
+                JsonObject metadata = res2.getJson().getJsonObject("metadata");
+                if (metadata == null) {
+                  return Future
+                      .failedFuture("No metadata found in result: " + res2.getJson().encode());
+                } else {
+                  return Future.succeededFuture(res2);
+                }
+              } catch (Exception e) {
+                return Future.failedFuture(e);
               }
-            } catch (Exception e) {
-              return Future.failedFuture(e);
-            }
-          });
-        } catch (Exception e) {
-          return Future.failedFuture(e);
-        }
-      });
+            });
+          } catch (Exception e) {
+            return Future.failedFuture(e);
+          }
+        });
   }
 
   private Future<WrappedResponse> sendNestedSubPerms(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","dummy")
+        .put("moduleId", "dummy")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "test.a")
@@ -2373,19 +2402,19 @@ public class RestVerticleTest {
   private Future<WrappedResponse> testNestedSubPermExpansion(TestContext context) {
     Set<String> perms = new HashSet<>(Arrays.asList("test.b", "test.c", "test.d"));
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
+    headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.a)",
         HttpMethod.GET, headers, null, 200).compose(res -> {
       try {
-          JsonArray subPermList = res.getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions");
-          Set<String> set = new HashSet<>();
-          subPermList.forEach(subPerm -> set.add(subPerm.toString()));
-          if (set.containsAll(perms) && set.size() == perms.size()) {
-            return Future.succeededFuture(res);
-          } else {
-            return Future.failedFuture("SubPermList does not match " + perms + " ( " + res.getBody() + " )");
-          }
+        JsonArray subPermList = res.getJson().getJsonArray("permissions").getJsonObject(0).getJsonArray("subPermissions");
+        Set<String> set = new HashSet<>();
+        subPermList.forEach(subPerm -> set.add(subPerm.toString()));
+        if (set.containsAll(perms) && set.size() == perms.size()) {
+          return Future.succeededFuture(res);
+        } else {
+          return Future.failedFuture("SubPermList does not match " + perms + " ( " + res.getBody() + " )");
+        }
       } catch (Exception e) {
         return Future.failedFuture(e);
       }
@@ -2394,7 +2423,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> sendNestedSubPermsWithException(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId","dummy")
+        .put("moduleId", "dummy")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "test.aa")
@@ -2411,7 +2440,7 @@ public class RestVerticleTest {
 
   private Future<WrappedResponse> testNestedSubPermExpansionWithExceptions(TestContext context) {
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-    headers.add("X-Okapi-Permissions", new JsonArray().add("perms.permissions.get").encode());
+    headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.permissions.get").encode());
     Promise<WrappedResponse> promise = Promise.promise();
     TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/permissions?expanded=true&query=(permissionName==test.aa)",
         HttpMethod.GET, headers, null, 200).onComplete(res -> {
@@ -2441,5 +2470,408 @@ public class RestVerticleTest {
     logger.debug("Generated fake JWT: " + ret);
     return ret;
   }
-}
 
+  @Test
+  public void testOperatingUserMutable(TestContext context) {
+    JsonObject permissionUpload = new JsonObject()
+        .put("permissionName", "toi.userperm.all")
+        .put("id", UUID.randomUUID().toString());
+    Response response = send(HttpMethod.POST, "/perms/permissions", permissionUpload.encode(), context);
+    context.assertEquals(201, response.code);
+
+    permissionUpload = new JsonObject()
+        .put("permissionName", "toi.userperm.readonly")
+        .put("id", UUID.randomUUID().toString());
+    response = send(HttpMethod.POST, "/perms/permissions", permissionUpload.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add("toi.userperm.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    // add a user with a permission owned by operator.
+    UUID id = UUID.randomUUID();
+    permsUser = new JsonObject()
+        .put("id", id.toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.userperm.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    response = send("diku", HttpMethod.PUT, "/perms/users/" + id, permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(200, response.code);
+
+    permsUser.put("permissions", new JsonArray().add("toi.userperm.all"));
+    response = send("diku", HttpMethod.PUT, "/perms/users/" + id, permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    // add a user with unknown operator
+    String unknownOperatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.userperm.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        unknownOperatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot update permissions: operating user " + unknownOperatorUserId + " not found",
+        response.body.getString("text"));
+
+    // add a user with a permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.userperm.all"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+
+    // add a user with a permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.userperm.readonly").add("toi.userperm.all"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    // add a user with a permission not owned by operator but modulePermissions that has mutable
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.userperm.all"));
+
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, operatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS,
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE).encode());
+
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // add a user with a permission not owned by operator but modulePermission that has immutable
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.userperm.all"));
+
+    headers.set(XOkapiHeaders.PERMISSIONS,
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE).encode());
+
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+  }
+
+  void setupModuleToi(TestContext context) {
+    JsonObject permissionSet = new JsonObject()
+        .put("moduleId", "mod-tou-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "toi.mod.get")
+            )
+            .add(new JsonObject()
+                .put("permissionName", "toi.mod.post")
+            )
+            .add(new JsonObject()
+                .put("permissionName", "toi.mod.readonly")
+                .put("subPermissions", new JsonArray()
+                    .add("toi.mod.get")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "toi.mod.write")
+                .put("subPermissions", new JsonArray()
+                    .add("toi.mod.post")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "toi.mod.all")
+                .put("subPermissions", new JsonArray()
+                    .add("toi.mod.readonly")
+                    .add("toi.mod.write")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "okapi.all")
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+  }
+
+  @Test
+  public void testOperatingUserOkapi(TestContext context) {
+    setupModuleToi(context);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray()
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE));
+
+    Response response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    JsonObject permissionNameObject = new JsonObject().put("permissionName", "okapi.all");
+    response = send("diku", HttpMethod.POST, "/perms/users/"
+            + permsUser.getString("id") + "/permissions", permissionNameObject.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add okapi permission okapi.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, operatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray()
+           .add(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+           .encode());
+    response = send(headers, HttpMethod.POST, "/perms/users/" + permsUser.getString("id") + "/permissions",
+        permissionNameObject.encode(), context);
+    context.assertEquals(200, response.code);
+
+    operatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray()
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            .add(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    permissionNameObject = new JsonObject().put("permissionName", "okapi.all");
+    response = send("diku", HttpMethod.POST, "/perms/users/"
+            + permsUser.getString("id") + "/permissions", permissionNameObject.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(200, response.code);
+  }
+
+  @Test
+  public void testOperatingUserImmutable(TestContext context) {
+    setupModuleToi(context);
+    String operatorUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add("toi.mod.readonly").add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE));
+
+    Response response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    // add a user with a permission owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    // add a user with sub permission owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.get"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    JsonObject permissionNameObject = new JsonObject().put("permissionName", "toi.mod.post");
+    response = send("diku", HttpMethod.POST, "/perms/users/"
+            + permsUser.getString("id") + "/permissions", permissionNameObject.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add immutable permission toi.mod.post not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    // add a user with sub permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.post"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add immutable permission toi.mod.post not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    // add a user with unknown operator
+    String unknownOperatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.readonly"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        unknownOperatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot update permissions: operating user "
+        + unknownOperatorUserId + " not found", response.body.getString("text"));
+
+    // add a user with a permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.all"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    // add a user with a permission not owned by operator.
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.readonly").add("toi.mod.all"));
+
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, operatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("okapi.all").encode());
+
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(403, response.code);
+    context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+
+    headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, operatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS,
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE).encode());
+
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String superUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", superUserId)
+        .put("permissions", new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE));
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.all"));
+
+    headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, superUserId);
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    UUID perm1Id = UUID.randomUUID();
+    JsonObject permissionUpload = new JsonObject()
+        .put("permissionName", "perm1")
+        .put("id", perm1Id.toString())
+        .put("subPermissions", new JsonArray()
+            .add("toi.mod.readonly"));
+    response = send("diku", HttpMethod.POST, "/perms/permissions", permissionUpload.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    // can add a mutable permission perm1 has perms.users.assign.mutable
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("perm1"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    // try to add unknown permission .. fails otherwise..
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("perm-unknown"));
+
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(422, response.code);
+  }
+
+  @Test
+  public void testOperatingPermsUpdate(TestContext context) {
+    setupModuleToi(context);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add("toi.mod.readonly").add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE));
+    Response response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        null, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    JsonObject permissionUpload = new JsonObject()
+        .put("permissionName", "perm2")
+        .put("id", UUID.randomUUID())
+        .put("subPermissions", new JsonArray()
+            .add("toi.mod.readonly"));
+    response = send("diku", HttpMethod.POST, "/perms/permissions", permissionUpload.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("perm2"));
+    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
+        operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(201, response.code);
+
+    response = send("diku", HttpMethod.PUT, "/perms/permissions/"
+            + permissionUpload.getString("id"), permissionUpload.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(200, response.code, response.body.encodePrettily());
+
+    permissionUpload.getJsonArray("subPermissions").add("toi.mod.all");
+    response = send("diku", HttpMethod.PUT, "/perms/permissions/"
+        + permissionUpload.getString("id"), permissionUpload.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    context.assertEquals(403, response.code, response.body.encodePrettily());
+    context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
+        + operatorUserId, response.body.getString("text"));
+  }
+}

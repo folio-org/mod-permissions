@@ -1,6 +1,6 @@
 #%RAML 1.0
 title: Permissions
-version: v1
+version: v5.4
 baseUri: http://github.com/org/folio/mod-auth/permissions
 
 documentation:
@@ -120,6 +120,11 @@ traits:
           body:
             text/plain:
               example: "Bad request"
+        403:
+          description: "Access Denied"
+          body:
+            text/plain:
+              example: "Access Denied"
         500:
           description: "Internal server error"
           body:
@@ -170,6 +175,11 @@ traits:
             body:
               text/plain:
                 example: "Bad request"
+          403:
+            description: "Access Denied"
+            body:
+              text/plain:
+                example: "Access Denied"
           404:
             description: "User not found"
             body:
@@ -259,6 +269,11 @@ traits:
               body:
                 text/plain:
                   example: "Bad request"
+            403:
+              description: "Access Denied"
+              body:
+                text/plain:
+                  example: "Access Denied"
             500:
               description: "Internal server error"
               body:
@@ -386,6 +401,11 @@ traits:
             body:
               text/plain:
                 example: "Bad request"
+          403:
+            description: "Access Denied"
+            body:
+              text/plain:
+                example: "Access Denied"
           404:
             description: "Permission not found"
             body:

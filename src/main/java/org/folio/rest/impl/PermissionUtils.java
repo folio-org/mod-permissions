@@ -28,14 +28,18 @@ public class PermissionUtils {
       + "set jsonb = jsonb_set(jsonb, '{permissions}', (jsonb->'permissions')::jsonb - $1) "
       + "where jsonb->'permissions' ? $2";
 
+  public static final String PERMS_USERS_ASSIGN_IMMUTABLE = "perms.users.assign.immutable";
+  public static final String PERMS_USERS_ASSIGN_MUTABLE = "perms.users.assign.mutable";
+  public static final String PERMS_USERS_ASSIGN_OKAPI = "perms.users.assign.okapi";
+
   private PermissionUtils() {
-    
+
   }
 
   /**
    * Returns true if the provided OkapiPermission and moduleName are equal to the values in the
    * provided Permission.
-   * 
+   *
    * @param okapiPerm a permission passed from Okapi
    * @param moduleName the module name to compare against permission's moduleName property
    * @param perm the Permission to compare against
@@ -45,10 +49,10 @@ public class PermissionUtils {
     String otherModuleName = perm == null ? null : perm.getModuleName();
     return equals(okapiPerm, perm) && Objects.equals(moduleName, otherModuleName);
   }
-  
+
   /**
    * Returns true if the values in okapiPerm equal to the values in perm, or if both okapiPerm and perm are null.
-   * 
+   *
    * @param okapiPerm a permission passed from Okapi
    * @param perm the Permission to compare against
    * @return true if equal, false otherwise
@@ -68,7 +72,7 @@ public class PermissionUtils {
 
   /**
    * Purge deprecated permissions for a given tenant.
-   * 
+   *
    * @param pgClient {@link PostgresClient}
    * @param tenantId tenant id
    * @return {@link Future} with {@link PermissionNameListObject}

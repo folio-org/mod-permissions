@@ -12,6 +12,7 @@ import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 
@@ -55,7 +56,7 @@ public class TestUtil {
     WebClient client = WebClient.create(vertx);
     HttpRequest<Buffer> request = client.requestAbs(method, url);
     //Add standard headers
-    request.putHeader("X-Okapi-Tenant", "diku")
+    request.putHeader(XOkapiHeaders.TENANT, "diku")
       .putHeader("content-type", CONTENT_TYPE_JSON)
       .putHeader("accept", CONTENT_TYPE_JSON);
     if (headers != null) {

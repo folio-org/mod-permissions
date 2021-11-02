@@ -2,7 +2,6 @@ package org.folio.rest.impl;
 
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
 import static org.folio.rest.impl.PermsAPI.getCQL;
-import static org.folio.rest.impl.PermsAPI.getIdCriterion;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
@@ -23,12 +22,12 @@ import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Permission;
-import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
@@ -79,7 +78,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<Permission> addMissingModuleContext(Permission perm, ModuleId moduleId,
       Context vertxContext, String tenantId) {
     Promise<Permission> promise = Promise.promise();
-perm.setModuleName(moduleId.getProduct());
+    perm.setModuleName(moduleId.getProduct());
     SemVer semver = moduleId.getSemVer();
     perm.setModuleVersion(semver != null ? semver.toString() : null);
 
@@ -99,6 +98,7 @@ perm.setModuleName(moduleId.getProduct());
 
   private Future<List<Permission>> getPermsForModule(ModuleId moduleId, List<OkapiPermission> perms,
       Context vertxContext, String tenantId) {
+
     return getPermsByModule(moduleId, vertxContext, tenantId)
         .compose(existing -> {
           if (!existing.isEmpty()) {
@@ -108,7 +108,7 @@ perm.setModuleName(moduleId.getProduct());
           // A) the first time enabling this module, or
           // B) the permissions exist but don't yet have the moduleName field
           List<Permission> ret = new ArrayList<>();
-          List<Future> futures = new ArrayList<>(perms.size());
+          List<Future<Void>> futures = new ArrayList<>(perms.size());
           perms.forEach(perm ->
               futures.add(getModulePermByName(perm.getPermissionName(), vertxContext, tenantId)
                   .compose(dbPerm -> {
@@ -124,7 +124,8 @@ perm.setModuleName(moduleId.getProduct());
                         (Boolean.TRUE.equals(dbPerm.getDeprecated())
                             || dbPerm.getModuleName() == null)) {
                       return addMissingModuleContext(dbPerm, moduleId, vertxContext, tenantId)
-                          .onSuccess(ret::add);
+                          .onSuccess(ret::add)
+                          .mapEmpty();
                     } else {
                       // Edge case of (A) where a permission with the same name already exists.
                       // We need to fail here as there isn't anything we can do.
@@ -135,7 +136,7 @@ perm.setModuleName(moduleId.getProduct());
                       return Future.failedFuture(msg);
                     }
                   })));
-          return CompositeFuture.all(futures).map(ret);
+          return GenericCompositeFuture.all(futures).map(ret);
         })
         .onFailure(t -> logger.error(t.getMessage(), t));
   }
@@ -398,16 +399,16 @@ perm.setModuleName(moduleId.getProduct());
       Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
     return savePermList(moduleId, new ArrayList<>(permList.keySet()), vertxContext, tenantId)
         .compose(v -> {
-          List<Future> futures = new ArrayList<>(permList.size());
+          List<Future<Void>> futures = new ArrayList<>(permList.size());
           PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
           permList.keySet().forEach(okapiPerm -> {
             String newPermName = okapiPerm.getPermissionName();
             permList.get(okapiPerm).forEach(replaced -> {
               // add new permission name to all relevant sub permissions
               String oldPermName = replaced.getPermissionName();
-                futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(connection, 
+                futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(connection,
                     String.format(ADD_PERM_TO_SUB_PERMS, tenantId),
-                    Tuple.of(new JsonArray().add(newPermName), oldPermName, newPermName), p)));
+                    Tuple.of(new JsonArray().add(newPermName), oldPermName, newPermName), p)).mapEmpty());
 
               replaced.getGrantedTo().forEach(permUser -> {
                 String permissionName = okapiPerm.getPermissionName();
@@ -418,7 +419,7 @@ perm.setModuleName(moduleId.getProduct());
               });
             });
           });
-          return CompositeFuture.all(futures);
+          return GenericCompositeFuture.all(futures);
         })
         .compose(cf -> softDeletePermList(connection,
             permList.values()
@@ -498,49 +499,25 @@ perm.setModuleName(moduleId.getProduct());
 
   private Future<Void> addPermissionToUser(AsyncResult<SQLConnection> connection, String userId,
       String permissionName, Context vertxContext, String tenantId) {
-    Promise<Void> promise = Promise.promise();
 
-    Criterion useridCrit = getIdCriterion(userId);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    pgClient.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, useridCrit, true, false, getReply -> {
-      if (getReply.failed()) {
-        String errStr = "Error checking for user: " + getReply.cause().getMessage();
-        logger.error(errStr, getReply.cause());
-        promise.fail(getReply.cause());
-        return;
+    return PermsAPI.lookupPermsUsersById(userId, "id", tenantId, vertxContext).compose(user -> {
+      if (user == null) {
+        return Future.failedFuture("User with id " + userId + " does not exist");
       }
-      List<PermissionUser> userList = getReply.result().getResults();
-      if (userList.isEmpty()) {
-        promise.fail("User with id " + userId + " does not exist");
-        return;
-      }
-      // now we can actually add it
-      PermissionUser user = userList.get(0);
       String actualId = user.getId();
       if (user.getPermissions().contains(permissionName)) {
-        promise.fail("User with id " + actualId + " already has permission " + permissionName);
-        return;
+        return Future.failedFuture("User with id " + actualId + " already has permission " + permissionName);
       }
       try {
         user.getPermissions().add(permissionName);
-
-        String query = String.format("id==%s", actualId);
-        CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
-        pgClient.update(connection, TABLE_NAME_PERMSUSERS, user, cqlFilter, true, putReply -> {
-          if (putReply.failed()) {
-            promise.fail(putReply.cause());
-            logger.error(putReply.cause().getMessage(), putReply.cause());
-            return;
-          }
-          promise.complete();
-        });
+        return pgClient.withConn(connection, con -> con.update(TABLE_NAME_PERMSUSERS, user, actualId))
+            .mapEmpty();
       } catch (Exception e) {
         logger.error(e.getMessage(), e);
-        promise.fail(e);
+        return Future.failedFuture(e);
       }
     });
-
-    return promise.future();
   }
 
   private Future<Boolean> checkAnyPermsHaveAllSubs(List<OkapiPermission> permList, Context vertxContext,
@@ -778,7 +755,7 @@ perm.setModuleName(moduleId.getProduct());
                         }
                         PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
                             new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                            vertxContext, tenantId, logger).onComplete(updateSubsRes -> {
+                            null, vertxContext, tenantId).onComplete(updateSubsRes -> {
                           if (updateSubsRes.failed()) {
                             pgClient.rollbackTx(connection, rollback -> {
                               logger.debug(String.format("Error updating permission metadata: %s",

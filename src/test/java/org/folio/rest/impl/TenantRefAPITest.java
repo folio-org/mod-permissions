@@ -19,7 +19,6 @@ import org.junit.runner.RunWith;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.web.client.WebClient;
@@ -59,11 +58,8 @@ public class TenantRefAPITest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    Async async = context.async();
     client.close();
-    vertx.close(context.asyncAssertSuccess( res-> {
-      async.complete();
-    }));
+    vertx.close(context.asyncAssertSuccess());
   }
 
   @Test
@@ -73,11 +69,9 @@ public class TenantRefAPITest {
     TenantRefAPI api = new TenantRefAPI();
     PostgresClient postgresClient = PostgresClient.getInstance(vertx, tenantId);
 
-    Async async = context.async();
     postgresClient.startTx(connection -> {
       api.getSystemPerms(connection, tenantId, vertx.getOrCreateContext())
-          .onSuccess(perms -> context.fail("Expected a failure"))
-          .onFailure(t -> async.complete());
+          .onComplete(context.asyncAssertFailure());
     });
   }
 
@@ -88,11 +82,9 @@ public class TenantRefAPITest {
     TenantRefAPI api = new TenantRefAPI();
     PostgresClient postgresClient = PostgresClient.getInstance(vertx, tenantId);
 
-    Async async = context.async();
     postgresClient.startTx(connection -> {
       api.getSystemPerms(connection, tenantId, null)
-          .onSuccess(perms -> context.fail("Expected a failure"))
-          .onFailure(t -> async.complete());
+          .onComplete(context.asyncAssertFailure());
     });
   }
 }
