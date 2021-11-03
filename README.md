@@ -38,6 +38,8 @@ includes it for the request.
 On top of that, and to prevent users from getting arbitrary permissions,
 there are further restrictions on permissions that can be assigned to a user.
 
+This was introduced in mod-permissions version 6.0.0.
+
 The restrictions work as follows:
 
 1. If the user of the API (operating user) already owns the permission to be granted
