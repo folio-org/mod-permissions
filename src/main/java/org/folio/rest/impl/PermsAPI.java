@@ -896,11 +896,9 @@ public class PermsAPI implements Perms {
     }
   }
 
-  protected static Future<Boolean> checkPermissionExists(Conn connection,
-      String permissionName, Context vertxContext, String tenantId) {
+  protected static Future<Boolean> checkPermissionExists(Conn connection, String permissionName) {
 
     Logger logger = LogManager.getLogger(PermsAPI.class);
-    Promise<Boolean> promise = Promise.promise();
     try {
       Criteria nameCrit = new Criteria();
       nameCrit.addField(PERMISSION_NAME_FIELD);
@@ -910,9 +908,8 @@ public class PermsAPI implements Perms {
               .map(res -> !res.getResults().isEmpty());
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
-      promise.fail(e);
+      return Future.failedFuture(e);
     }
-    return promise.future();
   }
 
   protected static Future<Boolean> checkPermissionExists(AsyncResult<SQLConnection> connection,
@@ -992,8 +989,7 @@ public class PermsAPI implements Perms {
     Future<Boolean> checkPermissionExistsFuture;
     String permissionName = (String) permissionListCopy.get(0);
     permissionListCopy.remove(0); //pop
-    checkPermissionExistsFuture = checkPermissionExists(connection,
-        permissionName, vertxContext, tenantId);
+    checkPermissionExistsFuture = checkPermissionExists(connection, permissionName);
     checkPermissionExistsFuture.onComplete(res -> {
       if (res.failed()) {
         promise.fail(res.cause());
@@ -1368,7 +1364,7 @@ public class PermsAPI implements Perms {
                   Operation.DELETE);
               fuvList.add(fuv);
             }
-            return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
+            return modifyPermissionArrayFieldList(connection, fuvList);
           });
         });
   }
@@ -1395,6 +1391,10 @@ public class PermsAPI implements Perms {
         });
   }
 
+  /* If we are modifying (or creating) the subpermissions array of a permission
+  object, check for any changes and for any newly declared subpermissions, add
+  the permission name to the the 'childOf' field for those permisisons
+   */
   protected static Future<Void> updateSubPermissions(Conn connection,
       String permissionName, JsonArray originalList, JsonArray newList, Map<String,String> okapiHeaders,
       Context vertxContext, String tenantId) {
@@ -1442,139 +1442,15 @@ public class PermsAPI implements Perms {
                   Operation.DELETE);
               fuvList.add(fuv);
             }
-            return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
+            return modifyPermissionArrayFieldList(connection, fuvList);
           });
     } catch (Exception e) {
       return Future.failedFuture(e);
     }
-  }
-
-  /* If we are modifying (or creating) the subpermissions array of a permission
-  object, check for any changes and for any newly declared subpermissions, add
-  the permission name to the the 'childOf' field for those permisisons
-   */
-  protected static Future<Void> updateSubPermissions(AsyncResult<SQLConnection> connection,
-      String permissionName, JsonArray originalList, JsonArray newList, Map<String,String> okapiHeaders,
-      Context vertxContext, String tenantId) {
-
-    try {
-      JsonArray missingFromOriginalList = new JsonArray();
-      JsonArray missingFromNewList = new JsonArray();
-      for (Object ob : newList) {
-        if (!originalList.contains(ob)) {
-          missingFromOriginalList.add(ob);
-        }
-      }
-      for (Object ob : originalList) {
-        if (!newList.contains(ob)) {
-          missingFromNewList.add(ob);
-        }
-      }
-      return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
-          .compose(x -> {
-            Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
-                connection, missingFromOriginalList.getList(), vertxContext,
-                tenantId, null);
-            return checkExistsFuture;
-          })
-          .compose(res -> {
-            if (!res.isEmpty()) {
-              return Future.failedFuture(new InvalidPermissionsException(null, null, String.format(
-                  "Attempting to add non-existent permissions %s as sub-permissions to permission %s",
-                  String.join(",", res), permissionName)));
-            }
-            List<FieldUpdateValues> fuvList = new ArrayList<>();
-            for (Object childPermissionNameOb : missingFromOriginalList) {
-              FieldUpdateValues fuv = new FieldUpdateValues(
-                  permissionName,
-                  (String) childPermissionNameOb,
-                  PermissionField.CHILD_OF,
-                  Operation.ADD);
-              fuvList.add(fuv);
-            }
-            for (Object childPermissionNameOb : missingFromNewList) {
-              FieldUpdateValues fuv = new FieldUpdateValues(
-                  permissionName,
-                  (String) childPermissionNameOb,
-                  PermissionField.CHILD_OF,
-                  Operation.DELETE);
-              fuvList.add(fuv);
-            }
-            return modifyPermissionArrayFieldList(connection, fuvList, vertxContext, tenantId);
-          });
-    } catch (Exception e) {
-      return Future.failedFuture(e);
-    }
-  }
-
-  private static Future<Void> modifyPermissionArrayField(AsyncResult<SQLConnection> connection, String fieldValue,
-                                                         String permissionName, PermissionField field, Operation operation,
-                                                         Context vertxContext, String tenantId) {
-    Promise<Void> promise = Promise.promise();
-    try {
-      Criteria nameCrit = new Criteria()
-          .addField(PERMISSION_NAME_FIELD)
-          .setOperation("=")
-          .setVal(permissionName);
-      Criterion criterion = new Criterion(nameCrit);
-      CQLWrapper cqlFilter = new CQLWrapper(criterion);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          connection, TABLE_NAME_PERMS,
-          Permission.class, criterion, true, false,
-          getReply -> {
-            if (getReply.failed()) {
-              promise.fail(getReply.cause());
-              return;
-            }
-            List<Permission> permList = getReply.result().getResults();
-            if (permList.size() != 1) {
-              promise.fail("Expected one result for " + PERMISSION_NAME_FIELD
-                  + ": '" + permissionName + "', got " + permList.size()
-                  + " results");
-              return;
-            }
-            Permission permission = permList.get(0);
-            List valueList;
-            if (field == PermissionField.CHILD_OF) {
-              valueList = permission.getChildOf();
-            } else {
-              valueList = permission.getGrantedTo();
-            }
-            logger.info("Performing {} operation on {} of permission {} with value {}",
-                operation, field, permissionName, fieldValue);
-            boolean modified = false;
-            if (operation == Operation.ADD) {
-              if (!valueList.contains(fieldValue)) {
-                valueList.add(fieldValue);
-                modified = true;
-              }
-            } else {
-              if (valueList.contains(fieldValue)) {
-                valueList.remove(fieldValue);
-                modified = true;
-              }
-            }
-            if (modified) {
-              try {
-                PostgresClient.getInstance(vertxContext.owner(), tenantId).update(
-                    connection, TABLE_NAME_PERMS, permission, cqlFilter,
-                    true, updateReply -> promise.handle(updateReply.mapEmpty()));
-              } catch (Exception e) {
-                promise.fail(e);
-              }
-            } else {
-              promise.complete(); //Nothing more to do, no modification to list
-            }
-          });
-    } catch (Exception e) {
-      promise.fail(e);
-    }
-    return promise.future();
   }
 
   private static Future<Void> modifyPermissionArrayField(Conn connection, String fieldValue,
-      String permissionName, PermissionField field, Operation operation,
-      Context vertxContext, String tenantId) {
+      String permissionName, PermissionField field, Operation operation) {
     try {
       Criteria nameCrit = new Criteria()
           .addField(PERMISSION_NAME_FIELD)
@@ -1622,28 +1498,14 @@ public class PermsAPI implements Perms {
     }
   }
 
-  private static Future<Void> modifyPermissionArrayFieldList(AsyncResult<SQLConnection> connection,
-      List<FieldUpdateValues> fuvList, Context vertxContext, String tenantId) {
-
-    Future<Void> future = Future.succeededFuture();
-    for (FieldUpdateValues fuv : fuvList) {
-      future = future.compose(x ->
-        modifyPermissionArrayField(connection,
-            fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
-            fuv.getOperation(), vertxContext, tenantId));
-    }
-    return future;
-  }
-
-  private static Future<Void> modifyPermissionArrayFieldList(Conn connection,
-      List<FieldUpdateValues> fuvList, Context vertxContext, String tenantId) {
+  private static Future<Void> modifyPermissionArrayFieldList(Conn connection, List<FieldUpdateValues> fuvList) {
 
     Future<Void> future = Future.succeededFuture();
     for (FieldUpdateValues fuv : fuvList) {
       future = future.compose(x ->
           modifyPermissionArrayField(connection,
               fuv.getFieldValue(), fuv.getPermissionName(), fuv.getField(),
-              fuv.getOperation(), vertxContext, tenantId));
+              fuv.getOperation()));
     }
     return future;
   }
