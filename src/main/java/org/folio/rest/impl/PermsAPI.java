@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -559,27 +560,25 @@ public class PermsAPI implements Perms {
                   "Permission with name " + entity.getPermissionName() + " already exists");
             }
             //Do the actual POST of the new permission
-            return postgresClient.withTrans(connection -> {
-              logger.debug("Attempting to save new Permission");
-              if (entity.getVisible() == null) {
-                entity.setVisible(true);
-              }
-              if (entity.getId() == null) {
-                entity.setId(UUID.randomUUID().toString());
-              }
-              String newId = entity.getId();
-              if (entity.getPermissionName() == null) {
-                entity.setPermissionName(newId);
-              }
-              entity.setMutable(true); //MODPERMS-126
-              Permission realPerm = getRealPermObject(entity);
-              realPerm.setDummy(false);
-              return connection.save(TABLE_NAME_PERMS, newId, realPerm).compose(res ->
-                  updateSubPermissions(connection, entity.getPermissionName(), new JsonArray(),
-                      new JsonArray(entity.getSubPermissions()), null, vertxContext,
-                      tenantId)
-              );
-            });
+            logger.debug("Attempting to save new Permission");
+            if (entity.getVisible() == null) {
+              entity.setVisible(true);
+            }
+            if (entity.getId() == null) {
+              entity.setId(UUID.randomUUID().toString());
+            }
+            String newId = entity.getId();
+            if (entity.getPermissionName() == null) {
+              entity.setPermissionName(newId);
+            }
+            entity.setMutable(true); //MODPERMS-126
+            Permission realPerm = getRealPermObject(entity);
+            realPerm.setDummy(false);
+            return postgresClient.withTrans(connection ->
+                connection.save(TABLE_NAME_PERMS, newId, realPerm)
+                    .compose(res -> updateSubPermissions(connection, entity.getPermissionName(),
+                        new JsonArray(), new JsonArray(entity.getSubPermissions()), null,
+                        vertxContext,  tenantId)));
           }).onFailure(cause -> {
             if (cause instanceof NotFoundException) {
               asyncResultHandler.handle(Future.succeededFuture(
@@ -627,22 +626,12 @@ public class PermsAPI implements Perms {
       }
       Criterion criterion = getIdCriterion(id);
       CQLWrapper cqlFilter = new CQLWrapper(criterion);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMS, Permission.class, criterion,
-          true, false, getReply -> {
-            if (getReply.failed()) {
-              String message = getReply.cause().getMessage();
-              logger.error(message, getReply.cause());
-              asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(message)));
-              return;
-            }
-            List<Permission> permList = getReply.result().getResults();
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+      pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion,true)
+          .compose(result -> {
+            List<Permission> permList = result.getResults();
             if (permList.isEmpty()) {
-              String message = "No permission found to match that id";
-              asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsPermissionsByIdResponse.respond404WithTextPlain(message)));
-              return;
+              throw new NotFoundException("No permission found to match that id");
             }
             Permission perm = permList.get(0);
             entity.setMutable(true); // MODPERMS-126
@@ -651,71 +640,42 @@ public class PermsAPI implements Perms {
             updatePerm.setChildOf(perm.getChildOf());
             updatePerm.setGrantedTo(perm.getGrantedTo());
             if (!perm.getPermissionName().equals(entity.getPermissionName())) {
-              asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(
-                      "permission name property cannot change")));
-              return;
+              throw new RuntimeException("permission name property cannot change");
             }
             if (Boolean.FALSE.equals(perm.getMutable())) {
+              throw new RuntimeException("cannot change an immutable permission");
+            }
+            updatePerm.setDummy(false);
+            return pgClient.withTrans(connection ->
+                connection.update(TABLE_NAME_PERMS, updatePerm, cqlFilter, true)
+                    .compose(res ->
+                        updateSubPermissions(connection, entity.getPermissionName(),
+                            new JsonArray(perm.getSubPermissions()),
+                            new JsonArray(entity.getSubPermissions()),
+                            okapiHeaders, vertxContext, tenantId)));
+          })
+          .onFailure(cause -> {
+            if (cause instanceof InvalidPermissionsException) {
               asyncResultHandler.handle(Future.succeededFuture(
-                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(
-                      "cannot change an immutable permission")));
-              return;
+                  PutPermsPermissionsByIdResponse.respond422WithApplicationJson(
+                      ValidationHelper.createValidationErrorMessage(
+                          ID_FIELD, entity.getId(),
+                          UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
+            } else if (cause instanceof OperatingUserException) {
+              asyncResultHandler.handle(Future.succeededFuture(
+                  PutPermsPermissionsByIdResponse.respond403WithTextPlain(cause.getMessage())));
+            } else if (cause instanceof NotFoundException) {
+              asyncResultHandler.handle(Future.succeededFuture(
+                  PutPermsPermissionsByIdResponse.respond404WithTextPlain(cause.getMessage())));
+            } else {
+              asyncResultHandler.handle(Future.succeededFuture(
+                  PutPermsPermissionsByIdResponse.respond400WithTextPlain(cause.getMessage())));
             }
-            try {
-              updatePerm.setDummy(false);
-              PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-              pgClient.startTx(connection -> {
-                pgClient.update(connection, TABLE_NAME_PERMS, updatePerm,
-                    cqlFilter, true, putReply -> {
-                      if (putReply.failed()) {
-                        pgClient.rollbackTx(connection, done -> {
-                          logger.error("Error with put: {}", putReply.cause().getMessage(), putReply.cause());
-                          asyncResultHandler.handle(Future.succeededFuture(
-                              PutPermsPermissionsByIdResponse.respond500WithTextPlain(
-                                  putReply.cause().getMessage())));
-                        });
-                        return;
-                      }
-                      updateSubPermissions(connection, entity.getPermissionName(),
-                          new JsonArray(perm.getSubPermissions()),
-                          new JsonArray(entity.getSubPermissions()),
-                          okapiHeaders, vertxContext, tenantId)
-                          .onFailure(cause ->
-                              pgClient.rollbackTx(connection, done -> {
-                                if (cause instanceof InvalidPermissionsException) {
-                                  asyncResultHandler.handle(Future.succeededFuture(
-                                      PutPermsPermissionsByIdResponse.respond422WithApplicationJson(
-                                          ValidationHelper.createValidationErrorMessage(
-                                              ID_FIELD, entity.getId(),
-                                              UNABLE_TO_UPDATE_DERIVED_FIELDS + cause.getMessage()))));
-                                } else if (cause instanceof OperatingUserException) {
-                                  asyncResultHandler.handle(Future.succeededFuture(
-                                      PutPermsPermissionsByIdResponse.respond403WithTextPlain(
-                                          cause.getMessage())));
-                                } else {
-                                  String errStr = "Error with derived field update: "
-                                      + cause.getMessage();
-                                  logger.error(errStr, cause);
-                                  asyncResultHandler.handle(Future.succeededFuture(
-                                      PutPermsPermissionsByIdResponse.respond500WithTextPlain(errStr)));
-                                }
-                              }))
-                          .onSuccess(updateSubPermsRes ->
-                              //close connection
-                              pgClient.endTx(connection, done -> {
-                                asyncResultHandler.handle(Future.succeededFuture(
-                                    PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)));
-                              })
-                          );
-                    });
-              });
-            } catch (Exception e) {
-              logger.error(e.getMessage(), e);
-              asyncResultHandler.handle(Future.succeededFuture(PutPermsPermissionsByIdResponse
-                  .respond500WithTextPlain(e.getMessage())));
-            }
-          });
+          })
+          .onSuccess(res ->
+            asyncResultHandler.handle(Future.succeededFuture(
+                PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)))
+          );
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(Future.succeededFuture(
