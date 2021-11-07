@@ -29,6 +29,7 @@ import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.resource.Tenantpermissions;
+import org.folio.rest.persist.Conn;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.Criteria.Criteria;
@@ -651,7 +652,6 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private Future<Void> savePerm(ModuleId moduleId, OkapiPermission perm, String tenantId,
       Context vertxContext) {
-    Promise<Void> promise = Promise.promise();
     if (perm.getPermissionName() == null) {
       return Future.succeededFuture();
     }
@@ -680,113 +680,59 @@ public class TenantPermsAPI implements Tenantpermissions {
       //If already exists, we don't have to do anything
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
           tenantId);
-      pgClient.startTx(connection -> pgClient.get(connection, TABLE_NAME_PERMS, Permission.class,
-          new Criterion(nameCrit), true, false, getReply -> {
-            if (getReply.failed()) {
-              //rollback the transaction
-              pgClient.rollbackTx(connection, rollback -> {
-                logger.debug(String.format("Error querying permission: %s",
-                    getReply.cause().getLocalizedMessage()));
-                promise.fail(getReply.cause());
-              });
-              return;
-            }
-            List<Permission> returnList = getReply.result().getResults();
-            Permission foundPerm = null;
-            if (!returnList.isEmpty()) {
-              foundPerm = returnList.get(0);
-              if (!Boolean.FALSE.equals(foundPerm.getMutable())) {
-                pgClient.rollbackTx(connection, rollback ->
-                  promise.fail("PermissionName collision with user-defined permission: " + perm.getPermissionName()));
-                return;
-              }
-              // leverage dummy permission to handle permission update
-              if (Boolean.TRUE.equals(foundPerm.getDeprecated())
-                  || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
-                  || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
-                  || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
-                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
-                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getModuleVersion()))) {
-                foundPerm.setDummy(true);
-              }
-            }
-            if (foundPerm != null && !foundPerm.getDummy()) {
-              //If it isn't a dummy permission, we won't replace it
-              pgClient.endTx(connection, done -> promise.complete());
-            } else {
-              List<Object> grantedTo = foundPerm == null ? null : foundPerm.getGrantedTo();
-              Future<Void> deleteExistingFuture;
-              if (foundPerm == null) {
-                deleteExistingFuture = Future.succeededFuture();
-              } else {
-                deleteExistingFuture = deletePerm(connection, perm.getPermissionName(),
-                    vertxContext, tenantId);
-              }
-              deleteExistingFuture.onComplete(deleteExistingRes -> {
-                if (deleteExistingRes.failed()) {
-                  pgClient.rollbackTx(connection, rollback -> {
-                    promise.fail(deleteExistingRes.cause());
-                  });
-                  return;
+      return pgClient.withTrans(connection ->
+          connection.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true)
+              .compose(result -> {
+                List<Permission> returnList = result.getResults();
+                Permission foundPerm = null;
+                if (!returnList.isEmpty()) {
+                  foundPerm = returnList.get(0);
+                  if (!Boolean.FALSE.equals(foundPerm.getMutable())) {
+                    throw new RuntimeException("PermissionName collision with user-defined permission: " + perm.getPermissionName());
+                  }
+                  // leverage dummy permission to handle permission update
+                  if (Boolean.TRUE.equals(foundPerm.getDeprecated())
+                      || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
+                      || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
+                      || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
+                      || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
+                      || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getModuleVersion()))) {
+                    foundPerm.setDummy(true);
+                  }
                 }
-                String newId = UUID.randomUUID().toString();
-                permission.setId(newId);
-                permission.setDummy(false);
-
-                // preserve grantedTo if applicable.
-                if (grantedTo != null && !grantedTo.isEmpty()) {
-                  permission.setGrantedTo(grantedTo);
-                }
-                if (perm.getVisible() == null) {
-                  permission.setVisible(false);
+                if (foundPerm != null && !foundPerm.getDummy()) {
+                  //If it isn't a dummy permission, we won't replace it
+                  return Future.succeededFuture();
                 } else {
-                  permission.setVisible(perm.getVisible());
-                }
-                try {
-                  pgClient.save(connection, TABLE_NAME_PERMS, newId, permission,
-                      postReply -> {
-                        if (postReply.failed()) {
-                          pgClient.rollbackTx(connection, rollback -> {
-                            logger.debug(String.format("Error saving permission: %s",
-                                postReply.cause().getLocalizedMessage()));
-                            promise.fail(postReply.cause());
-                          });
-                          return;
-                        }
-                        PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
-                            new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                            null, vertxContext, tenantId).onComplete(updateSubsRes -> {
-                          if (updateSubsRes.failed()) {
-                            pgClient.rollbackTx(connection, rollback -> {
-                              logger.debug(String.format("Error updating permission metadata: %s",
-                                  updateSubsRes.cause().getLocalizedMessage()));
-                              promise.fail(updateSubsRes.cause());
-                            });
-                            return;
-                          }
-                          pgClient.endTx(connection, done -> {
-                            logger.info(String.format("Saved perm %s",
-                                perm.getPermissionName()));
-                            promise.complete();
-                          });
+                  List<Object> grantedTo = foundPerm == null ? null : foundPerm.getGrantedTo();
+                  Future<Void> deleteExistingFuture = foundPerm == null
+                      ? Future.succeededFuture()
+                      : deletePerm(connection, perm.getPermissionName());
+                  return deleteExistingFuture.compose(res -> {
+                    String newId = UUID.randomUUID().toString();
+                    permission.setId(newId);
+                    permission.setDummy(false);
 
-                        });
-                      });
-                } catch (Exception e) {
-                  pgClient.rollbackTx(connection, rollback -> {
-                    logger.debug(String.format("Error: %s", e.getLocalizedMessage()));
-                    promise.fail(e);
+                    // preserve grantedTo if applicable.
+                    if (grantedTo != null && !grantedTo.isEmpty()) {
+                      permission.setGrantedTo(grantedTo);
+                    }
+                    if (perm.getVisible() == null) {
+                      permission.setVisible(false);
+                    } else {
+                      permission.setVisible(perm.getVisible());
+                    }
+                    return connection.save(TABLE_NAME_PERMS, newId, permission)
+                        .compose(res1 ->
+                            PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
+                                new JsonArray(), new JsonArray(permission.getSubPermissions()),
+                                null, vertxContext, tenantId));
                   });
                 }
-              });
-            }
-          })
-      );
+              }));
     } catch (Exception e) {
-      logger.debug("Error running on vertx for savePerm: " + e.getLocalizedMessage());
-      promise.fail(e);
+      return Future.failedFuture("Error running on vertx for savePerm: " + e.getMessage());
     }
-    return promise.future();
   }
 
   /*
@@ -880,18 +826,11 @@ public class TenantPermsAPI implements Tenantpermissions {
     return promise.future();
   }
 
-  private Future<Void> deletePerm(AsyncResult<SQLConnection> connection, String permName,
-                                  Context vertxContext, String tenantId) {
-    Promise<Void> promise = Promise.promise();
+  private Future<Void> deletePerm(Conn connection, String permName) {
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
     nameCrit.setVal(permName);
-    PostgresClient pgClient = PostgresClient.getInstance(
-      vertxContext.owner(), tenantId);
-    pgClient.delete(connection, TABLE_NAME_PERMS, new Criterion(nameCrit),
-      deleteReply -> promise.handle(deleteReply.mapEmpty()));
-    return promise.future();
+    return connection.delete(TABLE_NAME_PERMS, new Criterion(nameCrit)).mapEmpty();
   }
-
 }
