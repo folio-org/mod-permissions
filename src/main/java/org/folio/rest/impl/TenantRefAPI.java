@@ -8,14 +8,11 @@ import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.Conn;
 import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.tools.utils.TenantLoading;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 
 public class TenantRefAPI extends TenantAPI {

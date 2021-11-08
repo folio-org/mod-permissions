@@ -37,7 +37,6 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
 
@@ -1021,14 +1020,13 @@ public class PermsAPI implements Perms {
   }
 
   private Future<Permission> expandSubPermissions(Permission permission,
-                                                  Context vertxContext, String tenantId) {
+      Context vertxContext, String tenantId) {
 
     logger.debug("Expanding subPermissions for {}", permission.getPermissionName());
     List<Object> subPerms = permission.getSubPermissions();
     if (subPerms.isEmpty()) {
       return Future.succeededFuture(permission);
     }
-    Promise<Permission> promise = Promise.promise();
     List<Object> newSubPerms = new ArrayList<>();
     List<Future<Permission>> futureList = new ArrayList<>();
     for (Object o : subPerms) {
@@ -1036,24 +1034,15 @@ public class PermsAPI implements Perms {
       futureList.add(subPermFuture);
     }
     CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
-    compositeFuture.onComplete(compositeResult -> {
-      if (compositeResult.failed()) {
-        logger.error("Failed to expand subpermissions for '{}' : {}",
-              permission.getPermissionName(),
-              compositeResult.cause().getMessage(),
-            compositeResult.cause());
-        promise.fail(compositeResult.cause().getMessage());
-        return;
-      }
+    return compositeFuture.map(compositeResult -> {
       for (Future<Permission> f : futureList) {
         if (f.result() != null) {
           newSubPerms.add(f.result());
         }
       }
       permission.setSubPermissions(newSubPerms);
-      promise.complete(permission);
+      return permission;
     });
-    return promise.future();
   }
 
   static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
@@ -1380,34 +1369,24 @@ public class PermsAPI implements Perms {
   }
 
   private Future<Boolean> checkPermlistForDummy(List<Object> permList,
-                                                Context vertxContext, String tenantId) {
+      Context vertxContext, String tenantId) {
 
-    Promise<Boolean> promise = Promise.promise();
     if (permList.isEmpty()) {
       return Future.succeededFuture(false);
     }
     List<Object> permListCopy = new ArrayList<>(permList);
     String permissionName = (String) permListCopy.get(0);
     permListCopy.remove(0);
-    retrievePermissionByName(permissionName, vertxContext, tenantId).onComplete(
-        rpbnRes -> {
-          if (rpbnRes.failed()) {
-            promise.fail(rpbnRes.cause());
-            return;
-          }
-          if (rpbnRes.result() == null) {
-            promise.complete(false);
+    return retrievePermissionByName(permissionName, vertxContext, tenantId)
+        .map(
+            result -> result == null ? false : Boolean.TRUE.equals(result.getDummy()))
+        .compose(next -> {
+          if (Boolean.TRUE.equals(next)) {
+            return Future.succeededFuture(true);
           } else {
-            promise.complete(Boolean.TRUE.equals(rpbnRes.result().getDummy()));
+            return checkPermlistForDummy(permListCopy, vertxContext, tenantId);
           }
         });
-    return promise.future().compose(next -> {
-      if (Boolean.TRUE.equals(next)) {
-        return Future.succeededFuture(true);
-      } else {
-        return checkPermlistForDummy(permListCopy, vertxContext, tenantId);
-      }
-    });
   }
 
   protected static Criterion getIdCriterion(String id) {

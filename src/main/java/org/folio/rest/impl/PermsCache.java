@@ -2,7 +2,6 @@ package org.folio.rest.impl;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -98,31 +97,26 @@ public class PermsCache {
   }
 
   private static Future<PermCache> refreshCache(Context vertxContext, String tenantId) {
-    Promise<PermCache> promise = Promise.promise();
-    PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TAB_PERMS, Permission.class, new Criterion(), false,
-        false, reply -> {
-          if (reply.failed()) {
-            promise.fail(reply.cause());
-          } else {
-            List<Permission> perms = reply.result().getResults();
-            Map<String, Set<String>> subPermMap = new HashMap<>();
-            Map<String, Permission> fullPermMap = new HashMap<>();
-            PermCache pc = new PermCache(subPermMap, fullPermMap);
-            for (Permission perm : perms) {
-              fullPermMap.put(perm.getPermissionName(), perm);
-              Set<String> subs = new HashSet<>();
-              if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
-                perm.getSubPermissions().forEach(e -> subs.add(e.toString()));
-              }
-              subPermMap.put(perm.getPermissionName(), subs);
+    return PostgresClient.getInstance(vertxContext.owner(), tenantId)
+        .get(TAB_PERMS, Permission.class, new Criterion(), false)
+        .map(result -> {
+          List<Permission> perms = result.getResults();
+          Map<String, Set<String>> subPermMap = new HashMap<>();
+          Map<String, Permission> fullPermMap = new HashMap<>();
+          PermCache pc = new PermCache(subPermMap, fullPermMap);
+          for (Permission perm : perms) {
+            fullPermMap.put(perm.getPermissionName(), perm);
+            Set<String> subs = new HashSet<>();
+            if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
+              perm.getSubPermissions().forEach(e -> subs.add(e.toString()));
             }
-            CACHE.put(tenantId, pc);
-            LOGGER.debug("Finished perms cache for tenant " + tenantId);
-            promise.complete(pc);
+            subPermMap.put(perm.getPermissionName(), subs);
           }
-          CACHE_WIP.remove(tenantId);
-        });
-    return promise.future();
+          CACHE.put(tenantId, pc);
+          LOGGER.debug("Finished perms cache for tenant " + tenantId);
+          return pc;
+        })
+        .onComplete(x -> CACHE_WIP.remove(tenantId));
   }
 
   /**
