@@ -791,20 +791,14 @@ public class PermsAPI implements Perms {
                 if ("true".equals(expandSubs)) {
                   permFuture = expandSubPermissions(permission, vertxContext, tenantId);
                 } else if ("true".equals(expanded)) {
-                  Promise<Permission> promise = Promise.promise();
-                  permFuture = promise.future();
                   List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
                   permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
-                  Future<List<String>> expandedSubPerms = PermsCache.expandPerms(subperms, vertxContext, tenantId);
-                  expandedSubPerms.onComplete(ar -> {
-                    if (ar.succeeded()) {
-                      List<Object> list = new ArrayList<>(ar.result());
-                      permission.setSubPermissions(list);
-                      promise.complete(permission);
-                    } else {
-                      promise.fail(ar.cause());
-                    }
-                  });
+                  permFuture = PermsCache.expandPerms(subperms, vertxContext, tenantId)
+                      .map(ar -> {
+                        List<Object> list = new ArrayList<>(ar);
+                        permission.setSubPermissions(list);
+                        return permission;
+                      });
                 } else {
                   permFuture = Future.succeededFuture(permission);
                 }
@@ -852,7 +846,6 @@ public class PermsAPI implements Perms {
   private static Future<List<String>> findMissingPermissionsFromList(
       Conn connection, List<Object> permissionList, List<String> missingPermissions) {
 
-    Promise<List<String>> promise = Promise.promise();
     if (missingPermissions == null) {
       missingPermissions = new ArrayList<>();
     }
@@ -862,22 +855,17 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture(finalMissingPermissions);
     }
     List<Object> permissionListCopy = new ArrayList<>(permissionList);
-    Future<Boolean> checkPermissionExistsFuture;
     String permissionName = (String) permissionListCopy.get(0);
     permissionListCopy.remove(0); //pop
-    checkPermissionExistsFuture = checkPermissionExists(connection, permissionName);
-    checkPermissionExistsFuture.onComplete(res -> {
-      if (res.failed()) {
-        promise.fail(res.cause());
-        return;
-      }
-      if (Boolean.FALSE.equals(res.result())) {
-        finalMissingPermissions.add(permissionName);
-      }
-      promise.complete(finalMissingPermissions);
-    });
-    return promise.future().compose(mapper -> findMissingPermissionsFromList(connection, permissionListCopy,
-        finalMissingPermissions));
+    return checkPermissionExists(connection, permissionName)
+        .compose(result -> {
+          if (Boolean.FALSE.equals(result)) {
+            finalMissingPermissions.add(permissionName);
+          }
+          return Future.succeededFuture(finalMissingPermissions);
+        })
+        .compose(mapper -> findMissingPermissionsFromList(connection, permissionListCopy,
+            finalMissingPermissions));
   }
 
   private Future<List<String>> getAllExpandedPermissionsSequential(
@@ -893,28 +881,21 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture(new ArrayList<>(finalReturnedPermissions));
     }
 
-    Promise<List<String>> promise = Promise.promise();
-
     List<List<String>> listOfListsCopy = new ArrayList<>(listOfPermissionLists);
     List<String> permissionList = listOfListsCopy.get(0);
     listOfListsCopy.remove(0); //pop
-    getExpandedPermissionsSequential(permissionList, vertxContext, tenantId)
-        .onComplete(gepsRes -> {
-          if (gepsRes.failed()) {
-            promise.fail(gepsRes.cause());
-            return;
-          }
+    return getExpandedPermissionsSequential(permissionList, vertxContext, tenantId)
+        .compose(result -> {
           List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
-          combinedResult.addAll(gepsRes.result());
-          promise.complete(combinedResult);
-        });
-
-    return promise.future().compose(res -> getAllExpandedPermissionsSequential(listOfListsCopy,
-        vertxContext, tenantId, res));
+          combinedResult.addAll(result);
+          return Future.succeededFuture(combinedResult);
+        })
+        .compose(res -> getAllExpandedPermissionsSequential(listOfListsCopy,
+            vertxContext, tenantId, res));
   }
 
   private Future<List<String>> getExpandedPermissionsSequential(List<String> permissionList,
-                                                                Context vertxContext, String tenantId) {
+      Context vertxContext, String tenantId) {
 
     if (permissionList.isEmpty()) {
       return Future.succeededFuture(new ArrayList<>());
@@ -926,51 +907,34 @@ public class PermsAPI implements Perms {
       return PermsCache.expandPerms(permissionList, vertxContext, tenantId);
     }
 
-    Promise<List<String>> promise = Promise.promise();
-
-    try {
-      Criterion criterion = buildPermissionNameListQuery(permissionList);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(),
-          tenantId);
-      pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, true, false,
-          getReply -> {
-            if (getReply.failed()) {
-              promise.fail(getReply.cause());
-              return;
-            }
-            List<String> allSubPermList = new ArrayList<>();
-            List<String> foundPermNameList = new ArrayList<>();
-            List<Permission> foundPermList = getReply.result().getResults();
-            for (Permission perm : foundPermList) {
-              foundPermNameList.add(perm.getPermissionName());
-              List<String> subPermList = perm.getSubPermissions().stream()
-                  .map(object -> Objects.toString(object, null))
-                  .collect(Collectors.toList());
-              for (String subPerm : subPermList) {
-                if (!allSubPermList.contains(subPerm)) {
-                  allSubPermList.add(subPerm);
-                }
-              }
-            }
-            int splitSize = 15;
-            if (splitSize < permissionList.size()) {
-              splitSize = permissionList.size();
-            }
-            List<List<String>> listOfSubPermLists = splitStringList(
-                allSubPermList, splitSize);
-            Future<List<String>> listFuture;
-            if (listOfSubPermLists.isEmpty()) {
-              listFuture = Future.succeededFuture(foundPermNameList);
-            } else {
-              listFuture = getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
-                  tenantId, foundPermNameList);
-            }
-            listFuture.onComplete(promise);
-          });
-    } catch (Exception e) {
-      promise.fail(e);
-    }
-    return promise.future();
+    Criterion criterion = buildPermissionNameListQuery(permissionList);
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    return pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, true).compose(result -> {
+      List<String> allSubPermList = new ArrayList<>();
+      List<String> foundPermNameList = new ArrayList<>();
+      List<Permission> foundPermList = result.getResults();
+      for (Permission perm : foundPermList) {
+        foundPermNameList.add(perm.getPermissionName());
+        List<String> subPermList = perm.getSubPermissions().stream()
+            .map(object -> Objects.toString(object, null))
+            .collect(Collectors.toList());
+        for (String subPerm : subPermList) {
+          if (!allSubPermList.contains(subPerm)) {
+            allSubPermList.add(subPerm);
+          }
+        }
+      }
+      int splitSize = 15;
+      if (splitSize < permissionList.size()) {
+        splitSize = permissionList.size();
+      }
+      List<List<String>> listOfSubPermLists = splitStringList(allSubPermList, splitSize);
+      if (listOfSubPermLists.isEmpty()) {
+        return Future.succeededFuture(foundPermNameList);
+      }
+      return getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
+          tenantId, foundPermNameList);
+    });
   }
 
   private Future<PermissionNameListObject> getAllFullPermissions(List<String> nameList,
@@ -995,7 +959,7 @@ public class PermsAPI implements Perms {
   }
 
   private Future<Permission> getFullPermissions(String permissionName,
-                                                Context vertxContext, String tenantId) {
+      Context vertxContext, String tenantId) {
     logger.debug("Getting full permissions for {}", permissionName);
 
     // use cache by default unless set to false explicitly
@@ -1004,95 +968,56 @@ public class PermsAPI implements Perms {
       return PermsCache.getFullPerms(permissionName, vertxContext, tenantId);
     }
 
-    Promise<Permission> promise = Promise.promise();
-    try {
-      Criteria nameCrit = new Criteria();
-      nameCrit.addField(PERMISSION_NAME_FIELD);
-      nameCrit.setOperation("=");
-      nameCrit.setVal(permissionName);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-          Permission.class, new Criterion(nameCrit), true, false, getReply -> {
-            if (getReply.failed()) {
-              logger.debug("postgres client 'get' failed: {}", getReply.cause().getMessage());
-              promise.fail(getReply.cause());
-              return;
-            }
-            List<Permission> permList = getReply.result().getResults();
-            if (permList.isEmpty()) {
-              logger.debug("No permission object '{}' exists", permissionName);
-              promise.complete(null);
-            } else {
-              logger.debug("Completing promise for getFullPermissions for '{}'", permissionName);
-              promise.complete(permList.get(0));
-            }
-          });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      promise.fail(e);
-    }
-    return promise.future();
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setOperation("=");
+    nameCrit.setVal(permissionName);
+    return PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
+        Permission.class, new Criterion(nameCrit), false).map(result -> {
+      List<Permission> permList = result.getResults();
+      return permList.isEmpty() ? null : permList.get(0);
+    });
   }
 
   private Future<PermissionNameListObject> getPermissionsForUser(
       String userId, boolean expanded, boolean full,
       String indexField, String tenantId, Context vertxContext) {
 
-    Promise<PermissionNameListObject> promise = Promise.promise();
-    try {
-      Criterion idCrit = getIdCriterion(indexField, userId);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
-          TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit,
-          true, false, getReply -> {
-            if (getReply.failed()) {
-              promise.fail(getReply.cause());
-              return;
-            }
-            List<PermissionUser> userList = getReply.result().getResults();
-            if (userList.isEmpty()) {
-              promise.complete(null);
-              return;
-            }
-            Future<List<String>> interimFuture;
-            List<String> permissionNameList = new ArrayList<>();
-            for (Object perm : userList.get(0).getPermissions()) {
-              if (perm != null) {
-                permissionNameList.add((String) perm);
-              }
-            }
-            if (!expanded) {
-              interimFuture = Future.succeededFuture(permissionNameList);
-            } else {
-              List<List<String>> listOfPermNamesList
-                  = splitStringList(permissionNameList, 10);
-              interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
-                  vertxContext, tenantId, null);
-            }
-            interimFuture.onComplete(res -> {
-              if (res.failed()) {
-                promise.fail(res.cause());
-                return;
-              }
-              if (!full) {
-                PermissionNameListObject pnlo = new PermissionNameListObject();
-                List<Object> objectList = new ArrayList(res.result());
-                pnlo.setPermissionNames(objectList);
-                pnlo.setTotalRecords(res.result().size());
-                promise.complete(pnlo);
-              } else {
-                getAllFullPermissions(res.result(), vertxContext, tenantId).onComplete(res2 -> {
-                  if (res2.failed()) {
-                    promise.fail(res2.cause());
-                    return;
-                  }
-                  promise.complete(res2.result());
-                });
-              }
-            });
-          });
-    } catch (Exception e) {
-      promise.fail(e);
-    }
-    return promise.future();
+    Criterion idCrit = getIdCriterion(indexField, userId);
+    return PostgresClient.getInstance(vertxContext.owner(), tenantId).get(
+        TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit,
+        false).compose(result -> {
+      List<PermissionUser> userList = result.getResults();
+      if (userList.isEmpty()) {
+        return Future.succeededFuture(null);
+      }
+      Future<List<String>> interimFuture;
+      List<String> permissionNameList = new ArrayList<>();
+      for (Object perm : userList.get(0).getPermissions()) {
+        if (perm != null) {
+          permissionNameList.add((String) perm);
+        }
+      }
+      if (!expanded) {
+        interimFuture = Future.succeededFuture(permissionNameList);
+      } else {
+        List<List<String>> listOfPermNamesList
+            = splitStringList(permissionNameList, 10);
+        interimFuture = getAllExpandedPermissionsSequential(listOfPermNamesList,
+            vertxContext, tenantId, null);
+      }
+      return interimFuture.compose(res -> {
+        if (!full) {
+          PermissionNameListObject pnlo = new PermissionNameListObject();
+          List<Object> objectList = new ArrayList(res);
+          pnlo.setPermissionNames(objectList);
+          pnlo.setTotalRecords(res.size());
+          return Future.succeededFuture(pnlo);
+        } else {
+          return getAllFullPermissions(res, vertxContext, tenantId);
+        }
+      });
+    });
   }
 
   private Future<Permission> expandSubPermissions(Permission permission,
