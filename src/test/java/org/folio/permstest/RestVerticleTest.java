@@ -241,7 +241,7 @@ public class RestVerticleTest {
   public void testGetPermsUsersByIdBadIndexField(TestContext context) {
 
     Response response = send(HttpMethod.GET, "/perms/users/123?indexField=bad", null, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
   }
 
   @Test
@@ -2028,7 +2028,7 @@ public class RestVerticleTest {
       JsonArray subPermissions = json.getJsonArray("permissions").getJsonObject(0)
           .getJsonArray("subPermissions");
       if (subPermissions.size() != 4 || !subPermissions.contains("dummy.delete")) {
-        return Future.failedFuture("dummy.all should contain three " + subPermissions.toString() +
+        return Future.failedFuture("dummy.all should contain three " + subPermissions +
             " subPermissions including dummy.delete");
       } else {
         return Future.succeededFuture(wr);
@@ -2124,7 +2124,7 @@ public class RestVerticleTest {
     try {
       headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
       url = "http://localhost:" + port + "/perms/users?query=" +
-          URLEncoder.encode("permissions=dummy*", "UTF-8");
+          URLEncoder.encode("permissions=dummy*", StandardCharsets.UTF_8);
     } catch (Exception e) {
       promise.fail(e);
       return promise.future();
@@ -2165,7 +2165,7 @@ public class RestVerticleTest {
     String url;
     try {
       headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
-      url = "http://localhost:" + port + "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", "UTF-8");
+      url = "http://localhost:" + port + "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", StandardCharsets.UTF_8);
     } catch (Exception e) {
       promise.fail(e);
       return promise.future();

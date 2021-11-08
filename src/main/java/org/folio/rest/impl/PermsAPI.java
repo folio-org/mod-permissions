@@ -12,6 +12,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
+import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.annotations.Validate;
 import org.folio.rest.jaxrs.model.Permission;
@@ -24,7 +25,6 @@ import org.folio.rest.jaxrs.resource.Perms;
 import org.folio.rest.persist.Conn;
 import org.folio.rest.persist.PgUtil;
 import org.folio.rest.persist.PostgresClient;
-import org.folio.rest.persist.SQLConnection;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
@@ -197,17 +197,19 @@ public class PermsAPI implements Perms {
                 PostPermsUsersResponse.respond400WithTextPlain(
                     cause.getMessage())));
           }})
-        .onSuccess(res -> {
-          asyncResultHandler.handle(Future.succeededFuture(
-              PostPermsUsersResponse.respond201WithApplicationJson(entity)));
-            }
+        .onSuccess(res -> asyncResultHandler.handle(Future.succeededFuture(
+            PostPermsUsersResponse.respond201WithApplicationJson(entity)))
         );
   }
 
   static Future<PermissionUser> lookupPermsUsersById(String id, String indexField, String tenantId, Context vertxContext) {
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    return pgClient.withConn(connection -> lookupPermsUsersById(id, indexField, connection));
+  }
+
+  static Future<PermissionUser> lookupPermsUsersById(String id, String indexField, Conn connection) {
     Criterion idCrit = getIdCriterion(indexField, id);
-    PostgresClient instance = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    return instance.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit, true)
+    return connection.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit, true)
         .map(x -> x.getResults().isEmpty() ? null : x.getResults().get(0));
   }
 
@@ -416,7 +418,7 @@ public class PermsAPI implements Perms {
                   "User with id " + actualId + " already has permission " + permissionName);
             }
             return updatePermissionsForUser(entity, vertxContext, tenantId, okapiHeaders,
-                permissionName, user, actualId, originalPermissions, asyncResultHandler);
+                permissionName, user, actualId, originalPermissions);
           })
           .onSuccess(res -> {
             asyncResultHandler.handle(Future.
@@ -452,8 +454,7 @@ public class PermsAPI implements Perms {
   @SuppressWarnings({"squid:S00107"})   // Method has more than 7 parameters
   private Future<Void> updatePermissionsForUser(PermissionNameObject entity,
       Context vertxContext, String tenantId, Map<String,String> okapiHeaders, String permissionName,
-      PermissionUser user, String actualId, JsonArray originalPermissions,
-      Handler<AsyncResult<Response>> asyncResultHandler) {
+      PermissionUser user, String actualId, JsonArray originalPermissions) {
 
     return retrievePermissionByName(permissionName, vertxContext, tenantId)
         .compose(result -> {
@@ -728,8 +729,7 @@ public class PermsAPI implements Perms {
                     return null;
                   }).mapEmpty();
             }
-          })
-          .onSuccess(res ->
+          }).onSuccess(res ->
                 asyncResultHandler.handle(Future.succeededFuture(
                     DeletePermsPermissionsByIdResponse.respond204()))
           ).onFailure(cause -> {
@@ -785,7 +785,7 @@ public class PermsAPI implements Perms {
               }
               PermissionListObject permCollection = new PermissionListObject();
               List<Permission> permissions = getReply.result().getResults();
-              List<Future> futureList = new ArrayList<>();
+              List<Future<Permission>> futureList = new ArrayList<>();
               for (Permission permission : permissions) {
                 Future<Permission> permFuture;
                 if ("true".equals(expandSubs)) {
@@ -810,15 +810,15 @@ public class PermsAPI implements Perms {
                 }
                 futureList.add(permFuture);
               }
-              CompositeFuture compositeFuture = CompositeFuture.join(futureList);
+              CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
               compositeFuture.onComplete(compositeResult -> {
                 if (compositeFuture.failed()) {
                   logger.error("Error expanding permissions: {}", compositeFuture.cause().getMessage());
                   asyncResultHandler.handle(Future.succeededFuture(GetPermsPermissionsResponse.respond500WithTextPlain("Error getting expanded permissions: " + compositeResult.cause().getMessage())));
                 } else {
                   List<Permission> newPermList = new ArrayList<>();
-                  for (Future f : futureList) {
-                    newPermList.add((Permission) (f.result()));
+                  for (Future<Permission> f : futureList) {
+                    newPermList.add(f.result());
                   }
                   permCollection.setPermissions(newPermList);
                   permCollection.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
@@ -841,45 +841,12 @@ public class PermsAPI implements Perms {
 
   protected static Future<Boolean> checkPermissionExists(Conn connection, String permissionName) {
 
-    Logger logger = LogManager.getLogger(PermsAPI.class);
-    try {
-      Criteria nameCrit = new Criteria();
-      nameCrit.addField(PERMISSION_NAME_FIELD);
-      nameCrit.setOperation("=");
-      nameCrit.setVal(permissionName);
-      return connection.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), false)
-              .map(res -> !res.getResults().isEmpty());
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      return Future.failedFuture(e);
-    }
-  }
-
-  protected static Future<Boolean> checkPermissionExists(AsyncResult<SQLConnection> connection,
-                                                         String permissionName, Context vertxContext, String tenantId) {
-
-    Logger logger = LogManager.getLogger(PermsAPI.class);
-    Promise<Boolean> promise = Promise.promise();
-    try {
-      Criteria nameCrit = new Criteria();
-      nameCrit.addField(PERMISSION_NAME_FIELD);
-      nameCrit.setOperation("=");
-      nameCrit.setVal(permissionName);
-      PostgresClient.getInstance(vertxContext.owner(), tenantId).get(connection,
-          TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
-          true, false, getReply -> {
-            if (getReply.failed()) {
-              promise.fail(getReply.cause());
-              return;
-            }
-            List<Permission> permList = getReply.result().getResults();
-            promise.complete(!permList.isEmpty());
-          });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      promise.fail(e);
-    }
-    return promise.future();
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setOperation("=");
+    nameCrit.setVal(permissionName);
+    return connection.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
+        false).map(result -> !result.getResults().isEmpty());
   }
 
   private static Future<List<String>> findMissingPermissionsFromList(
@@ -1008,30 +975,23 @@ public class PermsAPI implements Perms {
 
   private Future<PermissionNameListObject> getAllFullPermissions(List<String> nameList,
                                                                  Context vertxContext, String tenantId) {
-    Promise<PermissionNameListObject> promise = Promise.promise();
-    List<Future> futureList = new ArrayList<>();
+    List<Future<Permission>> futureList = new ArrayList<>();
     for (String name : nameList) {
-      Future<Permission> permissionFuture = getFullPermissions(name, vertxContext, tenantId);
-      futureList.add(permissionFuture);
+      futureList.add(getFullPermissions(name, vertxContext, tenantId));
     }
-    CompositeFuture compositeFuture = CompositeFuture.all(futureList);
-    compositeFuture.onComplete(res -> {
-      if (res.failed()) {
-        promise.fail(res.cause());
-        return;
-      }
+    CompositeFuture compositeFuture = GenericCompositeFuture.all(futureList);
+    return compositeFuture.compose(res -> {
       PermissionNameListObject pnlo = new PermissionNameListObject();
       List<Object> permList = new ArrayList<>();
-      for (Future doneFuture : futureList) {
+      for (Future<Permission> doneFuture : futureList) {
         Object result = doneFuture.result();
         if (result != null) {
           permList.add(result);
         }
       }
       pnlo.setPermissionNames(permList);
-      promise.complete(pnlo);
+      return Future.succeededFuture(pnlo);
     });
-    return promise.future();
   }
 
   private Future<Permission> getFullPermissions(String permissionName,
@@ -1145,12 +1105,12 @@ public class PermsAPI implements Perms {
     }
     Promise<Permission> promise = Promise.promise();
     List<Object> newSubPerms = new ArrayList<>();
-    List<Future> futureList = new ArrayList<>();
+    List<Future<Permission>> futureList = new ArrayList<>();
     for (Object o : subPerms) {
       Future<Permission> subPermFuture = getFullPermissions((String) o, vertxContext, tenantId);
       futureList.add(subPermFuture);
     }
-    CompositeFuture compositeFuture = CompositeFuture.join(futureList);
+    CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
     compositeFuture.onComplete(compositeResult -> {
       if (compositeResult.failed()) {
         logger.error("Failed to expand subpermissions for '{}' : {}",
@@ -1160,7 +1120,7 @@ public class PermsAPI implements Perms {
         promise.fail(compositeResult.cause().getMessage());
         return;
       }
-      for (Future f : futureList) {
+      for (Future<Permission> f : futureList) {
         if (f.result() != null) {
           newSubPerms.add(f.result());
         }
@@ -1172,7 +1132,7 @@ public class PermsAPI implements Perms {
   }
 
   static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
-      Map<String,String> okapiHeaders, Context vertxContext) {
+      Conn connection, Map<String,String> okapiHeaders, Context vertxContext) {
 
     if (okapiHeaders == null) { // when POSTing permission sets
       return Future.succeededFuture();
@@ -1247,7 +1207,7 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
+    return checkOperatingPermissions(missingFromOriginalList, tenantId, connection, okapiHeaders, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList(), null);
@@ -1320,12 +1280,11 @@ public class PermsAPI implements Perms {
           missingFromNewList.add(ob);
         }
       }
-      return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
-          .compose(x -> {
-            Future<List<String>> checkExistsFuture = findMissingPermissionsFromList(
-                connection, missingFromOriginalList.getList(), null);
-            return checkExistsFuture;
-          })
+      return checkOperatingPermissions(missingFromOriginalList, tenantId, connection, okapiHeaders, vertxContext)
+          .compose(x ->
+              (Future<List<String>>) findMissingPermissionsFromList(
+                  connection, missingFromOriginalList.getList(), null)
+          )
           .compose(res -> {
             if (!res.isEmpty()) {
               throw new InvalidPermissionsException(PERMISSION_NAME_FIELD, permissionName, String.format(
