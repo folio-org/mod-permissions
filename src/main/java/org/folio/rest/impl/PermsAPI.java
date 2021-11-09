@@ -1,11 +1,12 @@
 package org.folio.rest.impl;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -1278,26 +1279,21 @@ public class PermsAPI implements Perms {
               promise.fail(getReply.cause());
               return;
             }
-            List<String> allSubPermList = new ArrayList<>();
+            Set<String> subPermSet = new HashSet<>();
             List<String> foundPermNameList = new ArrayList<>();
             List<Permission> foundPermList = getReply.result().getResults();
             for (Permission perm : foundPermList) {
               foundPermNameList.add(perm.getPermissionName());
-              List<String> subPermList = perm.getSubPermissions().stream()
+              perm.getSubPermissions().stream()
                   .map(object -> Objects.toString(object, null))
-                  .collect(Collectors.toList());
-              for (String subPerm : subPermList) {
-                if (!allSubPermList.contains(subPerm)) {
-                  allSubPermList.add(subPerm);
-                }
-              }
+                  .forEach(subPermSet::add);
             }
             int splitSize = 15;
             if (splitSize < permissionList.size()) {
               splitSize = permissionList.size();
             }
             List<List<String>> listOfSubPermLists = splitStringList(
-                allSubPermList, splitSize);
+                subPermSet, splitSize);
             Future<List<String>> listFuture;
             if (listOfSubPermLists.isEmpty()) {
               listFuture = Future.succeededFuture(foundPermNameList);
@@ -1943,16 +1939,16 @@ public class PermsAPI implements Perms {
     return perm;
   }
 
-  static List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
+  static List<List<String>> splitStringList(Iterable<String> stringList, int chunkSize) {
     List<List<String>> listOfLists = new ArrayList<>();
     int count = 0;
-    List<String> currentChunk = new ArrayList<>();
+    List<String> currentChunk = new ArrayList<>(chunkSize);
     for (String string : stringList) {
       count++;
       currentChunk.add(string);
       if (count == chunkSize) {
         listOfLists.add(currentChunk);
-        currentChunk = new ArrayList<>();
+        currentChunk = new ArrayList<>(chunkSize);
         count = 0;
       }
     }
