@@ -875,7 +875,7 @@ public class PermsAPI implements Perms {
 
     Criterion criterion = buildPermissionNameListQuery(permissionList);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    return pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, true).compose(result -> {
+    return pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, false).compose(result -> {
       List<String> allSubPermList = new ArrayList<>();
       List<String> foundPermNameList = new ArrayList<>();
       List<Permission> foundPermList = result.getResults();
