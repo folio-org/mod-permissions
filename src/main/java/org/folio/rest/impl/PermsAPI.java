@@ -548,8 +548,7 @@ public class PermsAPI implements Perms {
         nameCrit.setVal(entity.getPermissionName());
       }
       PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-      postgresClient.get(
-              TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true)
+      postgresClient.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), false)
           .compose(result -> {
             List<Permission> permissionList = result.getResults();
             if (!permissionList.isEmpty()) {
@@ -1270,21 +1269,12 @@ public class PermsAPI implements Perms {
   }
 
   private Future<Void> removePermissionFromUser(Conn connection, String permissionName, String userId) {
-
-    Criterion criterion = getIdCriterion(userId);
-    CQLWrapper cqlFilter = new CQLWrapper(criterion);
-    return connection.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, criterion).compose(result -> {
-      List<PermissionUser> permUserList = result.getResults();
-      if (permUserList.isEmpty()) {
-        return Future.succeededFuture();  //No need to update non-existent user
-      }
-      PermissionUser user = permUserList.get(0);
+    return connection.getById(TABLE_NAME_PERMSUSERS, userId, PermissionUser.class).compose(user -> {
       if (!user.getPermissions().contains(permissionName)) {
         return Future.succeededFuture(); //User already lacks the permissions
       }
       user.getPermissions().remove(permissionName);
-      return connection.update(TABLE_NAME_PERMSUSERS, user, cqlFilter, false)
-          .mapEmpty();
+      return connection.update(TABLE_NAME_PERMSUSERS, user, userId).mapEmpty();
     });
   }
 
@@ -1330,8 +1320,7 @@ public class PermsAPI implements Perms {
         .setVal(permissionName);
 
     return PostgresClient.getInstance(vertxContext.owner(), tenantId)
-        .get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),
-            false)
+        .get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit),false)
         .map(result -> result.getResults().isEmpty() ? null : result.getResults().get(0));
   }
 
