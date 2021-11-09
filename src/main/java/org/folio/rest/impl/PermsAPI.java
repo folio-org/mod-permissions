@@ -874,23 +874,18 @@ public class PermsAPI implements Perms {
     if (returnedPermissions == null) {
       returnedPermissions = new ArrayList<>();
     }
-    final List<String> finalReturnedPermissions = returnedPermissions;
-
     if (listOfPermissionLists.isEmpty()) {
-      return Future.succeededFuture(new ArrayList<>(finalReturnedPermissions));
+      return Future.succeededFuture(returnedPermissions);
     }
-
-    List<List<String>> listOfListsCopy = new ArrayList<>(listOfPermissionLists);
-    List<String> permissionList = listOfListsCopy.get(0);
-    listOfListsCopy.remove(0); //pop
-    return getExpandedPermissionsSequential(permissionList, vertxContext, tenantId)
-        .compose(result -> {
-          List<String> combinedResult = new ArrayList<>(finalReturnedPermissions);
-          combinedResult.addAll(result);
-          return Future.succeededFuture(combinedResult);
-        })
-        .compose(res -> getAllExpandedPermissionsSequential(listOfListsCopy,
-            vertxContext, tenantId, res));
+    Future<List<String>> future = Future.succeededFuture(returnedPermissions);
+    for (List<String> permissionList: listOfPermissionLists) {
+      future = future.compose(x -> getExpandedPermissionsSequential(permissionList, vertxContext, tenantId)
+          .map(result -> {
+            x.addAll(result);
+            return x;
+          }));
+    }
+    return future;
   }
 
   private Future<List<String>> getExpandedPermissionsSequential(List<String> permissionList,
