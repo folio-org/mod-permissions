@@ -1327,22 +1327,18 @@ public class PermsAPI implements Perms {
   private Future<Boolean> checkPermlistForDummy(List<Object> permList,
       Context vertxContext, String tenantId) {
 
-    if (permList.isEmpty()) {
-      return Future.succeededFuture(false);
+    Future<Boolean> future = Future.succeededFuture(false);
+    for (Object o : permList) {
+      String permissionName = (String) o;
+      future = future.compose(x -> {
+        if (x) {
+          return Future.succeededFuture(true);
+        }
+        return retrievePermissionByName(permissionName, vertxContext, tenantId)
+              .map(result -> result != null && Boolean.TRUE.equals(result.getDummy()));
+      });
     }
-    List<Object> permListCopy = new ArrayList<>(permList);
-    String permissionName = (String) permListCopy.get(0);
-    permListCopy.remove(0);
-    return retrievePermissionByName(permissionName, vertxContext, tenantId)
-        .map(
-            result -> result == null ? false : Boolean.TRUE.equals(result.getDummy()))
-        .compose(next -> {
-          if (Boolean.TRUE.equals(next)) {
-            return Future.succeededFuture(true);
-          } else {
-            return checkPermlistForDummy(permListCopy, vertxContext, tenantId);
-          }
-        });
+    return future;
   }
 
   protected static Criterion getIdCriterion(String id) {
