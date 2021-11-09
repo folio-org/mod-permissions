@@ -833,7 +833,6 @@ public class PermsAPI implements Perms {
   }
 
   protected static Future<Boolean> checkPermissionExists(Conn connection, String permissionName) {
-
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
@@ -843,28 +842,20 @@ public class PermsAPI implements Perms {
   }
 
   private static Future<List<String>> findMissingPermissionsFromList(
-      Conn connection, List<Object> permissionList, List<String> missingPermissions) {
+      Conn connection, List<Object> permissionList) {
 
-    if (missingPermissions == null) {
-      missingPermissions = new ArrayList<>();
+    Future<List<String>> future = Future.succeededFuture(new ArrayList<>());
+    for (Object o : permissionList) {
+      String permissionName = (String) o;
+      future = future.compose(x -> checkPermissionExists(connection, permissionName)
+          .map(result -> {
+            if (Boolean.FALSE.equals(result)) {
+              x.add(permissionName);
+            }
+            return x;
+          }));
     }
-    final List<String> finalMissingPermissions = missingPermissions;
-
-    if (permissionList.isEmpty()) {
-      return Future.succeededFuture(finalMissingPermissions);
-    }
-    List<Object> permissionListCopy = new ArrayList<>(permissionList);
-    String permissionName = (String) permissionListCopy.get(0);
-    permissionListCopy.remove(0); //pop
-    return checkPermissionExists(connection, permissionName)
-        .compose(result -> {
-          if (Boolean.FALSE.equals(result)) {
-            finalMissingPermissions.add(permissionName);
-          }
-          return Future.succeededFuture(finalMissingPermissions);
-        })
-        .compose(mapper -> findMissingPermissionsFromList(connection, permissionListCopy,
-            finalMissingPermissions));
+    return future;
   }
 
   private Future<List<String>> getAllExpandedPermissionsSequential(
@@ -1115,7 +1106,7 @@ public class PermsAPI implements Perms {
     return checkOperatingPermissions(missingFromOriginalList, tenantId, connection, okapiHeaders, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
-              connection, missingFromOriginalList.getList(), null);
+              connection, missingFromOriginalList.getList());
           return checkExistsResF.compose(checkExistsRes -> {
             if (!checkExistsRes.isEmpty()) {
               throw new InvalidPermissionsException("permissions", permUserId, String.format(
@@ -1188,7 +1179,7 @@ public class PermsAPI implements Perms {
       return checkOperatingPermissions(missingFromOriginalList, tenantId, connection, okapiHeaders, vertxContext)
           .compose(x ->
               (Future<List<String>>) findMissingPermissionsFromList(
-                  connection, missingFromOriginalList.getList(), null)
+                  connection, missingFromOriginalList.getList())
           )
           .compose(res -> {
             if (!res.isEmpty()) {
