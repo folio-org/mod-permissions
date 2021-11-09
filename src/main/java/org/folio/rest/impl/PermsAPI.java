@@ -890,7 +890,11 @@ public class PermsAPI implements Perms {
           }
         }
       }
-      List<List<String>> listOfSubPermLists = splitStringList(allSubPermList, 15);
+      int splitSize = 15;
+      if (splitSize < permissionList.size()) {
+        splitSize = permissionList.size();
+      }
+      List<List<String>> listOfSubPermLists = splitStringList(allSubPermList, splitSize);
       if (listOfSubPermLists.isEmpty()) {
         return Future.succeededFuture(foundPermNameList);
       }
