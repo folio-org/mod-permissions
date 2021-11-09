@@ -128,9 +128,13 @@ public class PermsAPI implements Perms {
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final Logger logger = LogManager.getLogger(PermsAPI.class);
 
-  private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) throws FieldException {
-    CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
-    return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
+  private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) {
+    try {
+      CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
+      return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
+    } catch (FieldException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected static CQLWrapper getCQL(String query, String tableName) {
@@ -757,68 +761,51 @@ public class PermsAPI implements Perms {
           query = String.format("(%s) AND (dummy==false)", query);
         }
       }
-
-      CQLWrapper cql;
       logger.info("Generating cql to request rows from table '{}' with query '{}'",
           TABLE_NAME_PERMS, query);
-      cql = getCQL(query, TABLE_NAME_PERMS, length, start - 1);
+      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, length, start - 1);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
-          Permission.class, fieldList, cql, true, false, getReply -> {
-            try {
-              if (getReply.failed()) {
-                logger.error(getReply.cause().getMessage());
-                asyncResultHandler.handle(Future.succeededFuture(
-                    GetPermsPermissionsResponse.respond400WithTextPlain(getReply.cause().getMessage())));
-                return;
-              }
-              PermissionListObject permCollection = new PermissionListObject();
-              List<Permission> permissions = getReply.result().getResults();
-              List<Future<Permission>> futureList = new ArrayList<>();
-              for (Permission permission : permissions) {
-                Future<Permission> permFuture;
-                if ("true".equals(expandSubs)) {
-                  permFuture = expandSubPermissions(permission, vertxContext, tenantId);
-                } else if ("true".equals(expanded)) {
-                  List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
-                  permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
-                  permFuture = PermsCache.expandPerms(subperms, vertxContext, tenantId)
-                      .map(ar -> {
-                        List<Object> list = new ArrayList<>(ar);
-                        permission.setSubPermissions(list);
-                        return permission;
-                      });
-                } else {
-                  permFuture = Future.succeededFuture(permission);
-                }
-                futureList.add(permFuture);
-              }
-              CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
-              compositeFuture.onComplete(compositeResult -> {
-                if (compositeFuture.failed()) {
-                  logger.error("Error expanding permissions: {}", compositeFuture.cause().getMessage());
-                  asyncResultHandler.handle(Future.succeededFuture(
-                      GetPermsPermissionsResponse.respond500WithTextPlain(
-                          "Error getting expanded permissions: " + compositeResult.cause().getMessage())));
-                } else {
-                  List<Permission> newPermList = new ArrayList<>();
-                  for (Future<Permission> f : futureList) {
-                    newPermList.add(f.result());
-                  }
-                  permCollection.setPermissions(newPermList);
-                  permCollection.setTotalRecords(getReply.result().getResultInfo().getTotalRecords());
-                  asyncResultHandler.handle(Future.succeededFuture(
-                      GetPermsPermissionsResponse.respond200WithApplicationJson(permCollection)));
-                }
-
-              });
-            } catch (Exception e) {
-              logger.error(e.getMessage(), e);
-              asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
-                  GetPermsPermissionsResponse.respond500WithTextPlain(e.getMessage())));
-            }
-          });
+          Permission.class, fieldList, cql, true).compose(result -> {
+        PermissionListObject permCollection = new PermissionListObject();
+        List<Permission> permissions = result.getResults();
+        List<Future<Permission>> futureList = new ArrayList<>();
+        for (Permission permission : permissions) {
+          Future<Permission> permFuture;
+          if ("true".equals(expandSubs)) {
+            permFuture = expandSubPermissions(permission, vertxContext, tenantId);
+          } else if ("true".equals(expanded)) {
+            List<String> subperms = new ArrayList<>(permission.getSubPermissions().size());
+            permission.getSubPermissions().forEach(sub -> subperms.add(sub.toString()));
+            permFuture = PermsCache.expandPerms(subperms, vertxContext, tenantId)
+                .map(ar -> {
+                  List<Object> list = new ArrayList<>(ar);
+                  permission.setSubPermissions(list);
+                  return permission;
+                });
+          } else {
+            permFuture = Future.succeededFuture(permission);
+          }
+          futureList.add(permFuture);
+        }
+        CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
+        return compositeFuture.compose(compositeResult -> {
+          List<Permission> newPermList = new ArrayList<>();
+          for (Future<Permission> f : futureList) {
+            newPermList.add(f.result());
+          }
+          permCollection.setPermissions(newPermList);
+          permCollection.setTotalRecords(result.getResultInfo().getTotalRecords());
+          return Future.succeededFuture(permCollection);
+        });
+      }).onSuccess(res ->
+        asyncResultHandler.handle(Future.succeededFuture(
+            GetPermsPermissionsResponse.respond200WithApplicationJson(res)))
+      ).onFailure(cause ->
+        asyncResultHandler.handle(Future.succeededFuture(
+            GetPermsPermissionsResponse.respond400WithTextPlain(cause.getMessage())))
+      );
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
