@@ -317,22 +317,20 @@ public class PermsAPI implements Perms {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criterion idCrit = getIdCriterion(id);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
       pgClient
           .withTrans(connection ->
-              connection.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit, true)
-                  .compose(results -> {
-                    List<PermissionUser> permUsers = results.getResults();
-                    if (permUsers.isEmpty()) {
-                      throw new NotFoundException(String.format("No permissions user found with id %s", id));
+              connection.getById(TABLE_NAME_PERMSUSERS, id, PermissionUser.class)
+                  .compose(permUser -> {
+                    if (permUser == null) {
+                      throw new NotFoundException("No permissions user found with id " + id);
                     }
-                    PermissionUser permUser = permUsers.get(0);
                     return updateUserPermissions(connection, id,
                         new JsonArray(permUser.getPermissions()), new JsonArray(),
-                        vertxContext, tenantId, okapiHeaders)
-                        .compose(x -> connection.delete(TABLE_NAME_PERMSUSERS, id));
-                  }))
+                        vertxContext, tenantId, okapiHeaders);
+                  })
+                  .compose(x -> connection.delete(TABLE_NAME_PERMSUSERS, id))
+          )
           .onSuccess(res ->
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsUsersByIdResponse.respond204()))
@@ -608,8 +606,8 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void putPermsPermissionsById(String id, PermissionUpload entity,
-                                      Map<String, String> okapiHeaders,
-                                      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
+      Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
       if (entity.getId() == null || !entity.getId().equals(id)) {
@@ -617,16 +615,12 @@ public class PermsAPI implements Perms {
             PutPermsPermissionsByIdResponse.respond400WithTextPlain("Invalid id value")));
         return;
       }
-      Criterion criterion = getIdCriterion(id);
-      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-      pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion,true)
-          .compose(result -> {
-            List<Permission> permList = result.getResults();
-            if (permList.isEmpty()) {
-              throw new NotFoundException("No permission found to match that id");
+      pgClient.getById(TABLE_NAME_PERMS, id, Permission.class)
+          .compose(perm -> {
+            if (perm == null) {
+              throw new NotFoundException("No permission found to match id " + id);
             }
-            Permission perm = permList.get(0);
             entity.setMutable(true); // MODPERMS-126
             Permission updatePerm = getRealPermObject(entity);
             updatePerm.setId(entity.getId());
@@ -640,7 +634,7 @@ public class PermsAPI implements Perms {
             }
             updatePerm.setDummy(false);
             return pgClient.withTrans(connection ->
-                connection.update(TABLE_NAME_PERMS, updatePerm, cqlFilter, true)
+                connection.update(TABLE_NAME_PERMS, updatePerm, id)
                     .compose(res ->
                         updateSubPermissions(connection, entity.getPermissionName(),
                             new JsonArray(perm.getSubPermissions()),
@@ -666,8 +660,8 @@ public class PermsAPI implements Perms {
             }
           })
           .onSuccess(res ->
-            asyncResultHandler.handle(Future.succeededFuture(
-                PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)))
+              asyncResultHandler.handle(Future.succeededFuture(
+                  PutPermsPermissionsByIdResponse.respond200WithApplicationJson(entity)))
           );
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
@@ -679,19 +673,16 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void deletePermsPermissionsById(String id,
-                                         Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
-                                         Context vertxContext) {
+      Map<String, String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
-      Criterion idCrit = getIdCriterion(id);
-      PostgresClient pgClient = PostgresClient.getInstance(
-          vertxContext.owner(), tenantId);
-      pgClient.get(TABLE_NAME_PERMS, Permission.class, idCrit, true).compose(result -> {
-            List<Permission> permList = result.getResults();
-            if (permList.isEmpty()) {
-              throw new NotFoundException(id);
+      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+      pgClient.getById(TABLE_NAME_PERMS, id, Permission.class)
+          .compose(perm -> {
+            if (perm == null) {
+              throw new NotFoundException("No permission found to match id " + id);
             }
-            Permission perm = permList.get(0);
             if (Boolean.FALSE.equals(perm.getMutable())) {
               throw new RuntimeException("cannot delete an immutable permission");
             }
@@ -722,8 +713,8 @@ public class PermsAPI implements Perms {
                   }).mapEmpty();
             }
           }).onSuccess(res ->
-                asyncResultHandler.handle(Future.succeededFuture(
-                    DeletePermsPermissionsByIdResponse.respond204()))
+              asyncResultHandler.handle(Future.succeededFuture(
+                  DeletePermsPermissionsByIdResponse.respond204()))
           ).onFailure(cause -> {
             if (cause instanceof NotFoundException) {
               asyncResultHandler.handle(Future.succeededFuture(

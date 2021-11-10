@@ -321,8 +321,7 @@ public class RestVerticleTest {
   public void testDeletePermsUsersByIdInvalidUUID(TestContext context) {
     Response response = send(HttpMethod.DELETE, "/perms/users/123", null, context);
     context.assertEquals(400, response.code);
-    Assert.assertThat(response.body.getString("text"),
-        containsString("invalid input syntax for type uuid"));
+    context.assertEquals("Invalid UUID string: 123", response.body.getString("text"));
   }
 
   @Test
@@ -906,7 +905,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.PUT, "/perms/permissions/123",
         permRequest, context);
     context.assertEquals(response.code, 400);
-    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax for type uuid"));
+    context.assertEquals("Invalid UUID string: 123", response.body.getString("text"));
   }
 
   @Test
@@ -916,7 +915,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.PUT, "/perms/permissions/" + uuid,
         permRequest, context);
     context.assertEquals(response.code, 404);
-    context.assertEquals("No permission found to match that id", response.body.getString("text"));
+    context.assertEquals("No permission found to match id " + uuid, response.body.getString("text"));
   }
 
   @Test
