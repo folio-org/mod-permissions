@@ -225,9 +225,11 @@ public class PermsAPI implements Perms {
       lookupPermsUsersById(id, indexField, tenantId, vertxContext)
           .onSuccess(user -> {
             if (user == null) {
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond404WithTextPlain("No user with id: " + id)));
+              asyncResultHandler.handle(Future.succeededFuture(
+                  GetPermsUsersByIdResponse.respond404WithTextPlain("No user with " + getUserIdMessage(indexField, id))));
             } else {
-              asyncResultHandler.handle(Future.succeededFuture(GetPermsUsersByIdResponse.respond200WithApplicationJson(user)));
+              asyncResultHandler.handle(Future.succeededFuture(
+                  GetPermsUsersByIdResponse.respond200WithApplicationJson(user)));
             }
           })
           .onFailure(cause -> {
@@ -253,13 +255,10 @@ public class PermsAPI implements Perms {
             if (Boolean.TRUE.equals(result)) {
               throw new RuntimeException("Cannot add permissions flagged as 'dummy' to users");
             }
-            String query = "id==" + id;
-            CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMSUSERS);
-
             return PostgresClient.getInstance(vertxContext.owner(), tenantId)
-                .withConn(conn -> conn.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, cqlFilter, true))
-                .compose(getUser -> putPermsUsersbyIdHandle(getUser.getResults(), id, entity,
-                    vertxContext, tenantId, okapiHeaders, cqlFilter)
+                .withConn(conn -> conn.getById(TABLE_NAME_PERMSUSERS, id, PermissionUser.class))
+                .compose(getUser -> putPermsUsersbyIdHandle(getUser, id, entity,
+                    vertxContext, tenantId, okapiHeaders)
                 );
           })
           .onSuccess(res -> {
@@ -294,17 +293,16 @@ public class PermsAPI implements Perms {
     }
   }
 
-  private Future<Void> putPermsUsersbyIdHandle(List<PermissionUser> userList,
+  private Future<Void> putPermsUsersbyIdHandle(PermissionUser originalUser,
       String id, PermissionUser entity, Context vertxContext,
-      String tenantId, Map<String,String> okapiHeaders, CQLWrapper cqlFilter) {
+      String tenantId, Map<String,String> okapiHeaders) {
 
-    if (userList.isEmpty()) {
+    if (originalUser == null) {
       throw new NotFoundException("No permissions user found with id " + id);
     }
-    PermissionUser originalUser = userList.get(0);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     return pgClient.withTrans(connection ->
-        connection.update(TABLE_NAME_PERMSUSERS, entity, cqlFilter, true)
+        connection.update(TABLE_NAME_PERMSUSERS, entity, id)
             .compose(updateReply ->
                 updateUserPermissions(connection, id, new JsonArray(originalUser.getPermissions()),
                     new JsonArray(entity.getPermissions()), vertxContext, tenantId, okapiHeaders)
@@ -378,7 +376,7 @@ public class PermsAPI implements Perms {
         if (pnlo == null) { //404
           asyncResultHandler.handle(Future.succeededFuture(
               GetPermsUsersPermissionsByIdResponse.respond404WithTextPlain(
-                  "No user found by id " + id)));
+                  "No user found by " + getUserIdMessage(indexField, id))));
         } else {
           asyncResultHandler.handle(Future.succeededFuture(
               GetPermsUsersPermissionsByIdResponse.respond200WithApplicationJson(pnlo)));
@@ -406,8 +404,7 @@ public class PermsAPI implements Perms {
           .compose(result -> {
             List<PermissionUser> userList = result.getResults();
             if (userList.isEmpty()) {
-              throw new RuntimeException("User with "
-                  + (indexField != null ? indexField : "id") + " " + id + " does not exist");
+              throw new RuntimeException("User with " + getUserIdMessage(indexField, id) + " does not exist");
             }
             //now we can actually add it
             String permissionName = entity.getPermissionName();
@@ -417,7 +414,7 @@ public class PermsAPI implements Perms {
                 new ArrayList<>(user.getPermissions()));
             if (user.getPermissions().contains(permissionName)) {
               throw new InvalidPermissionsException(USER_ID_FIELD, actualId,
-                  "User with id " + actualId + " already has permission " + permissionName);
+                  "User with " + getUserIdMessage(indexField, id) + " already has permission " + permissionName);
             }
             return updatePermissionsForUser(entity, vertxContext, tenantId, okapiHeaders,
                 permissionName, user, actualId, originalPermissions);
@@ -478,6 +475,10 @@ public class PermsAPI implements Perms {
         });
   }
 
+  static String getUserIdMessage(String indexField, String id) {
+    return (indexField == null ? "id" : indexField) + " " + id;
+  }
+
   @Validate
   @Override
   public void deletePermsUsersPermissionsByIdAndPermissionname(
@@ -492,12 +493,12 @@ public class PermsAPI implements Perms {
           .compose(result -> {
             List<PermissionUser> userList = result.getResults();
             if (userList.isEmpty()) {
-              throw new NotFoundException("User with id " + id + " does not exist");
+              throw new NotFoundException("User with " + getUserIdMessage(indexField, id) + " does not exist");
             }
             //attempt to delete permission
             PermissionUser user = userList.get(0);
             if (!user.getPermissions().contains(permissionName)) {
-              throw new RuntimeException("User with id " + id + " does not contain " + permissionName);
+              throw new RuntimeException("User with " + getUserIdMessage(indexField, id) + " does not contain " + permissionName);
             }
             JsonArray originalPermissions = new JsonArray(
                 new ArrayList<>(user.getPermissions()));
