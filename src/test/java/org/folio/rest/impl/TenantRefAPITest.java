@@ -68,23 +68,7 @@ public class TenantRefAPITest {
 
     TenantRefAPI api = new TenantRefAPI();
     PostgresClient postgresClient = PostgresClient.getInstance(vertx, tenantId);
-
-    postgresClient.startTx(connection -> {
-      api.getSystemPerms(connection, tenantId, vertx.getOrCreateContext())
-          .onComplete(context.asyncAssertFailure());
-    });
-  }
-
-  @Test
-  public void testGetSystemPermsNullContext(TestContext context) {
-    String tenantId = "diku";
-
-    TenantRefAPI api = new TenantRefAPI();
-    PostgresClient postgresClient = PostgresClient.getInstance(vertx, tenantId);
-
-    postgresClient.startTx(connection -> {
-      api.getSystemPerms(connection, tenantId, null)
-          .onComplete(context.asyncAssertFailure());
-    });
+    postgresClient.withConn(connection -> api.getSystemPerms(connection)
+        .onComplete(context.asyncAssertFailure()));
   }
 }

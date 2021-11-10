@@ -100,12 +100,11 @@ public class PermsAPITest {
     String tenantId = "badTenant";
     Context vertxContext = vertx.getOrCreateContext();
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-    postgresClient.startTx(s -> {
-      Future<Void> future = PermsAPI.updateUserPermissions(s, "bad",
-          new JsonArray().add("this"), new JsonArray().add("that"),
-          vertxContext, tenantId, null);
-      future.onComplete(context.asyncAssertFailure());
-    });
+    postgresClient.withTrans(conn ->
+          PermsAPI.updateUserPermissions(conn, "bad",
+              new JsonArray().add("this"), new JsonArray().add("that"),
+              vertxContext, tenantId, null)
+    ).onComplete(context.asyncAssertFailure());
   }
 
   @Test

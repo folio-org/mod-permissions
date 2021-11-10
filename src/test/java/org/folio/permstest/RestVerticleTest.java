@@ -241,7 +241,8 @@ public class RestVerticleTest {
   public void testGetPermsUsersByIdBadIndexField(TestContext context) {
 
     Response response = send(HttpMethod.GET, "/perms/users/123?indexField=bad", null, context);
-    context.assertEquals(500, response.code);
+    context.assertEquals(400, response.code);
+    context.assertEquals("Invalid value 'bad' for indexField", response.body.getString("text"));
   }
 
   @Test
@@ -257,7 +258,15 @@ public class RestVerticleTest {
     String uuid = UUID.randomUUID().toString();
     Response response = send(HttpMethod.GET, "/perms/users/" + uuid + "?indexField=id", null, context);
     context.assertEquals(404, response.code);
-    context.assertEquals("No user with id: " + uuid, response.body.getString("text"));
+    context.assertEquals("No user with id " + uuid, response.body.getString("text"));
+  }
+
+  @Test
+  public void testGetPermsUsersByIdDoesNotExist2(TestContext context) {
+    String uuid = UUID.randomUUID().toString();
+    Response response = send(HttpMethod.GET, "/perms/users/" + uuid + "?indexField=userId", null, context);
+    context.assertEquals(404, response.code);
+    context.assertEquals("No user with userId " + uuid, response.body.getString("text"));
   }
 
   @Test
@@ -313,16 +322,15 @@ public class RestVerticleTest {
     String postPermUsersRequest = "{\"userId\": \"" + userUserId + "\",\"permissions\": " +
         "[], \"id\" : \"" + userId2 + "\"}";
     Response response = send(HttpMethod.PUT, "/perms/users/123", postPermUsersRequest, context);
-    context.assertEquals(404, response.code);
-    context.assertEquals("No permissions user found with id 123", response.body.getString("text"));
+    context.assertEquals(400, response.code);
+    context.assertEquals("Invalid UUID string: 123", response.body.getString("text"));
   }
 
   @Test
   public void testDeletePermsUsersByIdInvalidUUID(TestContext context) {
     Response response = send(HttpMethod.DELETE, "/perms/users/123", null, context);
     context.assertEquals(400, response.code);
-    Assert.assertThat(response.body.getString("text"),
-        containsString("invalid input syntax for type uuid"));
+    context.assertEquals("Invalid UUID string: 123", response.body.getString("text"));
   }
 
   @Test
@@ -906,7 +914,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.PUT, "/perms/permissions/123",
         permRequest, context);
     context.assertEquals(response.code, 400);
-    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax for type uuid"));
+    context.assertEquals("Invalid UUID string: 123", response.body.getString("text"));
   }
 
   @Test
@@ -916,7 +924,7 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.PUT, "/perms/permissions/" + uuid,
         permRequest, context);
     context.assertEquals(response.code, 404);
-    context.assertEquals("No permission found to match that id", response.body.getString("text"));
+    context.assertEquals("No permission found to match id " + uuid, response.body.getString("text"));
   }
 
   @Test
@@ -2028,7 +2036,7 @@ public class RestVerticleTest {
       JsonArray subPermissions = json.getJsonArray("permissions").getJsonObject(0)
           .getJsonArray("subPermissions");
       if (subPermissions.size() != 4 || !subPermissions.contains("dummy.delete")) {
-        return Future.failedFuture("dummy.all should contain three " + subPermissions.toString() +
+        return Future.failedFuture("dummy.all should contain three " + subPermissions +
             " subPermissions including dummy.delete");
       } else {
         return Future.succeededFuture(wr);
@@ -2089,8 +2097,8 @@ public class RestVerticleTest {
         .put("id", permsUserId)
         .put("userId", userId1)
         .put("permissions", new JsonArray().add("spurious.all"));
-    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/123",
-        HttpMethod.PUT, null, modifiedUser.encode(), 404);
+    return TestUtil.doRequest(vertx, "http://localhost:" + port + "/perms/users/" + permsUserId,
+        HttpMethod.PUT, null, modifiedUser.encode(), 400);
   }
 
   private Future<WrappedResponse> testUserPerms(TestContext context, String permsUserId, String[] expected) {
@@ -2124,7 +2132,7 @@ public class RestVerticleTest {
     try {
       headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
       url = "http://localhost:" + port + "/perms/users?query=" +
-          URLEncoder.encode("permissions=dummy*", "UTF-8");
+          URLEncoder.encode("permissions=dummy*", StandardCharsets.UTF_8);
     } catch (Exception e) {
       promise.fail(e);
       return promise.future();
@@ -2165,7 +2173,7 @@ public class RestVerticleTest {
     String url;
     try {
       headers.add(XOkapiHeaders.PERMISSIONS, new JsonArray().add("perms.users.get").encode());
-      url = "http://localhost:" + port + "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", "UTF-8");
+      url = "http://localhost:" + port + "/perms/permissions?query=" + URLEncoder.encode("permissionName=dummy*", StandardCharsets.UTF_8);
     } catch (Exception e) {
       promise.fail(e);
       return promise.future();
