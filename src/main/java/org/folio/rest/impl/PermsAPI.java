@@ -878,14 +878,7 @@ public class PermsAPI implements Perms {
             .map(object -> Objects.toString(object, null))
             .forEach(subPermSet::add);
       }
-      int splitSize = 15;
-      if (splitSize < permissionList.size()) {
-        splitSize = permissionList.size();
-      }
-      List<List<String>> listOfSubPermLists = splitStringList(subPermSet, splitSize);
-      if (listOfSubPermLists.isEmpty()) {
-        return Future.succeededFuture(foundPermNameList);
-      }
+      List<List<String>> listOfSubPermLists = splitStringList(subPermSet, 15);
       return getAllExpandedPermissionsSequential(listOfSubPermLists, vertxContext,
           tenantId, foundPermNameList);
     });
