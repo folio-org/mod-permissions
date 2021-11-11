@@ -10,7 +10,6 @@ import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
 import org.folio.rest.persist.PostgresClient;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.Tuple;
@@ -78,39 +77,22 @@ public class PermissionUtils {
    * @return {@link Future} with {@link PermissionNameListObject}
    */
   public static Future<PermissionNameListObject> purgeDeprecatedPermissions(PostgresClient pgClient, String tenantId) {
-    Promise<PermissionNameListObject> promise = Promise.promise();
-    pgClient.startTx(tx -> {
-      try {
-        pgClient.select(tx, String.format(SELECT_DEPRECATED_PERMS, tenantId), res -> {
-          if (res.failed()) {
-            pgClient.rollbackTx(tx, done -> promise.fail(res.cause()));
-            return;
-          }
+    return pgClient.withTrans(connection ->
+        connection.execute(String.format(SELECT_DEPRECATED_PERMS, tenantId)).compose(result -> {
           PermissionNameListObject permNames = new PermissionNameListObject();
           permNames.setTotalRecords(0);
           List<Future<RowSet<Row>>> futures = new ArrayList<Future<RowSet<Row>>>();
-          res.result()
-            .forEach(row -> {
-              String name = row.getString("name");
-              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_SUB_PERMS, tenantId), Tuple.of(name, name), p)));
-              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_PERMS_USERS, tenantId), Tuple.of(name, name), p)));
-              futures.add(Future.<RowSet<Row>>future(p -> pgClient.execute(tx, String.format(PURGE_DEPRECATED_PERMS, tenantId), p)));
-              permNames.getPermissionNames().add(name);
-              permNames.setTotalRecords(permNames.getTotalRecords() + 1);
-            });
-          GenericCompositeFuture.all(futures)
-            .onSuccess(ignore -> {
-              pgClient.endTx(tx, done -> promise.complete(permNames));
-            })
-            .onFailure(ex -> {
-              pgClient.rollbackTx(tx, done -> promise.fail(ex));
-            });
-        });
-      } catch (Exception e) {
-        pgClient.rollbackTx(tx, done -> promise.fail(e));
-      }
-    });
-    return promise.future();
+          result
+              .forEach(row -> {
+                String name = row.getString("name");
+                futures.add(connection.execute(String.format(PURGE_DEPRECATED_SUB_PERMS, tenantId), Tuple.of(name, name)));
+                futures.add(connection.execute(String.format(PURGE_DEPRECATED_PERMS_USERS, tenantId), Tuple.of(name, name)));
+                futures.add(connection.execute(String.format(PURGE_DEPRECATED_PERMS, tenantId)));
+                permNames.getPermissionNames().add(name);
+                permNames.setTotalRecords(permNames.getTotalRecords() + 1);
+              });
+          return GenericCompositeFuture.all(futures)
+              .map(done -> permNames);
+        }));
   }
-
 }
