@@ -1,11 +1,12 @@
 package org.folio.rest.impl;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 
 import org.apache.logging.log4j.LogManager;
@@ -867,21 +868,17 @@ public class PermsAPI implements Perms {
     Criterion criterion = buildPermissionNameListQuery(permissionList);
     PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     return pgClient.get(TABLE_NAME_PERMS, Permission.class, criterion, false).compose(result -> {
-      List<String> allSubPermList = new ArrayList<>();
+
+      Set<String> subPermSet = new HashSet<>();
       List<String> foundPermNameList = new ArrayList<>();
       List<Permission> foundPermList = result.getResults();
       for (Permission perm : foundPermList) {
         foundPermNameList.add(perm.getPermissionName());
-        List<String> subPermList = perm.getSubPermissions().stream()
+        perm.getSubPermissions().stream()
             .map(object -> Objects.toString(object, null))
-            .collect(Collectors.toList());
-        for (String subPerm : subPermList) {
-          if (!allSubPermList.contains(subPerm)) {
-            allSubPermList.add(subPerm);
-          }
-        }
+            .forEach(subPermSet::add);
       }
-      List<List<String>> listOfSubPermLists = splitStringList(allSubPermList, 15);
+      List<List<String>> listOfSubPermLists = splitStringList(subPermSet, 15);
       if (listOfSubPermLists.isEmpty()) {
         return Future.succeededFuture(foundPermNameList);
       }
@@ -1368,16 +1365,16 @@ public class PermsAPI implements Perms {
     return perm;
   }
 
-  static List<List<String>> splitStringList(List<String> stringList, int chunkSize) {
+  static List<List<String>> splitStringList(Iterable<String> stringList, int chunkSize) {
     List<List<String>> listOfLists = new ArrayList<>();
     int count = 0;
-    List<String> currentChunk = new ArrayList<>();
+    List<String> currentChunk = new ArrayList<>(chunkSize);
     for (String string : stringList) {
       count++;
       currentChunk.add(string);
       if (count == chunkSize) {
         listOfLists.add(currentChunk);
-        currentChunk = new ArrayList<>();
+        currentChunk = new ArrayList<>(chunkSize);
         count = 0;
       }
     }
