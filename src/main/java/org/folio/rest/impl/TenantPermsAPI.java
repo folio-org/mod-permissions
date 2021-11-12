@@ -214,13 +214,16 @@ public class TenantPermsAPI implements Tenantpermissions {
           return handleNewPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId)
               .compose(x -> handleModifiedPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId))
               .compose(v -> handleRenamedPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId))
-              .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), connection));
-        })
-        .compose(v -> migratePermsAssign(moduleId, connection));
+              .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), connection))
+              .compose(v -> migratePermsAssign(moduleId, dbPerms, connection));
+        });
   }
 
-  private Future<Void> migratePermsAssign(ModuleId moduleId, Conn connection) {
-    if (!"mod-permissions".equals(moduleId.getProduct())) {
+  private Future<Void> migratePermsAssign(ModuleId moduleId, Map<String, Permission> dbPerms, Conn connection) {
+    // only if are upgrading from an earlier mod-permissions module do we upgrade users.
+    Permission permission = dbPerms.get(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+    if (!"mod-permissions".equals(moduleId.getProduct())
+        || (permission != null && !permission.getDeprecated())) {
       return Future.succeededFuture();
     }
     CQLWrapper all = new CQLWrapper();

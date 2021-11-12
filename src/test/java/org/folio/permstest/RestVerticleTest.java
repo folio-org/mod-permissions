@@ -2891,7 +2891,7 @@ public class RestVerticleTest {
   @Test
   public void testPermsAssignMigration(TestContext context) {
     // announce permissions - older version without the perms.assign
-    JsonObject permissionsSet = new JsonObject()
+    JsonObject permissionsSet_0 = new JsonObject()
         .put("moduleId", "mod-permissions-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
@@ -2901,7 +2901,8 @@ public class RestVerticleTest {
                 .put("permissionName", "perms.users.get")
             )
         );
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet.encode(), context);
+
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
     context.assertEquals(201, response.code);
 
     String normalUserId = UUID.randomUUID().toString();
@@ -2947,18 +2948,26 @@ public class RestVerticleTest {
     context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_OKAPI_ALL)), response.body.getJsonArray("permissions"));
 
     // announce newer permissions
-    permissionsSet.put("moduleId", "mod-permissions-1.0.1");
-    permissionsSet.getJsonArray("perms")
-        .add(new JsonObject()
-            .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
-        )
-        .add(new JsonObject()
-            .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
-        )
-        .add(new JsonObject()
-            .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+    JsonObject permissionsSet_1 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_PERMS_ALL)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users.get")
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+            )
         );
-    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet.encode(), context);
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
     context.assertEquals(201, response.code);
 
     response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "?indexField=userId", null, context);
@@ -2974,6 +2983,22 @@ public class RestVerticleTest {
     context.assertEquals(200, response.code);
     context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_OKAPI_ALL, PermissionUtils.PERMS_USERS_ASSIGN_OKAPI,
             PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+        response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+        response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
         response.body.getJsonArray("permissions"));
   }
 }
