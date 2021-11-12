@@ -532,26 +532,18 @@ public class TenantPermsAPI implements Tenantpermissions {
     return makeDummyPermList(connection, externalSubsNeeded).map(x -> externalSubsNeeded);
   }
 
-  private Future<Void> makeDummyPermList(Conn connection,
-      List<String> permList) {
-    if (permList.isEmpty()) {
-      return Future.succeededFuture();
+  private Future<Void> makeDummyPermList(Conn connection, List<String> permList) {
+    Future<Void> future = Future.succeededFuture();
+    for (String perm : permList) {
+      future = future
+          .compose(x -> checkPermissionExists(connection, perm))
+          .compose(exists -> exists ? Future.succeededFuture() : makeDummyPerm(connection, perm));
     }
-    List<String> permListCopy = new ArrayList<>(permList);
-    String perm = permListCopy.get(0);
-    permListCopy.remove(0);
-    return checkPermissionExists(connection, perm).compose(result -> {
-          if (result) {
-            //permission already exists
-            return Future.succeededFuture();
-          }
-          return makeDummyPerm(connection, perm);
-        })
-        .compose(next -> makeDummyPermList(connection, permListCopy));
+    return future;
   }
 
   private Future<Void> makeDummyPerm(Conn connection, String perm) {
- Permission dummyPermission = new Permission();
+    Permission dummyPermission = new Permission();
     dummyPermission.setPermissionName(perm);
     String newId = UUID.randomUUID().toString();
     dummyPermission.setId(newId);
