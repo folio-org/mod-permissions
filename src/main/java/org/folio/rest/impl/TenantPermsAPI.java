@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.core.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -57,22 +58,16 @@ public class TenantPermsAPI implements Tenantpermissions {
   @Override
   public void postTenantpermissions(OkapiPermissionSet entity, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
-    try {
-      String tenantId = TenantTool.tenantId(okapiHeaders);
-      PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
-      pgClient.withTrans(connection -> handlePermLists(entity, connection, vertxContext, tenantId))
-          .onSuccess(v -> asyncResultHandler.handle(Future.succeededFuture(
-              PostTenantpermissionsResponse.respond201WithApplicationJson(entity))))
-          .onFailure(t -> {
-            logger.error(t.getMessage(), t);
-            asyncResultHandler.handle(Future.succeededFuture(
-                PostTenantpermissionsResponse.respond400WithTextPlain(t.getMessage())));
-          });
-    } catch (Exception e) {
-      logger.error(e.getMessage(), e);
-      asyncResultHandler.handle(Future.succeededFuture(
-          PostTenantpermissionsResponse.respond500WithTextPlain(e.getMessage())));
-    }
+    String tenantId = TenantTool.tenantId(okapiHeaders);
+    PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+    pgClient.withTrans(connection -> handlePermLists(entity, connection, vertxContext, tenantId))
+        .onSuccess(v -> asyncResultHandler.handle(Future.succeededFuture(
+            PostTenantpermissionsResponse.respond201WithApplicationJson(entity))))
+        .onFailure(t -> {
+          logger.error(t.getMessage(), t);
+          asyncResultHandler.handle(Future.succeededFuture(
+              PostTenantpermissionsResponse.respond400WithTextPlain(t.getMessage())));
+        });
   }
 
   private Future<Permission> addMissingModuleContext(Permission perm, ModuleId moduleId, Conn connection) {
@@ -83,8 +78,8 @@ public class TenantPermsAPI implements Tenantpermissions {
     return connection.update(TABLE_NAME_PERMS, perm, perm.getId()).map(result -> perm);
   }
 
-  private Future<List<Permission>> getPermsForModule(ModuleId moduleId, List<OkapiPermission> perms,
-      Conn connection) {
+  private Future<List<Permission>> getPermsForModule(ModuleId moduleId,
+      @NotNull List<OkapiPermission> perms, Conn connection) {
 
     return getPermsByModule(moduleId, connection)
         .compose(existing -> {
@@ -103,7 +98,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                       // permission does not already exist or is dummy
                       return Future.succeededFuture();
                     }
-                    // we only allow overwrite for immutable permissions (those posted with tenantPermissions)
+                    // we only allow to override for immutable permissions (those posted with tenantPermissions)
                     // and if one of the following it true:
                     // 1: it's deprecated
                     // 2: no module context (yet)
@@ -129,11 +124,10 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private List<OkapiPermission> getNewPerms(Map<String, Permission> dbPerms,
-      List<OkapiPermission> perms) {
-    List<OkapiPermission> newPerms = new ArrayList<>();
+      @NotNull List<OkapiPermission> perms) {
 
-    if(perms != null) {
-      perms.stream()
+    List<OkapiPermission> newPerms = new ArrayList<>();
+    perms.stream()
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .filter(perm -> {
           // filter out renamed perms, we'll deal with them separately
@@ -145,16 +139,14 @@ public class TenantPermsAPI implements Tenantpermissions {
           return true;
         })
         .forEach(newPerms::add);
-    }
-
     return newPerms;
   }
 
   private Map<OkapiPermission, List<Permission>> getRenamedPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
+
     Map<OkapiPermission, List<Permission>> renamedPerms = new HashMap<>();
-    if(perms != null) {
-      perms.stream()
+    perms.stream()
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .forEach(perm -> {
           List<Permission> replaced = null;
@@ -169,7 +161,6 @@ public class TenantPermsAPI implements Tenantpermissions {
             }
           }
         });
-    }
     return renamedPerms;
   }
 
@@ -182,19 +173,17 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private List<OkapiPermission> getModifiedPerms(ModuleId moduleId, Map<String, Permission> dbPerms,
-      List<OkapiPermission> okapiPerms) {
+      @NotNull List<OkapiPermission> okapiPerms) {
     List<OkapiPermission> modifiedPerms = new ArrayList<>();
 
-    if(okapiPerms != null) {
-      okapiPerms.stream()
+    okapiPerms.stream()
         .filter(okapiPerm -> {
-            String name = okapiPerm.getPermissionName();
-            return dbPerms.containsKey(name)
-                && (dbPerms.get(name).getDeprecated()
-                || !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name)));
-          })
+          String name = okapiPerm.getPermissionName();
+          return dbPerms.containsKey(name)
+              && (dbPerms.get(name).getDeprecated()
+              || !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name)));
+        })
         .forEach(modifiedPerms::add);
-    }
     return modifiedPerms;
   }
 
@@ -204,10 +193,9 @@ public class TenantPermsAPI implements Tenantpermissions {
     List<String> permNames = new ArrayList<>();
 
     perms.stream().forEach(perm -> permNames.add(perm.getPermissionName()));
-
     dbPerms.values().stream()
-      .filter(dbPerm -> !permNames.contains(dbPerm.getPermissionName()))
-      .forEach(removedPerms::add);
+        .filter(dbPerm -> !permNames.contains(dbPerm.getPermissionName()))
+        .forEach(removedPerms::add);
 
     return removedPerms;
   }
@@ -236,13 +224,10 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private Future<Void> handleNewAndModifiedPerms(ModuleId moduleId, List<OkapiPermission> permList,
       Conn connection, Context vertxContext, String tenantId) {
-    if (permList.isEmpty()) {
-      return Future.succeededFuture();
-    }
     return savePermList(moduleId, permList, connection, vertxContext, tenantId);
   }
 
-  private Future<Void> handleRenamedPerms(ModuleId moduleId, Map<OkapiPermission, List<Permission>> permList,
+  private Future<Void> handleRenamedPerms(ModuleId moduleId, Map<OkapiPermission, @NotNull List<Permission>> permList,
       Conn connection, Context vertxContext, String tenantId) {
     if (permList.isEmpty()) {
       return Future.succeededFuture();
@@ -296,7 +281,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<Void> renamePermList(Conn connection, ModuleId moduleId,
-      Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
+      @NotNull Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
 
     return savePermList(moduleId, new ArrayList<>(permList.keySet()), connection, vertxContext, tenantId)
         .compose(v -> {
@@ -323,10 +308,10 @@ public class TenantPermsAPI implements Tenantpermissions {
             .collect(Collectors.toList()), connection));
   }
 
-  private Future<Void> savePermList(ModuleId moduleId, List<OkapiPermission> permList, Conn connection,
-      Context vertxContext, String tenantId) {
+  private Future<Void> savePermList(ModuleId moduleId, @NotNull List<OkapiPermission> permList,
+      Conn connection, Context vertxContext, String tenantId) {
 
-    if (permList == null || permList.isEmpty()) {
+    if (permList.isEmpty()) {
       return Future.succeededFuture();
     }
     List<OkapiPermission> permListCopy = new ArrayList<>(permList);
@@ -452,77 +437,73 @@ public class TenantPermsAPI implements Tenantpermissions {
     if (perm.getPermissionName() == null) {
       return Future.succeededFuture();
     }
-    try {
-      Permission permission = new Permission();
-      permission.setMutable(false); //All permissions created via tenantPermissions API are immutable
-      permission.setPermissionName(perm.getPermissionName());
-      permission.setDisplayName(perm.getDisplayName());
-      permission.setDescription(perm.getDescription());
-      permission.setModuleName(moduleId.getProduct());
-      permission.setDeprecated(false);
-      SemVer semver = moduleId.getSemVer();
-      permission.setModuleVersion(semver != null ? semver.toString() : null);
+    Permission permission = new Permission();
+    permission.setMutable(false); //All permissions created via tenantPermissions API are immutable
+    permission.setPermissionName(perm.getPermissionName());
+    permission.setDisplayName(perm.getDisplayName());
+    permission.setDescription(perm.getDescription());
+    permission.setModuleName(moduleId.getProduct());
+    permission.setDeprecated(false);
+    SemVer semver = moduleId.getSemVer();
+    permission.setModuleVersion(semver != null ? semver.toString() : null);
 
-      if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
-        List<Object> subPerms = new ArrayList<>(perm.getSubPermissions());
-        permission.setSubPermissions(subPerms);
-      }
-      Criteria nameCrit = new Criteria();
-      nameCrit.addField(PERMISSION_NAME_FIELD);
-      nameCrit.setOperation("=");
-      nameCrit.setVal(perm.getPermissionName());
-      //If already exists, we don't have to do anything
-      return connection.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true)
-          .compose(result -> {
-            List<Permission> returnList = result.getResults();
-            Permission foundPerm = null;
-            if (!returnList.isEmpty()) {
-              foundPerm = returnList.get(0);
-              if (!Boolean.FALSE.equals(foundPerm.getMutable())) {
-                throw new RuntimeException("PermissionName collision with user-defined permission: " + perm.getPermissionName());
-              }
-              // leverage dummy permission to handle permission update
-              if (Boolean.TRUE.equals(foundPerm.getDeprecated())
-                  || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
-                  || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
-                  || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
-                  || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
-                  || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getModuleVersion()))) {
-                foundPerm.setDummy(true);
-              }
-            }
-            if (foundPerm != null && !foundPerm.getDummy()) {
-              //If it isn't a dummy permission, we won't replace it
-              return Future.succeededFuture();
-            }
-            List<Object> grantedTo = foundPerm == null ? null : foundPerm.getGrantedTo();
-            Future<Void> deleteExistingFuture = foundPerm == null
-                ? Future.succeededFuture()
-                : deletePerm(connection, perm.getPermissionName());
-            return deleteExistingFuture.compose(res -> {
-              String newId = UUID.randomUUID().toString();
-              permission.setId(newId);
-              permission.setDummy(false);
-
-              // preserve grantedTo if applicable.
-              if (grantedTo != null && !grantedTo.isEmpty()) {
-                permission.setGrantedTo(grantedTo);
-              }
-              if (perm.getVisible() == null) {
-                permission.setVisible(false);
-              } else {
-                permission.setVisible(perm.getVisible());
-              }
-              return connection.save(TABLE_NAME_PERMS, newId, permission)
-                  .compose(res1 ->
-                      PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
-                          new JsonArray(), new JsonArray(permission.getSubPermissions()),
-                          null, vertxContext, tenantId));
-            });
-          });
-    } catch (Exception e) {
-      return Future.failedFuture("Error running on vertx for savePerm: " + e.getMessage());
+    if (perm.getSubPermissions() != null && !perm.getSubPermissions().isEmpty()) {
+      List<Object> subPerms = new ArrayList<>(perm.getSubPermissions());
+      permission.setSubPermissions(subPerms);
     }
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setOperation("=");
+    nameCrit.setVal(perm.getPermissionName());
+    //If already exists, we don't have to do anything
+    return connection.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true)
+        .compose(result -> {
+          List<Permission> returnList = result.getResults();
+          Permission foundPerm = null;
+          if (!returnList.isEmpty()) {
+            foundPerm = returnList.get(0);
+            if (!Boolean.FALSE.equals(foundPerm.getMutable())) {
+              throw new RuntimeException("PermissionName collision with user-defined permission: " + perm.getPermissionName());
+            }
+            // leverage dummy permission to handle permission update
+            if (Boolean.TRUE.equals(foundPerm.getDeprecated())
+                || (perm.getSubPermissions() != null && !perm.getSubPermissions().equals(foundPerm.getSubPermissions()))
+                || (perm.getVisible() != null && !perm.getVisible().equals(foundPerm.getVisible()))
+                || (perm.getDisplayName() != null && !perm.getDisplayName().equals(foundPerm.getDisplayName()))
+                || (perm.getDescription() != null && !perm.getDescription().equals(foundPerm.getDescription()))
+                || (moduleId.getSemVer() != null && !moduleId.getSemVer().toString().equals(foundPerm.getModuleVersion()))) {
+              foundPerm.setDummy(true);
+            }
+          }
+          if (foundPerm != null && !foundPerm.getDummy()) {
+            //If it isn't a dummy permission, we won't replace it
+            return Future.succeededFuture();
+          }
+          List<Object> grantedTo = foundPerm == null ? null : foundPerm.getGrantedTo();
+          Future<Void> deleteExistingFuture = foundPerm == null
+              ? Future.succeededFuture()
+              : deletePerm(connection, perm.getPermissionName());
+          return deleteExistingFuture.compose(res -> {
+            String newId = UUID.randomUUID().toString();
+            permission.setId(newId);
+            permission.setDummy(false);
+
+            // preserve grantedTo if applicable.
+            if (grantedTo != null && !grantedTo.isEmpty()) {
+              permission.setGrantedTo(grantedTo);
+            }
+            if (perm.getVisible() == null) {
+              permission.setVisible(false);
+            } else {
+              permission.setVisible(perm.getVisible());
+            }
+            return connection.save(TABLE_NAME_PERMS, newId, permission)
+                .compose(res1 ->
+                    PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
+                        new JsonArray(), new JsonArray(permission.getSubPermissions()),
+                        null, vertxContext, tenantId));
+          });
+        });
   }
 
   /*
