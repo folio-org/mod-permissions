@@ -2587,7 +2587,7 @@ public class RestVerticleTest {
 
   void setupModuleToi(TestContext context) {
     JsonObject permissionSet = new JsonObject()
-        .put("moduleId", "mod-tou-1.0.0")
+        .put("moduleId", "mod-permissions-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
                 .put("permissionName", "toi.mod.get")
@@ -2615,9 +2615,6 @@ public class RestVerticleTest {
                 )
             )
             .add(new JsonObject()
-                .put("permissionName", "okapi.all")
-            )
-            .add(new JsonObject()
                 .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
             )
             .add(new JsonObject()
@@ -2628,6 +2625,14 @@ public class RestVerticleTest {
             )
         );
     Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionSet.encode(), context);
+    context.assertEquals(201, response.code);
+    JsonObject okapiSet = new JsonObject()
+        .put("moduleId", "okapi-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "okapi.all")
+            ));
+    response = send(HttpMethod.POST, "/_/tenantpermissions", okapiSet.encode(), context);
     context.assertEquals(201, response.code);
   }
 
@@ -2889,5 +2894,119 @@ public class RestVerticleTest {
     context.assertEquals(403, response.code, response.body.encodePrettily());
     context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
+  }
+
+  @Test
+  public void testPermsAssignMigration(TestContext context) {
+    // announce permissions - older version without the perms.assign
+    JsonObject permissionsSet_0 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_PERMS_ALL)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users.get")
+            )
+        );
+
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String normalUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", normalUserId)
+        .put("permissions", new JsonArray().add("perms.users.get"));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+    context.assertEquals(201, response.code);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add(PermissionUtils.PERMS_PERMS_ALL));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // announce Okapi
+    JsonObject okapiSet = new JsonObject()
+        .put("moduleId", "okapi-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_OKAPI_ALL)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "okapi.readonly")
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", okapiSet.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String okapiOperatorId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", okapiOperatorId)
+        .put("permissions", new JsonArray().add(PermissionUtils.PERMS_OKAPI_ALL));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + okapiOperatorId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_OKAPI_ALL)), response.body.getJsonArray("permissions"));
+
+    // announce newer permissions
+    JsonObject permissionsSet_1 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_PERMS_ALL)
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users.get")
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("perms.users.get")), response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+        response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + okapiOperatorId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_OKAPI_ALL, PermissionUtils.PERMS_USERS_ASSIGN_OKAPI,
+            PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+        response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+        response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+        response.body.getJsonArray("permissions"));
   }
 }

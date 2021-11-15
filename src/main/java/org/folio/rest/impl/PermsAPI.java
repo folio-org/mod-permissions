@@ -1324,15 +1324,6 @@ public class PermsAPI implements Perms {
     return future;
   }
 
-  protected static Criterion getIdCriterion(String id) {
-    Criteria idCrit = new Criteria();
-    idCrit.addField(ID_FIELD);
-    idCrit.setJSONB(false);
-    idCrit.setOperation("=");
-    idCrit.setVal(id);
-    return new Criterion(idCrit);
-  }
-
   private static Criterion getIdCriterion(String indexField, String value) {
     Criteria crit = new Criteria();
     if (indexField == null || indexField.equals("id")) {
