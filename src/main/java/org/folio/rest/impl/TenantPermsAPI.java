@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
@@ -130,8 +131,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   private List<OkapiPermission> getNewPerms(Map<String, Permission> dbPerms,
       @NotNull List<OkapiPermission> perms) {
 
-    List<OkapiPermission> newPerms = new ArrayList<>();
-    perms.stream()
+    return perms.stream()
         .filter(perm -> !dbPerms.containsKey(perm.getPermissionName()))
         .filter(perm -> {
           // filter out renamed perms, we'll deal with them separately
@@ -142,8 +142,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           }
           return true;
         })
-        .forEach(newPerms::add);
-    return newPerms;
+        .collect(Collectors.toList());
   }
 
   private Map<OkapiPermission, List<Permission>> getRenamedPerms(Map<String, Permission> dbPerms,
@@ -170,30 +169,27 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private List<OkapiPermission> getModifiedPerms(ModuleId moduleId, Map<String, Permission> dbPerms,
       @NotNull List<OkapiPermission> okapiPerms) {
-    List<OkapiPermission> modifiedPerms = new ArrayList<>();
 
-    okapiPerms.stream()
+    return okapiPerms.stream()
         .filter(okapiPerm -> {
           String name = okapiPerm.getPermissionName();
           return dbPerms.containsKey(name)
               && (dbPerms.get(name).getDeprecated()
               || !PermissionUtils.equals(okapiPerm, moduleId.getProduct(), dbPerms.get(name)));
         })
-        .forEach(modifiedPerms::add);
-    return modifiedPerms;
+        .collect(Collectors.toList());
   }
 
   private List<Permission> getRemovedPerms(Map<String, Permission> dbPerms,
       List<OkapiPermission> perms) {
-    List<Permission> removedPerms = new ArrayList<>();
-    List<String> permNames = new ArrayList<>();
 
-    perms.stream().forEach(perm -> permNames.add(perm.getPermissionName()));
-    dbPerms.values().stream()
+    Set<String> permNames = perms.stream()
+        .map(OkapiPermission::getPermissionName)
+        .collect(Collectors.toSet());
+
+    return dbPerms.values().stream()
         .filter(dbPerm -> !permNames.contains(dbPerm.getPermissionName()))
-        .forEach(removedPerms::add);
-
-    return removedPerms;
+        .collect(Collectors.toList());
   }
 
   private Future<Void> handlePermLists(OkapiPermissionSet permSet, Conn connection, Context vertxContext,
@@ -280,9 +276,6 @@ public class TenantPermsAPI implements Tenantpermissions {
       Conn connection, Context vertxContext, String tenantId) {
 
     Map<OkapiPermission, List<Permission>> renamedPerms = getRenamedPerms(dbPerms, permList);
-    if (renamedPerms.isEmpty()) {
-      return Future.succeededFuture();
-    }
     return renamePermList(connection, moduleId, renamedPerms, vertxContext, tenantId);
   }
 
@@ -334,6 +327,9 @@ public class TenantPermsAPI implements Tenantpermissions {
   private Future<Void> renamePermList(Conn connection, ModuleId moduleId,
       @NotNull Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
 
+    if (permList.isEmpty()) {
+      return Future.succeededFuture();
+    }
     return savePermList(moduleId, new ArrayList<>(permList.keySet()), connection, vertxContext, tenantId)
         .compose(v -> {
           List<Future<Void>> futures = new ArrayList<>(permList.size());
