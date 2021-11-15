@@ -1024,7 +1024,8 @@ public class PermsAPI implements Perms {
                       return null;
                     }
                     boolean mutable = Boolean.TRUE.equals(permission.getMutable());
-                    if (newPerm.startsWith("okapi.") && !hasOkapi) {
+                    if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
+                        && !hasOkapi) {
                       throw new OperatingUserException("Cannot add okapi permission "
                           + newPerm + " not owned by operating user " + operatingUser);
                     }

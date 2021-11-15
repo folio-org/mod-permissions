@@ -42,29 +42,35 @@ This was introduced in mod-permissions version 6.0.0.
 
 The restrictions work as follows:
 
-1. If the user of the API (operating user) already owns the permission to be granted
-for a user, that is allowed.
+1. If the user of the API (operating user) already owns the permission to
+be granted for a user, that is allowed.
 
-2. If there's no user of the API (no authentication token), the operation is allowed.
+2. If there's no user of the API (no authentication token), the operation
+is allowed.
 
-3. If new permission name starts with `okapi.` and operating user permissions and module permissions
-doesn't contain `perms.users.assign.okapi` , the operation is denied.
+3. If new permission name is `perms.users.assign.okapi` or starts with
+`okapi.` and operating user permissions and module permissions doesn't
+contain `perms.users.assign.okapi`, the operation is denied.
 
-4. If the new permission is mutable and operating user permissions and module permissions
-doesn't contain `perms.users.assign.immutable`, the operation is denied.
+4. If the new permission is mutable and operating user permissions and module
+permissions doesn't contain `perms.users.assign.immutable`, the operation
+is denied.
 
-5. If the new permission is immutable and operating user permissions and module permissions
-doesn't contain `perms.users.assign.mutable`, the operation is denied.
+5. If the new permission is immutable and operating user permissions and
+module permissions doesn't contain `perms.users.assign.mutable`, the
+operation is denied.
 
 6. Otherwise, the operation is allowed.
 
 ## Additional information
 
-The [raml-module-builder](https://github.com/folio-org/raml-module-builder) framework.
+The [raml-module-builder](https://github.com/folio-org/raml-module-builder)
+framework.
 
 Other [modules](https://dev.folio.org/source-code/#server-side).
 
-Other FOLIO Developer documentation is at [dev.folio.org](https://dev.folio.org/)
+Other FOLIO Developer documentation is at
+[dev.folio.org](https://dev.folio.org/)
 
 ### Issue tracker
 
@@ -79,7 +85,8 @@ and the additional module metadata.
 
 ### API documentation
 
-This module's [API documentation](https://dev.folio.org/reference/api/#mod-permissions).
+This module's
+[API documentation](https://dev.folio.org/reference/api/#mod-permissions).
 
 ### Code analysis
 
@@ -88,6 +95,7 @@ This module's [API documentation](https://dev.folio.org/reference/api/#mod-permi
 ### Download and configuration
 
 The built artifacts for this module are available.
-See [configuration](https://dev.folio.org/download/artifacts) for repository access,
-and the [Docker image](https://hub.docker.com/r/folioorg/mod-permissions/).
+See [configuration](https://dev.folio.org/download/artifacts) for repository
+access, and the
+[Docker image](https://hub.docker.com/r/folioorg/mod-permissions/).
 
