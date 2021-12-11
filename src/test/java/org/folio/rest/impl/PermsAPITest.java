@@ -1,17 +1,16 @@
 package org.folio.rest.impl;
 
-import static org.hamcrest.CoreMatchers.anyOf;
-import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.vertx.core.Context;
-import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -89,9 +88,9 @@ public class PermsAPITest {
   public void testRefreshCacheFail(TestContext context) {
     PermsCache.getFullPerms("foo",
         vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
-      assertThat(res.getMessage(), anyOf(
-          containsString("password authentication failed for user \\\"badtenant_mod_permissions\\\""),
-          containsString("relation \\\"badtenant_mod_permissions.permissions\\\" does not exist")));
+      assertThat(res.getMessage(), allOf(
+          anyOf(containsString("password authentication failed"), containsString("does not exist")),
+          containsString("badtenant_mod_permissions.permissions")));
     }));
   }
 
