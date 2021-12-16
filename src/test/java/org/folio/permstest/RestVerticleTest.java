@@ -3,9 +3,11 @@ package org.folio.permstest;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
@@ -237,8 +239,9 @@ public class RestVerticleTest {
   public void testGetPermsUsersByIdBadUUID(TestContext context) {
     Response response = send(HttpMethod.GET, "/perms/users/12%2334?indexField=id", null, context);
     context.assertEquals(400, response.code);
-    Assert.assertThat(response.body.getString("text"),
-    containsString("invalid input syntax for type uuid: \\\"12#34\\\""));
+    assertThat(response.body.getString("text"), allOf(
+        containsString("invalid input syntax for type uuid:"),
+        containsString("12#34")));
   }
 
   @Test
@@ -789,7 +792,9 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.POST, "/perms/users/123/permissions",
         permRequest, context);
     context.assertEquals(response.code, 400);
-    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax for type uuid"));
+    assertThat(response.body.getString("text"), allOf(
+        containsString("invalid input syntax for type uuid:"),
+        containsString("123")));
   }
 
   @Test
@@ -856,8 +861,9 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.GET, "/perms/users/12%2334/permissions",
         null, context);
     context.assertEquals(response.code, 400);
-    Assert.assertThat(response.body.getString("text"),
-        containsString("invalid input syntax for type uuid: \\\"12#34\\\""));
+    assertThat(response.body.getString("text"), allOf(
+        containsString("invalid input syntax for type uuid:"),
+        containsString("12#34")));
   }
 
   @Test
@@ -955,7 +961,9 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.DELETE, "/perms/users/123/permissions/name",
         null, context);
     context.assertEquals(response.code, 400);
-    Assert.assertThat(response.body.getString("text"), containsString("invalid input syntax"));
+    assertThat(response.body.getString("text"), allOf(
+        containsString("invalid input syntax for type uuid:"),
+        containsString("123")));
   }
 
   @Test
