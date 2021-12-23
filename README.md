@@ -42,8 +42,8 @@ This was introduced in mod-permissions version 6.0.0.
 
 The restrictions work as follows:
 
-1. If the user of the API (operating user) already owns the permission to
-be granted for a user, that is allowed.
+1. If module permissions or operating user permissions contains the permission
+to be granted for a user, the operation is allowed.
 
 2. If there's no user of the API (no authentication token), the operation
 is allowed.

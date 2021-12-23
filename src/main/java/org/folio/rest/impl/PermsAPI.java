@@ -1,6 +1,7 @@
 package org.folio.rest.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1007,16 +1008,14 @@ public class PermsAPI implements Perms {
         .compose(operatingPermissions -> {
           String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
           JsonArray okapiPermissions = perms != null ? new JsonArray(perms) : new JsonArray();
-          boolean hasImmutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
-              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
-          boolean hasMutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
-              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-          boolean hasOkapi = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
-              || operatingPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
+          operatingPermissions.forEach(okapiPermissions::add);
+          boolean hasImmutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
+          boolean hasMutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+          boolean hasOkapi = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
           Future<Void> future = Future.succeededFuture();
           for (Object ob : addedPermissions) {
             String newPerm = (String) ob;
-            if (!operatingPermissions.contains(newPerm)) {
+            if (!okapiPermissions.contains(newPerm)) {
               future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
                   .map(permission -> {
                     if (permission == null) {
@@ -1104,8 +1103,7 @@ public class PermsAPI implements Perms {
     return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
         .compose(permissionUser -> {
           if (permissionUser == null) {
-            return Future.failedFuture(new OperatingUserException(
-                "Cannot update permissions: operating user " + operatingUser + " not found"));
+            return Future.succeededFuture(Collections.emptyList());
           }
           List<String> expandedSubs = new ArrayList<>();
           Future<Void> future = Future.succeededFuture();

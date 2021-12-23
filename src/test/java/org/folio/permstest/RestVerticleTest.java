@@ -2538,7 +2538,7 @@ public class RestVerticleTest {
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         unknownOperatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(403, response.code);
-    context.assertEquals("Cannot update permissions: operating user " + unknownOperatorUserId + " not found",
+    context.assertEquals("Cannot add mutable permission toi.userperm.readonly not owned by operating user " + unknownOperatorUserId,
         response.body.getString("text"));
 
     // add a user with a permission not owned by operator.
@@ -2768,8 +2768,34 @@ public class RestVerticleTest {
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         unknownOperatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(403, response.code);
-    context.assertEquals("Cannot update permissions: operating user "
-        + unknownOperatorUserId + " not found", response.body.getString("text"));
+
+    // add a user with unknown operator, but with modulePermissions that suffice
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.readonly"));
+
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, unknownOperatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("toi.mod.readonly").encode());
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // add a user with unknown operator, but with modulePermissions that do NOT suffice
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("toi.mod.readonly"));
+
+    headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, unknownOperatorUserId);
+    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("toi.mod.write").encode());
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(403, response.code);
 
     // add a user with a permission not owned by operator.
     permsUser = new JsonObject()
@@ -2789,7 +2815,7 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("toi.mod.readonly").add("toi.mod.all"));
 
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers = MultiMap.caseInsensitiveMultiMap();
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, operatorUserId);
