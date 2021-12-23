@@ -90,7 +90,7 @@ public class PermsAPITest {
         vertx.getOrCreateContext(), "badTenant").onComplete(context.asyncAssertFailure(res -> {
       assertThat(res.getMessage(), allOf(
           anyOf(containsString("password authentication failed"), containsString("does not exist")),
-          containsString("badtenant_mod_permissions.permissions")));
+          containsString("badtenant_mod_permissions")));
     }));
   }
 
