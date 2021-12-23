@@ -1,3 +1,7 @@
+## 2021-12-23 v5.14.4
+
+ * [MODPERMS-173](https://issues.folio.org/browse/MODPERMS-173) log4j 2.17.0, RMB 33.2.3, Vert.x 4.2.3
+
 ## 2021-12-16 v5.14.3
 
  * [MODPERMS-171](https://issues.folio.org/browse/MODPERMS-171) Update to RMB 33.2.2 Log4j 2.16.0
