@@ -2324,7 +2324,7 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray());
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
-    headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("mcdonald", fakeUserId, "diku"));
+    headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("mcdonald", fakeUserId, "diku", null));
     return TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newUser.encode(), 201).compose(
         res -> {
           try {
@@ -2358,7 +2358,7 @@ public class RestVerticleTest {
         .put("displayName", "testmeta test");
     MultiMap headers = MultiMap.caseInsensitiveMultiMap();
     String fakeUserId = UUID.randomUUID().toString();
-    headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("mcdonald", fakeUserId, "diku"));
+    headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("mcdonald", fakeUserId, "diku", null));
     headers.add(XOkapiHeaders.USER_ID, fakeUserId);
     return TestUtil.doRequest(vertx, url, HttpMethod.POST, headers, newPerm.encode(), 201).compose(
         res -> {
@@ -2468,13 +2468,16 @@ public class RestVerticleTest {
     return promise.future();
   }
 
-  private static String makeFakeJWT(String username, String id, String tenant) {
+  private static String makeFakeJWT(String username, String id, String tenant, JsonArray extra_permissions) {
     JsonObject header = new JsonObject()
         .put("alg", "HS512");
     JsonObject payload = new JsonObject()
         .put("sub", username)
         .put("user_id", id)
         .put("tenant", tenant);
+    if (extra_permissions != null) {
+      payload.put("extra_permissions", extra_permissions);
+    }
     String ret = String.format("%s.%s.%s",
         Base64.getEncoder().encodeToString(header.encode()
             .getBytes(StandardCharsets.UTF_8)),
@@ -2556,7 +2559,13 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("toi.userperm.readonly").add("toi.userperm.all"));
 
-    response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(), operatorUserId, CONTENT_TYPE_JSON, context);
+    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers.set("Content-Type", CONTENT_TYPE_JSON);
+    headers.set(XOkapiHeaders.TENANT, "diku");
+    headers.set(XOkapiHeaders.USER_ID, operatorUserId);
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", operatorUserId, "diku", null));
+
+    response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
     context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
@@ -2567,12 +2576,12 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("toi.userperm.all"));
 
-    MultiMap headers = MultiMap.caseInsensitiveMultiMap();
+    headers = MultiMap.caseInsensitiveMultiMap();
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, operatorUserId);
-    headers.set(XOkapiHeaders.PERMISSIONS,
-        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE).encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", operatorUserId, "diku",
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)));
 
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
@@ -2583,8 +2592,8 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("toi.userperm.all"));
 
-    headers.set(XOkapiHeaders.PERMISSIONS,
-        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE).encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", operatorUserId, "diku",
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)));
 
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
@@ -2679,9 +2688,9 @@ public class RestVerticleTest {
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, operatorUserId);
-    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray()
-           .add(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
-           .encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", operatorUserId, "diku",
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)));
+
     response = send(headers, HttpMethod.POST, "/perms/users/" + permsUser.getString("id") + "/permissions",
         permissionNameObject.encode(), context);
     context.assertEquals(200, response.code);
@@ -2779,7 +2788,8 @@ public class RestVerticleTest {
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, unknownOperatorUserId);
-    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("toi.mod.readonly").encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", unknownOperatorUserId, "diku",
+        new JsonArray().add("toi.mod.readonly")));
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
 
@@ -2793,7 +2803,9 @@ public class RestVerticleTest {
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, unknownOperatorUserId);
-    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("toi.mod.write").encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", unknownOperatorUserId, "diku",
+        new JsonArray().add("toi.mod.write")));
+
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
 
@@ -2819,7 +2831,8 @@ public class RestVerticleTest {
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, operatorUserId);
-    headers.set(XOkapiHeaders.PERMISSIONS, new JsonArray().add("okapi.all").encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", operatorUserId, "diku",
+        new JsonArray().add("okapi.all")));
 
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
@@ -2830,8 +2843,8 @@ public class RestVerticleTest {
     headers.set("Content-Type", CONTENT_TYPE_JSON);
     headers.set(XOkapiHeaders.TENANT, "diku");
     headers.set(XOkapiHeaders.USER_ID, operatorUserId);
-    headers.set(XOkapiHeaders.PERMISSIONS,
-        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE).encode());
+    headers.set(XOkapiHeaders.TOKEN, makeFakeJWT("user", operatorUserId, "diku",
+        new JsonArray().add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)));
 
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);

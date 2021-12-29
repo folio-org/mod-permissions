@@ -234,4 +234,14 @@ public class PermsAPITest {
       context.assertEquals(500, res.getStatus());
     }), vertx.getOrCreateContext());
   }
+
+  @Test
+  public void testTokenPayload() {
+    Assert.assertNull(PermsAPI.getPayloadWithoutValidation(null));
+    Assert.assertThrows(IllegalArgumentException.class, () -> PermsAPI.getPayloadWithoutValidation("a"));
+    Assert.assertThrows(IllegalArgumentException.class, () -> PermsAPI.getPayloadWithoutValidation("a.b"));
+    Assert.assertThrows(IllegalArgumentException.class, () -> PermsAPI.getPayloadWithoutValidation("a.b.c"));
+    Assert.assertThrows(IllegalArgumentException.class, () -> PermsAPI.getPayloadWithoutValidation("a.YQo=.c"));
+    Assert.assertEquals("{}", PermsAPI.getPayloadWithoutValidation("a.e30K.c").encode());
+  }
 }
