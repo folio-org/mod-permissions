@@ -998,7 +998,7 @@ public class PermsAPI implements Perms {
   }
 
   /* should use utility from Okapi, but it's not public */
-  private static JsonObject getPayloadWithoutValidation(String token) {
+  static JsonObject getPayloadWithoutValidation(String token) {
     if (token == null) {
       return null;
     }
