@@ -1,6 +1,7 @@
 package org.folio.rest.impl;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -10,6 +11,8 @@ import java.util.Set;
 import java.util.UUID;
 import javax.ws.rs.core.Response;
 
+import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.JsonObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -994,6 +997,29 @@ public class PermsAPI implements Perms {
     });
   }
 
+  /* should use utility from Okapi, but it's not public */
+  private static JsonObject getPayloadWithoutValidation(String token) {
+    if (token == null) {
+      return null;
+    }
+    int idx1 = token.indexOf('.');
+    if (idx1 == -1) {
+      throw new IllegalArgumentException("Missing . separator for token");
+    }
+    idx1++;
+    int idx2 = token.indexOf('.', idx1);
+    if (idx2 == -1) {
+      throw new IllegalArgumentException("Missing . separator for token");
+    }
+    String encodedJson = token.substring(idx1, idx2);
+    String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
+    try {
+      return new JsonObject(decodedJson);
+    } catch (DecodeException e) {
+      throw new IllegalArgumentException(e.getMessage());
+    }
+  }
+
   static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
       Map<String,String> okapiHeaders, Context vertxContext) {
 
@@ -1006,45 +1032,64 @@ public class PermsAPI implements Perms {
     }
     return getOperatingPermissions(vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
-          String perms = okapiHeaders.get(XOkapiHeaders.PERMISSIONS);
-          JsonArray okapiPermissions = perms != null ? new JsonArray(perms) : new JsonArray();
-          operatingPermissions.forEach(okapiPermissions::add);
-          boolean hasImmutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
-          boolean hasMutable = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-          boolean hasOkapi = okapiPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
-          Future<Void> future = Future.succeededFuture();
-          for (Object ob : addedPermissions) {
-            String newPerm = (String) ob;
-            if (!okapiPermissions.contains(newPerm)) {
-              future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
-                  .map(permission -> {
-                    if (permission == null) {
-                      // unknown permission will eventually result in error, but not here
-                      return null;
-                    }
-                    boolean mutable = Boolean.TRUE.equals(permission.getMutable());
-                    if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
-                        && !hasOkapi) {
-                      throw new OperatingUserException("Cannot add okapi permission "
-                          + newPerm + " not owned by operating user " + operatingUser);
-                    }
-                    if (mutable) {
-                      if (!hasMutable) {
-                        throw new OperatingUserException("Cannot add mutable permission "
+          JsonObject tokenObject = getPayloadWithoutValidation(okapiHeaders.get(XOkapiHeaders.TOKEN));
+          Future<List<String>> futurePerms;
+          if (tokenObject != null) {
+            logger.info("AD: okapiToken .. {}", tokenObject.encodePrettily());
+            JsonArray extra_permissions = tokenObject.getJsonArray("extra_permissions");
+            List<String> extraPerms = new ArrayList<>();
+            if (extra_permissions != null) {
+              for (int i = 0; i < extra_permissions.size(); i++) {
+                extraPerms.add(extra_permissions.getString(i));
+              }
+            }
+            futurePerms = PermsCache.expandPerms(extraPerms, vertxContext, tenantId);
+          } else {
+            futurePerms = Future.succeededFuture(null);
+          }
+          return futurePerms.compose(modulePermissions -> {
+            Set<String> combinedPermissions = new HashSet<>();
+            combinedPermissions.addAll(operatingPermissions);
+            if (modulePermissions != null) {
+              combinedPermissions.addAll(modulePermissions);
+            }
+            boolean hasImmutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
+            boolean hasMutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+            boolean hasOkapi = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
+            Future<Void> future = Future.succeededFuture();
+            for (Object ob : addedPermissions) {
+              String newPerm = (String) ob;
+              if (!combinedPermissions.contains(newPerm)) {
+                future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
+                    .map(permission -> {
+                      if (permission == null) {
+                        // unknown permission will eventually result in error, but not here
+                        return null;
+                      }
+                      boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+                      if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
+                          && !hasOkapi) {
+                        throw new OperatingUserException("Cannot add okapi permission "
                             + newPerm + " not owned by operating user " + operatingUser);
                       }
-                    } else {
-                      if (!hasImmutable) {
-                        throw new OperatingUserException(
-                            "Cannot add immutable permission " + newPerm + " not owned by operating user "
-                                + operatingUser);
+                      if (mutable) {
+                        if (!hasMutable) {
+                          throw new OperatingUserException("Cannot add mutable permission "
+                              + newPerm + " not owned by operating user " + operatingUser);
+                        }
+                      } else {
+                        if (!hasImmutable) {
+                          throw new OperatingUserException(
+                              "Cannot add immutable permission " + newPerm + " not owned by operating user "
+                                  + operatingUser);
+                        }
                       }
-                    }
-                    return null;
-                  }));
+                      return null;
+                    }));
+              }
             }
-          }
-          return future;
+            return future;
+          });
         });
   }
 
