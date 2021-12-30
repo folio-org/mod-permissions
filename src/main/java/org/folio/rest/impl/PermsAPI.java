@@ -1027,7 +1027,7 @@ public class PermsAPI implements Perms {
           "Cannot add " + type + (failedPerms.size() > 1 ? " permissions " : " permission ")
               + String.join(", ", failedPerms) + " not owned by operating user "
               + operatingUser + (modulePermissions == null || modulePermissions.isEmpty() ?
-              "" : " modulePermissions: " + String.join(", ", modulePermissions)));
+              "" : ", modulePermissions: " + String.join(", ", modulePermissions)));
     }
   }
 
