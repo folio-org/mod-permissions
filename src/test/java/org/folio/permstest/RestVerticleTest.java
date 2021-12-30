@@ -2598,7 +2598,7 @@ public class RestVerticleTest {
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
     context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
-        + operatorUserId + " modulePermissions: " + PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE
+        + operatorUserId + ", modulePermissions: " + PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE
         , response.body.getString("text"));
   }
 
@@ -2842,7 +2842,7 @@ public class RestVerticleTest {
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
     context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
-        + operatorUserId + " modulePermissions: okapi.all", response.body.getString("text"));
+        + operatorUserId + ", modulePermissions: okapi.all", response.body.getString("text"));
 
     headers = MultiMap.caseInsensitiveMultiMap();
     headers.set("Content-Type", CONTENT_TYPE_JSON);
