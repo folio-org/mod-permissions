@@ -1020,6 +1020,17 @@ public class PermsAPI implements Perms {
     }
   }
 
+  static void checkPermList(String type, List<String> failedPerms, String operatingUser,
+      List<String> modulePermissions) {
+    if (!failedPerms.isEmpty()) {
+      throw new OperatingUserException(
+          "Cannot add " + type + " permission" + (failedPerms.size() > 1 ? "s" : "")
+              + " " + String.join(", ", failedPerms) + " not owned by operating user "
+              + operatingUser + (modulePermissions == null || modulePermissions.isEmpty() ?
+              "" : " modulePermissions: " + String.join(", ", modulePermissions)));
+    }
+  }
+
   static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
       Map<String,String> okapiHeaders, Context vertxContext) {
 
@@ -1035,7 +1046,6 @@ public class PermsAPI implements Perms {
           JsonObject tokenObject = getPayloadWithoutValidation(okapiHeaders.get(XOkapiHeaders.TOKEN));
           Future<List<String>> futurePerms;
           if (tokenObject != null) {
-            logger.info("AD: okapiToken .. {}", tokenObject.encodePrettily());
             JsonArray extra_permissions = tokenObject.getJsonArray("extra_permissions");
             List<String> extraPerms = new ArrayList<>();
             if (extra_permissions != null) {
@@ -1057,6 +1067,9 @@ public class PermsAPI implements Perms {
             boolean hasMutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
             boolean hasOkapi = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
             Future<Void> future = Future.succeededFuture();
+            List<String> failedImmutable = new ArrayList<>();
+            List<String> failedMutable = new ArrayList<>();
+            List<String> failedOkapi = new ArrayList<>();
             for (Object ob : addedPermissions) {
               String newPerm = (String) ob;
               if (!combinedPermissions.contains(newPerm)) {
@@ -1069,26 +1082,27 @@ public class PermsAPI implements Perms {
                       boolean mutable = Boolean.TRUE.equals(permission.getMutable());
                       if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
                           && !hasOkapi) {
-                        throw new OperatingUserException("Cannot add okapi permission "
-                            + newPerm + " not owned by operating user " + operatingUser);
+                        failedOkapi.add(newPerm);
                       }
                       if (mutable) {
                         if (!hasMutable) {
-                          throw new OperatingUserException("Cannot add mutable permission "
-                              + newPerm + " not owned by operating user " + operatingUser);
+                          failedMutable.add(newPerm);
                         }
                       } else {
                         if (!hasImmutable) {
-                          throw new OperatingUserException(
-                              "Cannot add immutable permission " + newPerm + " not owned by operating user "
-                                  + operatingUser);
+                          failedImmutable.add(newPerm);
                         }
                       }
                       return null;
                     }));
               }
             }
-            return future;
+            return future.map(x -> {
+              checkPermList("okapi", failedOkapi, operatingUser, modulePermissions);
+              checkPermList("immutable", failedImmutable, operatingUser, modulePermissions);
+              checkPermList("mutable", failedMutable, operatingUser, modulePermissions);
+              return null;
+            });
           });
         });
   }
