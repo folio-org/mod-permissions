@@ -1024,8 +1024,8 @@ public class PermsAPI implements Perms {
       List<String> modulePermissions) {
     if (!failedPerms.isEmpty()) {
       throw new OperatingUserException(
-          "Cannot add " + type + " permission" + (failedPerms.size() > 1 ? "s" : "")
-              + " " + String.join(", ", failedPerms) + " not owned by operating user "
+          "Cannot add " + type + (failedPerms.size() > 1 ? " permissions " : " permission ")
+              + String.join(", ", failedPerms) + " not owned by operating user "
               + operatingUser + (modulePermissions == null || modulePermissions.isEmpty() ?
               "" : " modulePermissions: " + String.join(", ", modulePermissions)));
     }
