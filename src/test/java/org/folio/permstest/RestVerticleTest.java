@@ -2598,7 +2598,8 @@ public class RestVerticleTest {
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
     context.assertEquals("Cannot add mutable permission toi.userperm.all not owned by operating user "
-        + operatorUserId, response.body.getString("text"));
+        + operatorUserId + ", modulePermissions: " + PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE
+        , response.body.getString("text"));
   }
 
   void setupModuleToi(TestContext context) {
@@ -2612,6 +2613,9 @@ public class RestVerticleTest {
                 .put("permissionName", "toi.mod.post")
             )
             .add(new JsonObject()
+                .put("permissionName", "toi.mod.delete")
+            )
+            .add(new JsonObject()
                 .put("permissionName", "toi.mod.readonly")
                 .put("subPermissions", new JsonArray()
                     .add("toi.mod.get")
@@ -2621,6 +2625,7 @@ public class RestVerticleTest {
                 .put("permissionName", "toi.mod.write")
                 .put("subPermissions", new JsonArray()
                     .add("toi.mod.post")
+                    .add("toi.mod.delete")
                 )
             )
             .add(new JsonObject()
@@ -2759,12 +2764,12 @@ public class RestVerticleTest {
     permsUser = new JsonObject()
         .put("id", UUID.randomUUID().toString())
         .put("userId", UUID.randomUUID().toString())
-        .put("permissions", new JsonArray().add("toi.mod.post"));
+        .put("permissions", new JsonArray().add("toi.mod.post").add("toi.mod.delete"));
 
     response = send("diku", HttpMethod.POST, "/perms/users", permsUser.encode(),
         operatorUserId, CONTENT_TYPE_JSON, context);
     context.assertEquals(403, response.code);
-    context.assertEquals("Cannot add immutable permission toi.mod.post not owned by operating user "
+    context.assertEquals("Cannot add immutable permissions toi.mod.post, toi.mod.delete not owned by operating user "
         + operatorUserId, response.body.getString("text"));
 
     // add a user with unknown operator
@@ -2837,7 +2842,7 @@ public class RestVerticleTest {
     response = send(headers, HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(403, response.code);
     context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
-        + operatorUserId, response.body.getString("text"));
+        + operatorUserId + ", modulePermissions: okapi.all", response.body.getString("text"));
 
     headers = MultiMap.caseInsensitiveMultiMap();
     headers.set("Content-Type", CONTENT_TYPE_JSON);
