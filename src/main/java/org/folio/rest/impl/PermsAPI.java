@@ -1041,10 +1041,7 @@ public class PermsAPI implements Perms {
     if (token == null) { // auth not enabled
       return Future.succeededFuture();
     }
-    String operatingUser = okapiHeaders.get(XOkapiHeaders.USER_ID);
-    if (operatingUser == null) {
-      return Future.succeededFuture();
-    }
+    String operatingUser = okapiHeaders.getOrDefault(XOkapiHeaders.USER_ID, "null");
     return getOperatingPermissions(vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
           JsonObject tokenObject = getPayloadWithoutValidation(token);
