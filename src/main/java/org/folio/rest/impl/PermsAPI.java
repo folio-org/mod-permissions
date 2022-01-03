@@ -1037,13 +1037,14 @@ public class PermsAPI implements Perms {
     if (okapiHeaders == null) { // when POSTing permission sets
       return Future.succeededFuture();
     }
-    String operatingUser = okapiHeaders.get(XOkapiHeaders.USER_ID);
-    if (operatingUser == null) {
+    String token = okapiHeaders.get(XOkapiHeaders.TOKEN);
+    if (token == null) { // auth not enabled
       return Future.succeededFuture();
     }
+    String operatingUser = okapiHeaders.getOrDefault(XOkapiHeaders.USER_ID, "null");
     return getOperatingPermissions(vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
-          JsonObject tokenObject = getPayloadWithoutValidation(okapiHeaders.get(XOkapiHeaders.TOKEN));
+          JsonObject tokenObject = getPayloadWithoutValidation(token);
           Future<List<String>> futurePerms;
           if (tokenObject != null) {
             JsonArray extra_permissions = tokenObject.getJsonArray("extra_permissions");

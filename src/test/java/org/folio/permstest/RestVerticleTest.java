@@ -1583,6 +1583,7 @@ public class RestVerticleTest {
         .set("Content-type", contentType);
     if (okapiUserId != null) {
       headers.add(XOkapiHeaders.USER_ID, okapiUserId);
+      headers.add(XOkapiHeaders.TOKEN, makeFakeJWT("user", okapiUserId, tenant, null));
     }
     return send(headers, method, path, content, context);
   }

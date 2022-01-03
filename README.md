@@ -42,11 +42,11 @@ This was introduced in mod-permissions version 6.0.0.
 
 The restrictions work as follows:
 
-1. If module permissions or operating user permissions contains the permission
-to be granted for a user, the operation is allowed.
-
-2. If there's no user of the API (no authentication token), the operation
+1. If auth is disabled for the tenant where permissions are added, the operation
 is allowed.
+
+2. If module permissions or operating user permissions contains the permission
+to be granted for a user, the operation is allowed.
 
 3. If new permission name is `perms.users.assign.okapi` or starts with
 `okapi.` and operating user permissions and module permissions doesn't
