@@ -1015,12 +1015,36 @@ public class RestVerticleTest {
   @Test
   public void testPostPermsPermissions(TestContext context) {
     String uuid = UUID.randomUUID().toString();
-    String permRequest = "{\"id\": \"" + uuid + "\", \"permissionName\":\"adname\",\"displayName\":\"addisplay\"}";
+    JsonArray tags = new JsonArray().add("tag1").add("tag2");
+    JsonObject permRequestObject = new JsonObject()
+        .put("id", uuid)
+        .put("permissionName", "adname")
+        .put("displayName", "addisplay")
+        .put("tags", tags);
 
     Response response = send(HttpMethod.POST, "/perms/permissions",
-        permRequest, context);
+        permRequestObject.encode(), context);
     context.assertEquals(response.code, 201);
     context.assertEquals(uuid, response.body.getString("id")); // MODPERMS-84
+    context.assertEquals(permRequestObject.getString("displayName"), response.body.getString("displayName"));
+    context.assertEquals(permRequestObject.getString("permissionName"), response.body.getString("permissionName"));
+    context.assertEquals(tags, response.body.getJsonArray("tags"));
+
+    JsonObject permUserRequestObject = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", UUID.randomUUID().toString())
+        .put("permissions", new JsonArray().add("adname"));
+
+    response = send(HttpMethod.POST, "/perms/users",
+        permUserRequestObject.encode(), context);
+    context.assertEquals(response.code, 201);
+
+    response = send(HttpMethod.GET, "/perms/users",
+        permUserRequestObject.encode(), context);
+    context.assertEquals(response.code, 200);
+
+    response = send(HttpMethod.DELETE, "/perms/users/" + permUserRequestObject.getString("id"), null, context);
+    context.assertEquals(response.code, 204);
 
     response = send(HttpMethod.DELETE, "/perms/permissions/" + uuid, null, context);
     context.assertEquals(response.code, 204);
