@@ -1035,12 +1035,10 @@ public class RestVerticleTest {
         .put("userId", UUID.randomUUID().toString())
         .put("permissions", new JsonArray().add("adname"));
 
-    response = send(HttpMethod.POST, "/perms/users",
-        permUserRequestObject.encode(), context);
+    response = send(HttpMethod.POST, "/perms/users", permUserRequestObject.encode(), context);
     context.assertEquals(response.code, 201);
 
-    response = send(HttpMethod.GET, "/perms/users",
-        permUserRequestObject.encode(), context);
+    response = send(HttpMethod.GET, "/perms/users", null, context);
     context.assertEquals(response.code, 200);
 
     response = send(HttpMethod.DELETE, "/perms/users/" + permUserRequestObject.getString("id"), null, context);
