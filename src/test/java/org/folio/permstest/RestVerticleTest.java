@@ -3083,4 +3083,40 @@ public class RestVerticleTest {
     context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
         response.body.getJsonArray("permissions"));
   }
+
+  @Test
+  public void permsPermissionsOffsetLimit(TestContext context) {
+    Response response;
+    for (int i = 0; i < 5; i++) {
+      JsonObject permission = new JsonObject().put("permissionName", "perm0" + i);
+      response = send(HttpMethod.POST, "/perms/permissions", permission.encode(), context);
+      context.assertEquals(201, response.code);
+    }
+    response = send(HttpMethod.GET, "/perms/permissions?start=3&length=2", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(2, response.body.getJsonArray("permissions").size());
+
+    response = send(HttpMethod.GET, "/perms/permissions?offset=2&limit=3", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(3, response.body.getJsonArray("permissions").size());
+  }
+
+  @Test
+  public void permsUsersOffsetLimit(TestContext context) {
+    Response response;
+    for (int i = 0; i < 5; i++) {
+      String permUserId = UUID.randomUUID().toString();
+      String userId = UUID.randomUUID().toString();
+      JsonObject permUser = new JsonObject().put("id", permUserId).put("userId", userId);
+      response = send(HttpMethod.POST, "/perms/users", permUser.encode(), context);
+      context.assertEquals(201, response.code);
+    }
+    response = send(HttpMethod.GET, "/perms/users?start=3&length=2", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(2, response.body.getJsonArray("permissionUsers").size());
+
+    response = send(HttpMethod.GET, "/perms/users?offset=2&limit=3", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(3, response.body.getJsonArray("permissionUsers").size());
+  }
 }

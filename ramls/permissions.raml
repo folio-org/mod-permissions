@@ -1,6 +1,6 @@
 #%RAML 1.0
 title: Permissions
-version: v5.4
+version: v5.5
 baseUri: http://github.com/org/folio/mod-auth/permissions
 
 documentation:
@@ -19,10 +19,11 @@ types:
 
 traits:
   validate: !include raml-util/traits/validation.raml
-  pageable:
+  pageable: !include raml-util/traits/pageable.raml
+  pageable_legacy:
     queryParameters:
       length:
-        description: "The maximum number of results to return."
+        description: "The maximum number of results to return. Deprecated: use limit"
         required: false
         type: integer
         example: 10
@@ -30,7 +31,7 @@ traits:
         default: 10
         maximum: 2147483647
       start:
-        description: "The starting index in a list of results (starts at one)."
+        description: "The starting index in a list of results starting from 1. Deprecated: use offset"
         required: false
         type: integer
         minimum: 1
@@ -80,6 +81,7 @@ traits:
       description: Get a list of users
       is: [
         pageable,
+        pageable_legacy,
         sortable,
         queryable,
         byPermission
@@ -320,6 +322,7 @@ traits:
           example: "true"
       is: [
         pageable,
+        pageable_legacy,
         sortable,
         queryable,
         byMember,
