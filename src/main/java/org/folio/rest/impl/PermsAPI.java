@@ -153,11 +153,17 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void getPermsUsers(int length, int start, String sortBy, String query,
+  public void getPermsUsers(int offset, int limit, int length, int start, String sortBy, String query,
                             String hasPermissions, RoutingContext routingContext, Map<String, String> okapiHeaders,
                             Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
-    PgUtil.streamGet(TABLE_NAME_PERMSUSERS, PermissionUser.class, query, start - 1, length, null, "permissionUsers",
+    if (length != 10) {
+      limit = length;
+    }
+    if (start != 1) {
+      offset = start - 1;
+    }
+    PgUtil.streamGet(TABLE_NAME_PERMSUSERS, PermissionUser.class, query, offset, limit, null, "permissionUsers",
         routingContext, okapiHeaders, vertxContext);
   }
 
@@ -741,12 +747,19 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
-                                  int length, int start, String sortBy, String query0, String memberOf,
-                                  String ownedBy, Map<String, String> okapiHeaders,
-                                  Handler<AsyncResult<Response>> asyncResultHandler,
-                                  Context vertxContext) {
+      int offset, int limit, int length, int start, String sortBy,
+      String query0, String memberOf,
+      String ownedBy, Map<String, String> okapiHeaders,
+      Handler<AsyncResult<Response>> asyncResultHandler,
+      Context vertxContext) {
 
     try {
+      if (length != 10) {
+        limit = length;
+      }
+      if (start != 1) {
+        offset = start - 1;
+      }
       boolean includeDummyPerms = "true".equals(includeDummy);
       String query = query0 == null ? "" : query0;
       if (!includeDummyPerms) {
@@ -759,7 +772,7 @@ public class PermsAPI implements Perms {
       }
       logger.info("Generating cql to request rows from table '{}' with query '{}'",
           TABLE_NAME_PERMS, query);
-      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, length, start - 1);
+      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, limit, offset);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
