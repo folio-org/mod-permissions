@@ -1,3 +1,22 @@
+## 2022-02-18 v6.0.0
+
+Changes:
+ * [MODPERMS-157](https://issues.folio.org/browse/MODPERMS-157) Check assign permissions for operating user
+ * [MODPERMS-160](https://issues.folio.org/browse/MODPERMS-160) Migrate assignment permissions
+ * [MODPERMS-56](https://issues.folio.org/browse/MODPERMS-56) Support offset and limit from traits/pageable.raml. Interface `permissions` bumped to 5.5.
+
+Fixes:
+ * Update to RMB 33.2.5, Vert.x 4.2.4
+
+## 2021-12-23 v5.14.4
+
+ * [MODPERMS-173](https://issues.folio.org/browse/MODPERMS-173) log4j 2.17.0, RMB 33.2.3, Vert.x 4.2.3
+
+## 2021-12-16 v5.14.3
+
+ * [MODPERMS-171](https://issues.folio.org/browse/MODPERMS-171) Update to RMB 33.2.2 Log4j 2.16.0
+ * [MODPERMS-167](https://issues.folio.org/browse/MODPERMS-167) RMB 33.2.1, Vertx 4.2.1, Log4j 2.15.0 fixing remote execution (CVE-2021-44228)
+
 ## 2021-10-01 v5.14.2
 
 [MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
