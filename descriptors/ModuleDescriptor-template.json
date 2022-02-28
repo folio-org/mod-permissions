@@ -118,7 +118,7 @@
           ],
           "pathPattern": "/perms/permissions/{id}",
           "permissionsRequired": [
-            "perms.permissions.item.delete "
+            "perms.permissions.item.delete"
           ]
         },
         {
