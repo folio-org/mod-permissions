@@ -1,4 +1,4 @@
-
+@Library ('folio_jenkins_shared_libs@FOLIO-3437-sonar-maven-verify') _
 
 buildMvn {
   publishModDescriptor = true
