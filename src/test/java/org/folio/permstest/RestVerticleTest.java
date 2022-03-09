@@ -3126,6 +3126,6 @@ public class RestVerticleTest {
   public void testUserIdNull(TestContext context) {
     PermissionUser u = new PermissionUser().withId(UUID.randomUUID().toString());
     PostgresClient.getInstance(vertx, "diku").save(PermsAPI.TABLE_NAME_PERMSUSERS, u)
-        .onComplete(context.asyncAssertFailure(e -> context.assertTrue(e.getMessage().contains("permissions_users_userid_not_null"))));
+        .onComplete(context.asyncAssertFailure(e -> assertThat(e.getMessage(), containsString("permissions_users_userid_not_null"))));
   }
 }
