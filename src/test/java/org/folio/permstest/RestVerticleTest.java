@@ -30,11 +30,13 @@ import org.folio.postgres.testing.PostgresTesterContainer;
 import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
 import org.folio.rest.impl.PermissionUtils;
+import org.folio.rest.impl.PermsAPI;
 import org.folio.rest.impl.PermsCache;
 import org.folio.rest.impl.TenantPermsAPI;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.OkapiPermissionSet;
 import org.folio.rest.jaxrs.model.Parameter;
+import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.jaxrs.model.TenantAttributes;
 import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.tools.utils.NetworkUtils;
@@ -3118,5 +3120,12 @@ public class RestVerticleTest {
     response = send(HttpMethod.GET, "/perms/users?offset=2&limit=3", null, context);
     context.assertEquals(200, response.code);
     context.assertEquals(3, response.body.getJsonArray("permissionUsers").size());
+  }
+
+  @Test
+  public void testUserIdNull(TestContext context) {
+    PermissionUser u = new PermissionUser().withId(UUID.randomUUID().toString());
+    PostgresClient.getInstance(vertx, "diku").save(PermsAPI.TABLE_NAME_PERMSUSERS, u)
+        .onComplete(context.asyncAssertFailure(e -> context.assertTrue(e.getMessage().contains("permissions_users_userid_not_null"))));
   }
 }

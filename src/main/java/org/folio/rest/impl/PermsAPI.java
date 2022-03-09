@@ -124,9 +124,8 @@ public class PermsAPI implements Perms {
     }
   }
 
-  private static final String TABLE_NAME_PERMS = "permissions";
-  private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
-  private static final String USER_NAME_FIELD = "'username'";
+  public static final String TABLE_NAME_PERMSUSERS = "permissions_users";
+  public static final String TABLE_NAME_PERMS = "permissions";
   private static final String USER_ID_FIELD = "'userId'";
   private static final String ID_FIELD = "id";
   private static final String UNABLE_TO_UPDATE_DERIVED_FIELDS = "Unable to update derived fields: ";

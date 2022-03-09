@@ -50,8 +50,6 @@ public class TenantPermsAPI implements Tenantpermissions {
 
   private static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final String MODULE_NAME_FIELD = "'moduleName'";
-  private static final String TABLE_NAME_PERMS = "permissions";
-  private static final String TABLE_NAME_PERMSUSERS = "permissions_users";
   public static final String DEPRECATED_PREFIX = "(deprecated) ";
 
   private static final String ADD_PERM_TO_SUB_PERMS = "update %s_mod_permissions.permissions "
@@ -80,7 +78,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     SemVer semver = moduleId.getSemVer();
     perm.setModuleVersion(semver != null ? semver.toString() : null);
 
-    return connection.update(TABLE_NAME_PERMS, perm, perm.getId()).map(result -> perm);
+    return connection.update(PermsAPI.TABLE_NAME_PERMS, perm, perm.getId()).map(result -> perm);
   }
 
   private Future<List<Permission>> getPermsForModule(ModuleId moduleId,
@@ -223,7 +221,7 @@ public class TenantPermsAPI implements Tenantpermissions {
       return Future.succeededFuture();
     }
     CQLWrapper all = new CQLWrapper();
-    return connection.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, all, false)
+    return connection.get(PermsAPI.TABLE_NAME_PERMSUSERS, PermissionUser.class, all, false)
         .compose(results -> {
           Future<Void> future = Future.succeededFuture();
           for (PermissionUser permUser : results.getResults()) {
@@ -249,7 +247,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             }
             if (added) {
               permUser.setPermissions(newList.getList());
-              future = future.compose(x -> connection.update(TABLE_NAME_PERMSUSERS, permUser, permUser.getId()).mapEmpty());
+              future = future.compose(x -> connection.update(PermsAPI.TABLE_NAME_PERMSUSERS, permUser, permUser.getId()).mapEmpty());
               future = future.compose(x -> updateUserPermissions(connection, permUser.getId(), originalList, newList,
                       null, null, null));
             }
@@ -296,7 +294,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
         entities.add(perm);
       });
-    return connection.upsertBatch(TABLE_NAME_PERMS, entities).mapEmpty();
+    return connection.upsertBatch(PermsAPI.TABLE_NAME_PERMS, entities).mapEmpty();
   }
 
   private Future<Void> updatedGrantedTo(Conn connection, String permissionName, String permUserId) {
@@ -307,7 +305,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     nameCrit.setVal(permissionName);
     Criterion crit = new Criterion(nameCrit);
 
-    return connection.get(TABLE_NAME_PERMS, Permission.class, crit, false).compose(result -> {
+    return connection.get(PermsAPI.TABLE_NAME_PERMS, Permission.class, crit, false).compose(result -> {
       List<Permission> permList = result.getResults();
       if (permList.isEmpty()) {
         throw new RuntimeException("Permission with name " + permissionName + " does not exist");
@@ -319,8 +317,8 @@ public class TenantPermsAPI implements Tenantpermissions {
       }
       perm.getGrantedTo().add(permUserId);
       String query = String.format("permissionName==%s", permissionName);
-      CQLWrapper cqlFilter = getCQL(query, TABLE_NAME_PERMS);
-      return connection.update(TABLE_NAME_PERMS, perm, cqlFilter, false).mapEmpty();
+      CQLWrapper cqlFilter = getCQL(query, PermsAPI.TABLE_NAME_PERMS);
+      return connection.update(PermsAPI.TABLE_NAME_PERMS, perm, cqlFilter, false).mapEmpty();
     });
   }
 
@@ -409,7 +407,7 @@ public class TenantPermsAPI implements Tenantpermissions {
         return Future.failedFuture("User with id " + actualId + " already has permission " + permissionName);
       }
       user.getPermissions().add(permissionName);
-      return connection.update(TABLE_NAME_PERMSUSERS, user, actualId).mapEmpty();
+      return connection.update(PermsAPI.TABLE_NAME_PERMSUSERS, user, actualId).mapEmpty();
     });
   }
 
@@ -462,7 +460,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     nameCrit.setOperation("=");
     nameCrit.setVal(permName);
     Criterion crit = new Criterion(nameCrit);
-    return connection.get(TABLE_NAME_PERMS, Permission.class, crit.setLimit(new Limit(1)), false)
+    return connection.get(PermsAPI.TABLE_NAME_PERMS, Permission.class, crit.setLimit(new Limit(1)), false)
         .map(result -> {
           List<Permission> returnList = result.getResults();
           return returnList.isEmpty() ? null : returnList.get(0);
@@ -476,7 +474,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     modCrit.setOperation("=");
     modCrit.setVal(moduleName);
 
-    return connection.get(TABLE_NAME_PERMS,
+    return connection.get(PermsAPI.TABLE_NAME_PERMS,
         Permission.class, new Criterion(modCrit), true).map(Results::getResults);
   }
 
@@ -503,7 +501,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     nameCrit.setOperation("=");
     nameCrit.setVal(perm.getPermissionName());
     //If already exists, we don't have to do anything
-    return connection.get(TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true)
+    return connection.get(PermsAPI.TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), true)
         .compose(result -> {
           List<Permission> returnList = result.getResults();
           Permission foundPerm = null;
@@ -544,7 +542,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             } else {
               permission.setVisible(perm.getVisible());
             }
-            return connection.save(TABLE_NAME_PERMS, newId, permission)
+            return connection.save(PermsAPI.TABLE_NAME_PERMS, newId, permission)
                 .compose(res1 ->
                     PermsAPI.updateSubPermissions(connection, permission.getPermissionName(),
                         new JsonArray(), new JsonArray(permission.getSubPermissions()),
@@ -597,7 +595,7 @@ public class TenantPermsAPI implements Tenantpermissions {
     dummyPermission.setDummy(true);
     dummyPermission.setVisible(false);
     dummyPermission.setMutable(false);
-    return connection.save(TABLE_NAME_PERMS, newId, dummyPermission).mapEmpty();
+    return connection.save(PermsAPI.TABLE_NAME_PERMS, newId, dummyPermission).mapEmpty();
   }
 
   private Future<Void> deletePerm(Conn connection, String permName) {
@@ -605,6 +603,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setOperation("=");
     nameCrit.setVal(permName);
-    return connection.delete(TABLE_NAME_PERMS, new Criterion(nameCrit)).mapEmpty();
+    return connection.delete(PermsAPI.TABLE_NAME_PERMS, new Criterion(nameCrit)).mapEmpty();
   }
 }
