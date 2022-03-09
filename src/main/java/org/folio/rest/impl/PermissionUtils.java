@@ -17,15 +17,18 @@ import io.vertx.sqlclient.Tuple;
 public class PermissionUtils {
 
   private static final String SELECT_DEPRECATED_PERMS = "select id::text as id, jsonb->>'permissionName' as name "
-      + "from %s_mod_permissions.permissions where jsonb->>'deprecated' = 'true'";
-  private static final String PURGE_DEPRECATED_PERMS = "delete from %s_mod_permissions.permissions "
-      + "where jsonb->>'deprecated' = 'true'";
-  private static final String PURGE_DEPRECATED_SUB_PERMS = "update %s_mod_permissions.permissions "
-      + "set jsonb = jsonb_set(jsonb, '{subPermissions}', (jsonb->'subPermissions')::jsonb - $1) "
-      + "where jsonb->'subPermissions' ? $2";
-  private static final String PURGE_DEPRECATED_PERMS_USERS = "update %s_mod_permissions.permissions_users "
-      + "set jsonb = jsonb_set(jsonb, '{permissions}', (jsonb->'permissions')::jsonb - $1) "
-      + "where jsonb->'permissions' ? $2";
+      + "from %s_mod_permissions." + PermsAPI.TABLE_NAME_PERMS + " where jsonb->>'deprecated' = 'true'";
+  private static final String PURGE_DEPRECATED_PERMS = "delete from %s_mod_permissions."
+      + PermsAPI.TABLE_NAME_PERMS
+      + " where jsonb->>'deprecated' = 'true'";
+  private static final String PURGE_DEPRECATED_SUB_PERMS = "update %s_mod_permissions."
+      + PermsAPI.TABLE_NAME_PERMS
+      + " set jsonb = jsonb_set(jsonb, '{subPermissions}', (jsonb->'subPermissions')::jsonb - $1)"
+      + " where jsonb->'subPermissions' ? $2";
+  private static final String PURGE_DEPRECATED_PERMS_USERS = "update %s_mod_permissions."
+      + PermsAPI.TABLE_NAME_PERMSUSERS
+      + " set jsonb = jsonb_set(jsonb, '{permissions}', (jsonb->'permissions')::jsonb - $1)"
+      + " where jsonb->'permissions' ? $2";
 
   public static final String PERMS_USERS_ASSIGN_IMMUTABLE = "perms.users.assign.immutable";
   public static final String PERMS_USERS_ASSIGN_MUTABLE = "perms.users.assign.mutable";
