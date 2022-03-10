@@ -1,3 +1,9 @@
+## 2022-03-10 v6.0.1
+
+ * [MODPERMS-177](https://issues.folio.org/browse/MODPERMS-177) Delete bad users, add constraint
+ * [MODPERMS-179](https://issues.folio.org/browse/MODPERMS-179) Remove blank in permission name
+ * [FOLIO-3231](https://issues.folio.org/browse/FOLIO-3231) Replace runLintRamlCop/publishAPI by doApiLint/doApiDoc
+
 ## 2022-02-18 v6.0.0
 
 Changes:
