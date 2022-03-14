@@ -13,7 +13,10 @@
     },
     "permissions": {
       "description": "A list of permission names owned by this user",
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "metadata" : {
       "description": "System level change metadata",

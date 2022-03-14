@@ -954,9 +954,9 @@ public class PermsAPI implements Perms {
       }
       Future<List<String>> interimFuture;
       List<String> permissionNameList = new ArrayList<>();
-      for (Object perm : userList.get(0).getPermissions()) {
+      for (String perm : userList.get(0).getPermissions()) {
         if (perm != null) {
-          permissionNameList.add((String) perm);
+          permissionNameList.add(perm);
         }
       }
       if (!expanded) {
@@ -1177,8 +1177,7 @@ public class PermsAPI implements Perms {
           }
           List<String> expandedSubs = new ArrayList<>();
           Future<Void> future = Future.succeededFuture();
-          for (Object p : permissionUser.getPermissions()) {
-            String perm = (String) p;
+          for (String perm : permissionUser.getPermissions()) {
             List<String> subPerm = new ArrayList<>();
             subPerm.add(perm);
             expandedSubs.add(perm);
@@ -1375,12 +1374,11 @@ public class PermsAPI implements Perms {
         .map(result -> result.getResults().isEmpty() ? null : result.getResults().get(0));
   }
 
-  private Future<Boolean> checkPermlistForDummy(List<Object> permList,
+  private Future<Boolean> checkPermlistForDummy(List<String> permList,
       Context vertxContext, String tenantId) {
 
     Future<Boolean> future = Future.succeededFuture(false);
-    for (Object o : permList) {
-      String permissionName = (String) o;
+    for (String permissionName : permList) {
       future = future.compose(x -> {
         if (x) {
           return Future.succeededFuture(true);
