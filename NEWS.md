@@ -1,3 +1,9 @@
+## 2022-03-14 v6.0.2
+
+Fixes:
+
+ * [MODPERMS-182](https://issues.folio.org/browse/MODPERMS-182) Migrate more users to perms.assign.immutable and mutable
+
 ## 2022-03-10 v6.0.1
 
 Fixes:
