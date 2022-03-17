@@ -3131,6 +3131,140 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void testPermsUserUpgrade(TestContext context) {
+    JsonObject usersSet_0 = new JsonObject()
+        .put("moduleId", "users-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.edit")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.post")
+                    .add("users.perm.view")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.view")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                )
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", usersSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // announce permissions - older version without the perms.assign
+    JsonObject permissionsSet_0 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
+            )
+        );
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String normalUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", normalUserId)
+        .put("permissions", new JsonArray().add("users.perm.view"));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+    context.assertEquals(201, response.code);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add("users.perm.edit"));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // announce newer permissions
+    JsonObject permissionsSet_1 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.view")), response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "/permissions?expanded=true&indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.view", "perms.users.get")), response.body.getJsonArray("permissionNames"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?expanded=true&indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.edit", "perms.users.post", "users.perm.view", "perms.users.get")), response.body.getJsonArray("permissionNames"));
+
+    JsonObject usersSet_1 = new JsonObject()
+        .put("moduleId", "users-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.edit")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.post")
+                    .add("users.perm.view")
+                    .add("perms.assign.mutable")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.view")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                )
+            )
+        );
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", usersSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?expanded=true&indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.edit", "perms.users.post", "users.perm.view", "perms.assign.mutable", "perms.users.get")),
+        response.body.getJsonArray("permissionNames"));
+  }
+
+  @Test
   public void permsPermissionsOffsetLimit(TestContext context) {
     Response response;
     for (int i = 0; i < 5; i++) {
