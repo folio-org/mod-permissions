@@ -92,7 +92,7 @@ public class TestUtil {
     return tenantClient.postTenant(ta)
         .compose(res -> {
           if (res.statusCode() == 200 || res.statusCode() == 204) {
-            return Future.succeededFuture(null);
+            return Future.succeededFuture();
           } else if (res.statusCode() != 201) {
             return Future.failedFuture("tenantOp returned status " + res.statusCode());
           }
