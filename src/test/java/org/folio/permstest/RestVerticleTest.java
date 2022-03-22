@@ -87,7 +87,7 @@ public class RestVerticleTest {
   static int port;
 
   @Rule
-  public Timeout rule = Timeout.seconds(10);
+  public Timeout rule = Timeout.seconds(10); // set to 900 to test MODPERMS-185
 
   @BeforeClass
   public static void setup(TestContext context) {
@@ -2970,6 +2970,74 @@ public class RestVerticleTest {
     context.assertEquals(403, response.code, response.body.encodePrettily());
     context.assertEquals("Cannot add immutable permission toi.mod.all not owned by operating user "
         + operatorUserId, response.body.getString("text"));
+  }
+
+  @Test
+  public void testPermsAssignMigrationMany(TestContext context) {
+    // announce permissions - older version without the perms.assign
+    JsonObject permissionsSet_0 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
+            )
+        );
+
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    int sz = 50; // setting to 5000 to provoke MODPERMS-185 issue
+    for (int i = 0; i < sz; i++) {
+      String normalUserId = UUID.randomUUID().toString();
+      JsonObject permsUser = new JsonObject()
+          .put("id", UUID.randomUUID().toString())
+          .put("userId", normalUserId)
+          .put("permissions", new JsonArray().add("perms.users.get"));
+      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+      context.assertEquals(201, response.code);
+    }
+    JsonObject permissionsSet_1 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
+    context.assertEquals(201, response.code);
   }
 
   @Test
