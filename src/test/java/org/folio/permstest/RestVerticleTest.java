@@ -44,6 +44,7 @@ import org.folio.rest.tools.utils.TenantInit;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
@@ -2983,76 +2984,18 @@ public class RestVerticleTest {
         + operatorUserId, response.body.getString("text"));
   }
 
-  @Test
-  public void testPermsAssignMigrationMany(TestContext context) {
-    // announce permissions - older version without the perms.assign
-    JsonObject permissionsSet_0 = new JsonObject()
-        .put("moduleId", "mod-permissions-1.0.0")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "perms.all")
-                .put("subPermissions", new JsonArray()
-                    .add("perms.users")
-                )
-            )
-            .add(new JsonObject()
-                .put("permissionName", "perms.users")
-                .put("subPermissions", new JsonArray()
-                    .add("perms.users.get")
-                    .add("perms.users.item.post")
-                    .add("perms.users.item.put")
-                    .add("perms.users.item.delete")
-                )
-            )
-        );
-
-    Response response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
-    context.assertEquals(201, response.code);
-
-    int sz = 50; // setting to 5000 to provoke MODPERMS-185 issue
-    for (int i = 0; i < sz; i++) {
-      String normalUserId = UUID.randomUUID().toString();
-      JsonObject permsUser = new JsonObject()
-          .put("id", UUID.randomUUID().toString())
-          .put("userId", normalUserId)
-          .put("permissions", new JsonArray().add("perms.users.get"));
-      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
-      context.assertEquals(201, response.code);
-    }
-    JsonObject permissionsSet_1 = new JsonObject()
-        .put("moduleId", "mod-permissions-1.0.1")
-        .put("perms", new JsonArray()
-            .add(new JsonObject()
-                .put("permissionName", "perms.all")
-                .put("subPermissions", new JsonArray()
-                    .add("perms.users")
-                )
-            )
-            .add(new JsonObject()
-                .put("permissionName", "perms.users")
-                .put("subPermissions", new JsonArray()
-                    .add("perms.users.get")
-                    .add("perms.users.item.post")
-                    .add("perms.users.item.put")
-                    .add("perms.users.item.delete")
-                )
-            )
-            .add(new JsonObject()
-                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
-            )
-            .add(new JsonObject()
-                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
-            )
-            .add(new JsonObject()
-                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
-            )
-        );
-    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
-    context.assertEquals(201, response.code);
+  @Ignore("Takes many minutes")
+  @Test(timeout = 900000)
+  public void testPermsAssignMigration5000(TestContext context) {
+    testPermsAssignMigration(context, 5000);
   }
 
   @Test
-  public void testPermsAssignMigration(TestContext context) {
+  public void testPermsAssignMigration50(TestContext context) {
+    testPermsAssignMigration(context, 50);
+  }
+
+  void testPermsAssignMigration(TestContext context, int numberOfUsers) {
     // announce permissions - older version without the perms.assign
     JsonObject permissionsSet_0 = new JsonObject()
         .put("moduleId", "mod-permissions-1.0.0")
@@ -3084,6 +3027,14 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("perms.users.get"));
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
     context.assertEquals(201, response.code);
+    for (int i = 0; i < numberOfUsers; i++) {
+      permsUser = new JsonObject()
+          .put("id", UUID.randomUUID().toString())
+          .put("userId", UUID.randomUUID().toString())
+          .put("permissions", new JsonArray().add("perms.users.get"));
+      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+      context.assertEquals(201, response.code);
+    }
 
     String operatorUserId = UUID.randomUUID().toString();
     permsUser = new JsonObject()
