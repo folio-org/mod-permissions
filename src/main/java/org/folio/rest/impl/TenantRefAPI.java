@@ -37,7 +37,7 @@ public class TenantRefAPI extends TenantAPI {
             .withKey("loadSample").withLead("sample-data")
             .withPostOnly()
             .withFilter(this::filter)
-            .withAcceptStatus(422)
+            .withAcceptStatus(400)
             .add("users", "perms/users")
             .perform(attributes, headers, vertxContext, num));
   }
