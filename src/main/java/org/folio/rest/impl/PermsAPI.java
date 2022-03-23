@@ -13,6 +13,7 @@ import javax.ws.rs.core.Response;
 
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
+import io.vertx.sqlclient.Tuple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
@@ -1253,7 +1254,6 @@ public class PermsAPI implements Perms {
           .setOperation("=")
           .setVal(permissionName);
       Criterion criterion = new Criterion(nameCrit);
-      CQLWrapper cqlFilter = new CQLWrapper(criterion);
       return connection.get(TABLE_NAME_PERMS, Permission.class, criterion, false)
           .compose(res -> {
             List<Permission> permList = res.getResults();
@@ -1263,31 +1263,18 @@ public class PermsAPI implements Perms {
                   + " results");
             }
             Permission permission = permList.get(0);
-            List valueList;
-            if (field == PermissionField.CHILD_OF) {
-              valueList = permission.getChildOf();
-            } else {
-              valueList = permission.getGrantedTo();
-            }
-            logger.info("Performing {} operation on {} of permission {} with value {}",
-                operation, field, permissionName, fieldValue);
-            boolean modified = false;
+            String fld = field == PermissionField.GRANTED_TO ? "grantedTo" : "childOf";
             if (operation == Operation.ADD) {
-              if (!valueList.contains(fieldValue)) {
-                valueList.add(fieldValue);
-                modified = true;
-              }
+              return connection.execute("UPDATE " + TABLE_NAME_PERMS + "\n"
+                      + " SET jsonb = jsonb_set(jsonb, '{" + fld + "}', jsonb->'" + fld + "' || to_jsonb($2::text))\n"
+                      + " WHERE id=$1 AND NOT jsonb->'" + fld + "' ? $2",
+                  Tuple.of(permission.getId(), fieldValue)).mapEmpty();
             } else {
-              if (valueList.contains(fieldValue)) {
-                valueList.remove(fieldValue);
-                modified = true;
-              }
+              return connection.execute("UPDATE " + TABLE_NAME_PERMS + "\n"
+                      + " SET jsonb = jsonb_set(jsonb, '{" + fld + "}', (jsonb->'" + fld + "') - $2::text)\n"
+                      + " WHERE id=$1 AND jsonb->'" + fld + "' ? $2",
+                  Tuple.of(permission.getId(), fieldValue)).mapEmpty();
             }
-            if (!modified) {
-              return Future.succeededFuture();
-            }
-            return connection.update(TABLE_NAME_PERMS, permission, cqlFilter, true)
-                .mapEmpty();
           });
     } catch (Exception e) {
       return Future.failedFuture(e);
