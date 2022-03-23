@@ -61,8 +61,8 @@ public class PermsAPI implements Perms {
   }
 
   public static class InvalidPermissionsException extends RuntimeException {
-    private String field;
-    private String value;
+    private final String field;
+    private final String value;
 
     String getField(){
       return field;
