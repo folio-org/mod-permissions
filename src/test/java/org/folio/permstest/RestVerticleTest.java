@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.vertx.core.buffer.Buffer;
+import io.vertx.ext.unit.junit.Timeout;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -44,9 +45,9 @@ import org.folio.rest.tools.utils.TenantInit;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 import org.junit.runner.OrderWith;
 import org.junit.runner.RunWith;
 import org.junit.runner.manipulation.Alphanumeric;
@@ -87,7 +88,7 @@ public class RestVerticleTest {
   static int port;
 
   @Rule
-  public Timeout rule = Timeout.seconds(10);
+  public Timeout rule = new Timeout(10, TimeUnit.SECONDS);
 
   @BeforeClass
   public static void setup(TestContext context) {
@@ -2983,8 +2984,18 @@ public class RestVerticleTest {
         + operatorUserId, response.body.getString("text"));
   }
 
+  @Ignore("Takes many minutes")
+  @Test(timeout = 900000)
+  public void testPermsAssignMigration5000(TestContext context) {
+    testPermsAssignMigration(context, 5000);
+  }
+
   @Test
-  public void testPermsAssignMigration(TestContext context) {
+  public void testPermsAssignMigration50(TestContext context) {
+    testPermsAssignMigration(context, 50);
+  }
+
+  void testPermsAssignMigration(TestContext context, int numberOfUsers) {
     // announce permissions - older version without the perms.assign
     JsonObject permissionsSet_0 = new JsonObject()
         .put("moduleId", "mod-permissions-1.0.0")
@@ -3016,6 +3027,14 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("perms.users.get"));
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
     context.assertEquals(201, response.code);
+    for (int i = 0; i < numberOfUsers; i++) {
+      permsUser = new JsonObject()
+          .put("id", UUID.randomUUID().toString())
+          .put("userId", UUID.randomUUID().toString())
+          .put("permissions", new JsonArray().add("perms.users.get"));
+      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+      context.assertEquals(201, response.code);
+    }
 
     String operatorUserId = UUID.randomUUID().toString();
     permsUser = new JsonObject()

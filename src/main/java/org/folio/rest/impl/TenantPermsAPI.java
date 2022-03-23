@@ -261,11 +261,11 @@ public class TenantPermsAPI implements Tenantpermissions {
     CQLWrapper all = new CQLWrapper();
     return connection.get(PermsAPI.TABLE_NAME_PERMSUSERS, PermissionUser.class, all, false)
         .compose(results -> {
-          Future<Void> future = Future.succeededFuture();
+          List<Future<Void>> futures = new ArrayList<>(results.getResults().size());
           for (PermissionUser permUser : results.getResults()) {
-            future = future.compose(x -> migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
+            futures.add(migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
           }
-          return future;
+          return GenericCompositeFuture.all(futures).mapEmpty();
         });
   }
 
