@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.vertx.core.buffer.Buffer;
+import io.vertx.ext.unit.junit.Timeout;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +48,6 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 import org.junit.runner.OrderWith;
 import org.junit.runner.RunWith;
 import org.junit.runner.manipulation.Alphanumeric;
@@ -88,7 +88,7 @@ public class RestVerticleTest {
   static int port;
 
   @Rule
-  public Timeout rule = Timeout.seconds(10); // set to 900 to test MODPERMS-185
+  public Timeout rule = new Timeout(10, TimeUnit.SECONDS);
 
   @BeforeClass
   public static void setup(TestContext context) {
