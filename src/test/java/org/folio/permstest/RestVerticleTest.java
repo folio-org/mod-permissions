@@ -3025,22 +3025,6 @@ public class RestVerticleTest {
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
 
-    String operatorUserId2 = UUID.randomUUID().toString();
-    permsUser = new JsonObject()
-        .put("id", UUID.randomUUID().toString())
-        .put("userId", operatorUserId2)
-        .put("permissions", new JsonArray().add("perms.users.item.post"));
-    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
-    context.assertEquals(201, response.code);
-
-    String operatorUserId3 = UUID.randomUUID().toString();
-    permsUser = new JsonObject()
-        .put("id", UUID.randomUUID().toString())
-        .put("userId", operatorUserId3)
-        .put("permissions", new JsonArray().add("perms.users.item.put"));
-    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
-    context.assertEquals(201, response.code);
-
     // announce Okapi
     JsonObject okapiSet = new JsonObject()
         .put("moduleId", "okapi-1.0.0")
@@ -3106,16 +3090,6 @@ public class RestVerticleTest {
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
     context.assertEquals(new JsonArray(List.of("perms.all", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
-        response.body.getJsonArray("permissions"));
-
-    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId2 + "?indexField=userId", null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.users.item.post", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
-        response.body.getJsonArray("permissions"));
-
-    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId3 + "?indexField=userId", null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.users.item.put", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
         response.body.getJsonArray("permissions"));
 
     response = send(HttpMethod.GET, "/perms/users/" + okapiOperatorId + "?indexField=userId", null, context);

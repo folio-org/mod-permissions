@@ -34,7 +34,7 @@ public class PermissionUtils {
   public static final String PERMS_USERS_ASSIGN_MUTABLE = "perms.users.assign.mutable";
   public static final String PERMS_USERS_ASSIGN_OKAPI = "perms.users.assign.okapi";
   public static final String PERMS_OKAPI_ALL = "okapi.all";
-  protected static final String [] PERMS_MIGRATE = { "perms.users.item.post", "perms.users.item.put" };
+  protected static final String [] PERMS_MIGRATE = { "perms.all" };
 
   private PermissionUtils() {
 
