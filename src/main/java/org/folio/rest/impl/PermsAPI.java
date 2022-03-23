@@ -427,7 +427,7 @@ public class PermsAPI implements Perms {
               throw new InvalidPermissionsException(USER_ID_FIELD, actualId,
                   "User with " + getUserIdMessage(indexField, id) + " already has permission " + permissionName);
             }
-            return updatePermissionsForUser(entity, vertxContext, tenantId, okapiHeaders,
+            return updatePermissionsForUser(vertxContext, tenantId, okapiHeaders,
                 permissionName, user, actualId, originalPermissions);
           })
           .onSuccess(res -> {
@@ -458,9 +458,8 @@ public class PermsAPI implements Perms {
     }
   }
 
-  @SuppressWarnings({"squid:S00107"})   // Method has more than 7 parameters
-  private Future<Void> updatePermissionsForUser(PermissionNameObject entity,
-      Context vertxContext, String tenantId, Map<String,String> okapiHeaders, String permissionName,
+  private Future<Void> updatePermissionsForUser(Context vertxContext, String tenantId,
+      Map<String,String> okapiHeaders, String permissionName,
       PermissionUser user, String actualId, JsonArray originalPermissions) {
 
     return retrievePermissionByName(permissionName, vertxContext, tenantId)
