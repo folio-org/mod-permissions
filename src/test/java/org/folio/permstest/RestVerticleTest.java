@@ -1294,6 +1294,17 @@ public class RestVerticleTest {
   }
 
   @Test
+  public void reinstall(TestContext context) {
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
+    TenantAttributes ta = new TenantAttributes();
+    ta.setModuleFrom("mod-permissions-1.0.0");
+    ta.setModuleTo("mod-permissions-1.0.1");
+    ta.setParameters(List.of(new Parameter().withKey("loadSample").withValue("true")));
+    TestUtil.tenantOp(tenantClient, ta)
+        .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
   public void testGroup(TestContext context) {
     String postPermRequest = "{\"permissionName\":\"a\",\"displayName\":\"b\"}";
 
