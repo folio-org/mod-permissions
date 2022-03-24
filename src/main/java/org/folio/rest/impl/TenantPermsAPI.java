@@ -224,14 +224,6 @@ public class TenantPermsAPI implements Tenantpermissions {
             permissionsToBeAdded = List.of(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI,
                 PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE,
                 PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-          } else {
-            for (String perm : PermissionUtils.PERMS_MIGRATE) {
-              if (expandedPerms.contains(perm)) {
-                permissionsToBeAdded = List.of(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE,
-                    PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-                break;
-              }
-            }
           }
           boolean added = false;
           for (String perm : permissionsToBeAdded) {
