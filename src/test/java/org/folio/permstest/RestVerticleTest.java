@@ -3044,22 +3044,6 @@ public class RestVerticleTest {
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
 
-    String operatorUserId2 = UUID.randomUUID().toString();
-    permsUser = new JsonObject()
-        .put("id", UUID.randomUUID().toString())
-        .put("userId", operatorUserId2)
-        .put("permissions", new JsonArray().add("perms.users.item.post"));
-    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
-    context.assertEquals(201, response.code);
-
-    String operatorUserId3 = UUID.randomUUID().toString();
-    permsUser = new JsonObject()
-        .put("id", UUID.randomUUID().toString())
-        .put("userId", operatorUserId3)
-        .put("permissions", new JsonArray().add("perms.users.item.put"));
-    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
-    context.assertEquals(201, response.code);
-
     // announce Okapi
     JsonObject okapiSet = new JsonObject()
         .put("moduleId", "okapi-1.0.0")
@@ -3094,6 +3078,8 @@ public class RestVerticleTest {
                 .put("permissionName", "perms.all")
                 .put("subPermissions", new JsonArray()
                     .add("perms.users")
+                    .add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+                    .add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
                 )
             )
             .add(new JsonObject()
@@ -3124,18 +3110,14 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.all", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+    context.assertEquals(new JsonArray(List.of("perms.all")),
         response.body.getJsonArray("permissions"));
 
-    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId2 + "?indexField=userId", null, context);
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?indexField=userId&expanded=true", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.users.item.post", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
-        response.body.getJsonArray("permissions"));
-
-    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId3 + "?indexField=userId", null, context);
-    context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.users.item.put", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
-        response.body.getJsonArray("permissions"));
+    JsonArray permissionNames = response.body.getJsonArray("permissionNames");
+    context.assertTrue(permissionNames.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE));
+    context.assertTrue(permissionNames.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE));
 
     response = send(HttpMethod.GET, "/perms/users/" + okapiOperatorId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
@@ -3148,7 +3130,7 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.all", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+    context.assertEquals(new JsonArray(List.of("perms.all")),
         response.body.getJsonArray("permissions"));
 
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
@@ -3156,7 +3138,7 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("perms.all", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+    context.assertEquals(new JsonArray(List.of("perms.all")),
         response.body.getJsonArray("permissions"));
   }
 
