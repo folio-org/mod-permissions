@@ -257,7 +257,9 @@
       "description": "All permissions for the permissions module",
       "subPermissions": [
         "perms.users",
-        "perms.permissions"
+        "perms.permissions",
+        "perms.users.assign.immutable",
+        "perms.users.assign.mutable"
       ]
     }
   ],

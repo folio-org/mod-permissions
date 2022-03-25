@@ -1,3 +1,15 @@
+## 2022-03-24 v6.0.2
+
+Fixes:
+
+ * [MODPERMS-185](https://issues.folio.org/browse/MODPERMS-185) Stack issue
+   with user migration. Change SQL update of `grantedTo`/`ChildOf` to atomic.
+ * [MODPERMS-184](https://issues.folio.org/browse/MODPERMS-184) Migrate only
+   users having `okapi.all`. Set `perms.all` includes
+  `perms.users.assign.immutable`, `perms.users.assign.mutable`
+ * [MODPERMS-186](https://issues.folio.org/browse/MODPERMS-186) loadSample
+   fails on 2nd init
+
 ## 2022-03-10 v6.0.1
 
 Fixes:
@@ -9,11 +21,13 @@ Fixes:
 ## 2022-02-18 v6.0.0
 
 Changes:
+
  * [MODPERMS-157](https://issues.folio.org/browse/MODPERMS-157) Check assign permissions for operating user
  * [MODPERMS-160](https://issues.folio.org/browse/MODPERMS-160) Migrate assignment permissions
  * [MODPERMS-56](https://issues.folio.org/browse/MODPERMS-56) Support offset and limit from traits/pageable.raml. Interface `permissions` bumped to 5.5.
 
 Fixes:
+
  * Update to RMB 33.2.5, Vert.x 4.2.4
 
 ## 2021-12-23 v5.14.4
@@ -27,7 +41,7 @@ Fixes:
 
 ## 2021-10-01 v5.14.2
 
-[MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
+ * [MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
 
 NOTE: There was no v5.14.1 due to errors preparing the release.
 

@@ -89,41 +89,29 @@ public class TestUtil {
   }
 
   public static Future<Void> tenantOp(TenantClient tenantClient, TenantAttributes ta) {
-    Promise<Void> promise = Promise.promise();
-    try {
-      tenantClient.postTenant(ta, res -> {
-        if (res.failed()) {
-          promise.fail(res.cause());
-          return;
-        }
-        try {
-          String id = res.result().bodyAsJsonObject().getString("id");
-          tenantClient.getTenantByOperationId(id, 60000, res2 -> {
-            try {
-              if (res2.failed()) {
-                promise.fail(res.cause());
-                return;
-              }
-              if (!res2.result().bodyAsJsonObject().getBoolean("complete")) {
-                promise.fail("tenant Op did not complete");
-                return;
-              }
-              promise.complete();
-            } catch (Exception e) {
-              LOGGER.error(e.getMessage(), e);
-              promise.fail(e);
-            }
-          });
-        } catch (Exception e) {
-          LOGGER.error(e.getMessage(), e);
-          promise.fail(e);
-        }
-      });
-    } catch (Exception e) {
-      LOGGER.error(e.getMessage(), e);
-      promise.fail(e);
-    }
-    return promise.future();
+    return tenantClient.postTenant(ta)
+        .compose(res -> {
+          if (res.statusCode() == 200 || res.statusCode() == 204) {
+            return Future.succeededFuture();
+          } else if (res.statusCode() != 201) {
+            return Future.failedFuture("tenantOp returned status " + res.statusCode());
+          }
+          return tenantClient.getTenantByOperationId(res.bodyAsJsonObject().getString("id"), 60000);
+        })
+        .map(res -> {
+          if (res == null) {
+            return null;
+          }
+          JsonObject jsonResponse = res.bodyAsJsonObject();
+          if (!jsonResponse.getBoolean("complete")) {
+            throw new RuntimeException("tenant Op did not complete");
+          }
+          String error = jsonResponse.getString("error");
+          if (error != null) {
+            throw new RuntimeException(error);
+          }
+          return null;
+        });
   }
 
 }

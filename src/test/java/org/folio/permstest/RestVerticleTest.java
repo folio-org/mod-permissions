@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.vertx.core.buffer.Buffer;
+import io.vertx.ext.unit.junit.Timeout;
 import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -44,9 +45,9 @@ import org.folio.rest.tools.utils.TenantInit;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 import org.junit.runner.OrderWith;
 import org.junit.runner.RunWith;
 import org.junit.runner.manipulation.Alphanumeric;
@@ -87,7 +88,7 @@ public class RestVerticleTest {
   static int port;
 
   @Rule
-  public Timeout rule = Timeout.seconds(10);
+  public Timeout rule = new Timeout(10, TimeUnit.SECONDS);
 
   @BeforeClass
   public static void setup(TestContext context) {
@@ -1291,6 +1292,17 @@ public class RestVerticleTest {
           context.assertFalse(perm.getBoolean("deprecated"));
           context.assertFalse(perm.getString("displayName").startsWith("(deprecated)"));
         }));
+  }
+
+  @Test
+  public void reinstall(TestContext context) {
+    TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
+    TenantAttributes ta = new TenantAttributes();
+    ta.setModuleFrom("mod-permissions-1.0.0");
+    ta.setModuleTo("mod-permissions-1.0.1");
+    ta.setParameters(List.of(new Parameter().withKey("loadSample").withValue("true")));
+    TestUtil.tenantOp(tenantClient, ta)
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -2972,17 +2984,36 @@ public class RestVerticleTest {
         + operatorUserId, response.body.getString("text"));
   }
 
+  @Ignore("Takes many minutes")
+  @Test(timeout = 900000)
+  public void testPermsAssignMigration5000(TestContext context) {
+    testPermsAssignMigration(context, 5000);
+  }
+
   @Test
-  public void testPermsAssignMigration(TestContext context) {
+  public void testPermsAssignMigration50(TestContext context) {
+    testPermsAssignMigration(context, 50);
+  }
+
+  void testPermsAssignMigration(TestContext context, int numberOfUsers) {
     // announce permissions - older version without the perms.assign
     JsonObject permissionsSet_0 = new JsonObject()
         .put("moduleId", "mod-permissions-1.0.0")
         .put("perms", new JsonArray()
             .add(new JsonObject()
-                .put("permissionName", PermissionUtils.PERMS_PERMS_ALL)
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                        .add("perms.users")
+                )
             )
             .add(new JsonObject()
-                .put("permissionName", "perms.users.get")
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
             )
         );
 
@@ -2996,12 +3027,20 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("perms.users.get"));
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
     context.assertEquals(201, response.code);
+    for (int i = 0; i < numberOfUsers; i++) {
+      permsUser = new JsonObject()
+          .put("id", UUID.randomUUID().toString())
+          .put("userId", UUID.randomUUID().toString())
+          .put("permissions", new JsonArray().add("perms.users.get"));
+      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+      context.assertEquals(201, response.code);
+    }
 
     String operatorUserId = UUID.randomUUID().toString();
     permsUser = new JsonObject()
         .put("id", UUID.randomUUID().toString())
         .put("userId", operatorUserId)
-        .put("permissions", new JsonArray().add(PermissionUtils.PERMS_PERMS_ALL));
+        .put("permissions", new JsonArray().add("perms.all"));
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
     context.assertEquals(201, response.code);
 
@@ -3036,10 +3075,21 @@ public class RestVerticleTest {
         .put("moduleId", "mod-permissions-1.0.1")
         .put("perms", new JsonArray()
             .add(new JsonObject()
-                .put("permissionName", PermissionUtils.PERMS_PERMS_ALL)
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                    .add(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+                    .add(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+                )
             )
             .add(new JsonObject()
-                .put("permissionName", "perms.users.get")
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
             )
             .add(new JsonObject()
                 .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
@@ -3060,8 +3110,14 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+    context.assertEquals(new JsonArray(List.of("perms.all")),
         response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?indexField=userId&expanded=true", null, context);
+    context.assertEquals(200, response.code);
+    JsonArray permissionNames = response.body.getJsonArray("permissionNames");
+    context.assertTrue(permissionNames.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE));
+    context.assertTrue(permissionNames.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE));
 
     response = send(HttpMethod.GET, "/perms/users/" + okapiOperatorId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
@@ -3074,7 +3130,7 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+    context.assertEquals(new JsonArray(List.of("perms.all")),
         response.body.getJsonArray("permissions"));
 
     response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
@@ -3082,8 +3138,142 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "?indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of(PermissionUtils.PERMS_PERMS_ALL, PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE, PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)),
+    context.assertEquals(new JsonArray(List.of("perms.all")),
         response.body.getJsonArray("permissions"));
+  }
+
+  @Test
+  public void testPermsUserUpgrade(TestContext context) {
+    JsonObject usersSet_0 = new JsonObject()
+        .put("moduleId", "users-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.edit")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.post")
+                    .add("users.perm.view")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.view")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                )
+            )
+        );
+    Response response = send(HttpMethod.POST, "/_/tenantpermissions", usersSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // announce permissions - older version without the perms.assign
+    JsonObject permissionsSet_0 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.0")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
+            )
+        );
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_0.encode(), context);
+    context.assertEquals(201, response.code);
+
+    String normalUserId = UUID.randomUUID().toString();
+    JsonObject permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", normalUserId)
+        .put("permissions", new JsonArray().add("users.perm.view"));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+    context.assertEquals(201, response.code);
+
+    String operatorUserId = UUID.randomUUID().toString();
+    permsUser = new JsonObject()
+        .put("id", UUID.randomUUID().toString())
+        .put("userId", operatorUserId)
+        .put("permissions", new JsonArray().add("users.perm.edit"));
+    response = send(HttpMethod.POST, "/perms/users", permsUser.encode(), context);
+    context.assertEquals(201, response.code);
+
+    // announce newer permissions
+    JsonObject permissionsSet_1 = new JsonObject()
+        .put("moduleId", "mod-permissions-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "perms.all")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "perms.users")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                    .add("perms.users.item.post")
+                    .add("perms.users.item.put")
+                    .add("perms.users.item.delete")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE)
+            )
+            .add(new JsonObject()
+                .put("permissionName", PermissionUtils.PERMS_USERS_ASSIGN_OKAPI)
+            )
+        );
+    response = send(HttpMethod.POST, "/_/tenantpermissions", permissionsSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "?indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.view")), response.body.getJsonArray("permissions"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "/permissions?expanded=true&indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.view", "perms.users.get")), response.body.getJsonArray("permissionNames"));
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?expanded=true&indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.edit", "perms.users.post", "users.perm.view", "perms.users.get")), response.body.getJsonArray("permissionNames"));
+
+    JsonObject usersSet_1 = new JsonObject()
+        .put("moduleId", "users-1.0.1")
+        .put("perms", new JsonArray()
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.edit")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.post")
+                    .add("users.perm.view")
+                    .add("perms.assign.mutable")
+                )
+            )
+            .add(new JsonObject()
+                .put("permissionName", "users.perm.view")
+                .put("subPermissions", new JsonArray()
+                    .add("perms.users.get")
+                )
+            )
+        );
+
+    response = send(HttpMethod.POST, "/_/tenantpermissions", usersSet_1.encode(), context);
+    context.assertEquals(201, response.code);
+
+    response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?expanded=true&indexField=userId", null, context);
+    context.assertEquals(200, response.code);
+    context.assertEquals(new JsonArray(List.of("users.perm.edit", "perms.users.post", "users.perm.view", "perms.assign.mutable", "perms.users.get")),
+        response.body.getJsonArray("permissionNames"));
   }
 
   @Test

@@ -209,11 +209,41 @@ public class TenantPermsAPI implements Tenantpermissions {
               .compose(x -> handleModifiedPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId))
               .compose(v -> handleRenamedPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId))
               .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), connection))
-              .compose(v -> migratePermsAssign(moduleId, dbPerms, connection));
+              .compose(v -> migratePermsAssign(moduleId, dbPerms, connection, vertxContext, tenantId));
         });
   }
 
-  private Future<Void> migratePermsAssign(ModuleId moduleId, Map<String, Permission> dbPerms, Conn connection) {
+  private Future<Void> migratePermsAssignUser(PermissionUser permUser, Conn connection, Context vertxContext, String tenantId) {
+    // it would be nice with a PermsCache that operated on connection
+    return PermsCache.expandPerms(permUser.getPermissions(), vertxContext, tenantId)
+        .compose(expandedPerms -> {
+          JsonArray originalList = new JsonArray(permUser.getPermissions());
+          JsonArray newList = new JsonArray(permUser.getPermissions());
+          List<String> permissionsToBeAdded = Collections.emptyList();
+          if (originalList.contains(PermissionUtils.PERMS_OKAPI_ALL)) {
+            permissionsToBeAdded = List.of(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI,
+                PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE,
+                PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+          }
+          boolean added = false;
+          for (String perm : permissionsToBeAdded) {
+            if (!originalList.contains(perm)) {
+              newList.add(perm);
+              added = true;
+            }
+          }
+          if (!added) {
+            return Future.succeededFuture();
+          }
+          permUser.setPermissions(newList.getList());
+          return connection.update(PermsAPI.TABLE_NAME_PERMSUSERS, permUser, permUser.getId())
+              .compose(x -> updateUserPermissions(connection, permUser.getId(), originalList, newList,
+                null, null, null));
+        });
+  }
+
+  private Future<Void> migratePermsAssign(ModuleId moduleId, Map<String, Permission> dbPerms,
+      Conn connection, Context vertxContext, String tenantId) {
     // only if are upgrading from an earlier mod-permissions module do we upgrade users.
     Permission permission = dbPerms.get(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
     if (!"mod-permissions".equals(moduleId.getProduct())
@@ -223,36 +253,11 @@ public class TenantPermsAPI implements Tenantpermissions {
     CQLWrapper all = new CQLWrapper();
     return connection.get(PermsAPI.TABLE_NAME_PERMSUSERS, PermissionUser.class, all, false)
         .compose(results -> {
-          Future<Void> future = Future.succeededFuture();
+          List<Future<Void>> futures = new ArrayList<>(results.getResults().size());
           for (PermissionUser permUser : results.getResults()) {
-            JsonArray originalList = new JsonArray(permUser.getPermissions());
-            JsonArray newList = new JsonArray(permUser.getPermissions());
-            List<String> permissionsToBeAdded;
-            if (originalList.contains(PermissionUtils.PERMS_OKAPI_ALL)) {
-              permissionsToBeAdded = List.of(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI,
-                  PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE,
-                  PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-            } else if (originalList.contains(PermissionUtils.PERMS_PERMS_ALL)) {
-              permissionsToBeAdded = List.of(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE,
-                  PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-            } else {
-              permissionsToBeAdded = Collections.emptyList();
-            }
-            boolean added = false;
-            for (String perm : permissionsToBeAdded) {
-              if (!originalList.contains(perm)) {
-                newList.add(perm);
-                added = true;
-              }
-            }
-            if (added) {
-              permUser.setPermissions(newList.getList());
-              future = future.compose(x -> connection.update(PermsAPI.TABLE_NAME_PERMSUSERS, permUser, permUser.getId()).mapEmpty());
-              future = future.compose(x -> updateUserPermissions(connection, permUser.getId(), originalList, newList,
-                      null, null, null));
-            }
+            futures.add(migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
           }
-          return future;
+          return GenericCompositeFuture.all(futures).mapEmpty();
         });
   }
 
