@@ -250,14 +250,21 @@ public class TenantPermsAPI implements Tenantpermissions {
         || (permission != null && !permission.getDeprecated())) {
       return Future.succeededFuture();
     }
-    CQLWrapper all = new CQLWrapper();
-    return connection.get(PermsAPI.TABLE_NAME_PERMSUSERS, PermissionUser.class, all, false)
-        .compose(results -> {
-          List<Future<Void>> futures = new ArrayList<>(results.getResults().size());
-          for (PermissionUser permUser : results.getResults()) {
-            futures.add(migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
+    Criteria nameCrit = new Criteria();
+    nameCrit.addField(PERMISSION_NAME_FIELD);
+    nameCrit.setVal(PermissionUtils.PERMS_OKAPI_ALL);
+    return connection.get(PermsAPI.TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), false)
+        .compose(res -> {
+          Future<Void> future = Future.succeededFuture();
+          for (Permission perm : res.getResults()) {
+            List<Object> grantedTo = perm.getGrantedTo();
+            for (Object o : grantedTo) {
+              future = future
+                  .compose(x -> connection.getById(PermsAPI.TABLE_NAME_PERMSUSERS, (String) o, PermissionUser.class))
+                  .compose(permUser -> migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
+            }
           }
-          return GenericCompositeFuture.all(futures).mapEmpty();
+          return future;
         });
   }
 
