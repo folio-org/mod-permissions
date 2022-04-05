@@ -1,3 +1,10 @@
+## 2022-04-05 v6.0.3
+
+Fixes:
+
+ * [MODPERMS-188](https://issues.folio.org/browse/MODPERMS-188) Enabling of mod-permissions fails
+ * [MODPERMS-189](https://issues.folio.org/browse/MODPERMS-189) Faster user migration
+
 ## 2022-03-24 v6.0.2
 
 Fixes:
