@@ -3027,14 +3027,6 @@ public class RestVerticleTest {
         .put("permissions", new JsonArray().add("perms.users.get"));
     response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
     context.assertEquals(201, response.code);
-    for (int i = 0; i < numberOfUsers; i++) {
-      permsUser = new JsonObject()
-          .put("id", UUID.randomUUID().toString())
-          .put("userId", UUID.randomUUID().toString())
-          .put("permissions", new JsonArray().add("perms.users.get"));
-      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
-      context.assertEquals(201, response.code);
-    }
 
     String operatorUserId = UUID.randomUUID().toString();
     permsUser = new JsonObject()
@@ -3057,6 +3049,15 @@ public class RestVerticleTest {
         );
     response = send(HttpMethod.POST, "/_/tenantpermissions", okapiSet.encode(), context);
     context.assertEquals(201, response.code);
+
+    for (int i = 0; i < numberOfUsers; i++) {
+      permsUser = new JsonObject()
+          .put("id", UUID.randomUUID().toString())
+          .put("userId", UUID.randomUUID().toString())
+          .put("permissions", new JsonArray().add("perms.users.get").add(PermissionUtils.PERMS_OKAPI_ALL));
+      response = send(HttpMethod.POST, "/perms/users", permsUser.encode(),context);
+      context.assertEquals(201, response.code);
+    }
 
     String okapiOperatorId = UUID.randomUUID().toString();
     permsUser = new JsonObject()
