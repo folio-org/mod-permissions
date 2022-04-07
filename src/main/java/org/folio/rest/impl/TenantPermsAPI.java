@@ -253,18 +253,21 @@ public class TenantPermsAPI implements Tenantpermissions {
     Criteria nameCrit = new Criteria();
     nameCrit.addField(PERMISSION_NAME_FIELD);
     nameCrit.setVal(PermissionUtils.PERMS_OKAPI_ALL);
+    nameCrit.setOperation("=");
     return connection.get(PermsAPI.TABLE_NAME_PERMS, Permission.class, new Criterion(nameCrit), false)
         .compose(res -> {
-          Future<Void> future = Future.succeededFuture();
-          for (Permission perm : res.getResults()) {
-            List<Object> grantedTo = perm.getGrantedTo();
-            for (Object o : grantedTo) {
-              future = future
-                  .compose(x -> connection.getById(PermsAPI.TABLE_NAME_PERMSUSERS, (String) o, PermissionUser.class))
-                  .compose(permUser -> migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
-            }
+          if (res.getResults().isEmpty()) {
+            return Future.succeededFuture(); // okapi not enabled
           }
-          return future;
+          Permission perm = res.getResults().get(0);
+          List<Object> grantedTo = perm.getGrantedTo();
+          List<Future<Void>> futures = new ArrayList<>(grantedTo.size());
+          for (Object o : grantedTo) {
+            futures.add(connection.getById(PermsAPI.TABLE_NAME_PERMSUSERS, (String) o, PermissionUser.class)
+                .compose(permUser -> migratePermsAssignUser(permUser, connection, vertxContext, tenantId))
+                .mapEmpty());
+          }
+          return GenericCompositeFuture.all(futures).mapEmpty();
         });
   }
 

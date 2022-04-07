@@ -1,3 +1,9 @@
+## 2022-04-07 v6.0.4
+
+Fixes:
+
+ * [MODPERMS-191](https://issues.folio.org/browse/MODPERMS-191) Enabling of 6.0.3 fails
+
 ## 2022-04-05 v6.0.3
 
 Fixes:
