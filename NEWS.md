@@ -1,3 +1,10 @@
+## 2022-05-06 v6.0.5
+
+Fixes:
+
+ * [MODPERMS-197](https://issues.folio.org/browse/MODPERMS-197) RMB 33.2.9, Vert.x 4.2.7, jackson-databind 2.13.2.1 (CVE-2020-36518)
+ * [MODPERMS-195](https://issues.folio.org/browse/MODPERMS-195) perms_users_sanitize (userId is null) ignores tenant
+
 ## 2022-04-07 v6.0.4
 
 Fixes:
