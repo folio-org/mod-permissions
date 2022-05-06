@@ -1,3 +1,8 @@
+## 2022-05-06 v5.14.5
+
+ * [MODPERMS-177](https://issues.folio.org/browse/MODPERMS-177), [MODPERMS-195](https://issues.folio.org/browse/MODPERMS-195) perms\_users\_sanitize (userId is null) on migration
+ * [MODPERMS-196](https://issues.folio.org/browse/MODPERMS-196) RMB 33.2.9, Vertx 4.2.7, jackson-databind 2.13.2.1
+
 ## 2021-12-23 v5.14.4
 
  * [MODPERMS-173](https://issues.folio.org/browse/MODPERMS-173) log4j 2.17.0, RMB 33.2.3, Vert.x 4.2.3
