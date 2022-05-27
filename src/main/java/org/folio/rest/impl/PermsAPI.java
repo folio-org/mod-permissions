@@ -189,11 +189,9 @@ public class PermsAPI implements Perms {
     final PermissionUser permUser = entity;
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.withTrans(conn ->
-            conn.save(TABLE_NAME_PERMSUSERS, entity.getId(), entity).compose(
-                postReply ->
-                    updateUserPermissions(conn, permUser.getId(), new JsonArray(),
-                        new JsonArray(permUser.getPermissions()), vertxContext, tenantId, okapiHeaders))
-        )
+            updateUserPermissions(conn, permUser.getId(), new JsonArray(),
+                new JsonArray(permUser.getPermissions()), vertxContext, tenantId, okapiHeaders)
+                .compose(res -> conn.save(TABLE_NAME_PERMSUSERS, entity.getId(), entity)))
         .onFailure(cause -> {
           logger.error("Error updating derived fields: {}",
               cause.getMessage(), cause);
@@ -476,12 +474,11 @@ public class PermsAPI implements Perms {
           PostgresClient pgClient = PostgresClient.getInstance(
               vertxContext.owner(), tenantId);
           return pgClient.withTrans(connection ->
-              connection.update(TABLE_NAME_PERMSUSERS, user, actualId)
-                  .compose(reply ->
-                      updateUserPermissions(connection, actualId, originalPermissions,
-                          new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, okapiHeaders))
-          );
+              updateUserPermissions(connection, actualId, originalPermissions,
+                  new JsonArray(user.getPermissions()), vertxContext,
+                  tenantId, okapiHeaders)
+                  .compose(x -> connection.update(TABLE_NAME_PERMSUSERS, user, actualId))
+                  .mapEmpty());
         });
   }
 
@@ -645,12 +642,11 @@ public class PermsAPI implements Perms {
             }
             updatePerm.setDummy(false);
             return pgClient.withTrans(connection ->
-                connection.update(TABLE_NAME_PERMS, updatePerm, id)
-                    .compose(res ->
-                        updateSubPermissions(connection, entity.getPermissionName(),
-                            new JsonArray(perm.getSubPermissions()),
-                            new JsonArray(entity.getSubPermissions()),
-                            okapiHeaders, vertxContext, tenantId)));
+                updateSubPermissions(connection, entity.getPermissionName(),
+                    new JsonArray(perm.getSubPermissions()),
+                    new JsonArray(entity.getSubPermissions()),
+                    okapiHeaders, vertxContext, tenantId)
+                    .compose(res -> connection.update(TABLE_NAME_PERMS, updatePerm, id)));
           })
           .onFailure(cause -> {
             if (cause instanceof InvalidPermissionsException) {
