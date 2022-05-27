@@ -642,11 +642,12 @@ public class PermsAPI implements Perms {
             }
             updatePerm.setDummy(false);
             return pgClient.withTrans(connection ->
-                updateSubPermissions(connection, entity.getPermissionName(),
-                    new JsonArray(perm.getSubPermissions()),
-                    new JsonArray(entity.getSubPermissions()),
-                    okapiHeaders, vertxContext, tenantId)
-                    .compose(res -> connection.update(TABLE_NAME_PERMS, updatePerm, id)));
+                connection.update(TABLE_NAME_PERMS, updatePerm, id)
+                    .compose(res ->
+                        updateSubPermissions(connection, entity.getPermissionName(),
+                            new JsonArray(perm.getSubPermissions()),
+                            new JsonArray(entity.getSubPermissions()),
+                            okapiHeaders, vertxContext, tenantId)));
           })
           .onFailure(cause -> {
             if (cause instanceof InvalidPermissionsException) {
