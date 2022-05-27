@@ -1088,30 +1088,31 @@ public class PermsAPI implements Perms {
     List<String> failedOkapi = new ArrayList<>();
     for (Object ob : addedPermissions) {
       String newPerm = (String) ob;
-      if (!combinedPermissions.contains(newPerm)) {
-        future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
-            .map(permission -> {
-              if (permission == null) {
-                // unknown permission will eventually result in error, but not here
-                return null;
-              }
-              boolean mutable = Boolean.TRUE.equals(permission.getMutable());
-              if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
-                  && !hasOkapi) {
-                failedOkapi.add(newPerm);
-              }
-              if (mutable) {
-                if (!hasMutable) {
-                  failedMutable.add(newPerm);
-                }
-              } else {
-                if (!hasImmutable) {
-                  failedImmutable.add(newPerm);
-                }
-              }
-              return null;
-            }));
+      if (combinedPermissions.contains(newPerm)) {
+        continue;
       }
+      future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
+          .map(permission -> {
+            if (permission == null) {
+              // unknown permission will eventually result in error, but not here
+              return null;
+            }
+            boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+            if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
+                && !hasOkapi) {
+              failedOkapi.add(newPerm);
+            }
+            if (mutable) {
+              if (!hasMutable) {
+                failedMutable.add(newPerm);
+              }
+            } else {
+              if (!hasImmutable) {
+                failedImmutable.add(newPerm);
+              }
+            }
+            return null;
+          }));
     }
     return future.map(x -> {
       checkPermList("okapi", failedOkapi, operatingUser, modulePermissions);
