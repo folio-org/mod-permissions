@@ -1065,54 +1065,60 @@ public class PermsAPI implements Perms {
           } else {
             futurePerms = Future.succeededFuture(null);
           }
-          return futurePerms.compose(modulePermissions -> {
-            Set<String> combinedPermissions = new HashSet<>();
-            combinedPermissions.addAll(operatingPermissions);
-            if (modulePermissions != null) {
-              combinedPermissions.addAll(modulePermissions);
-            }
-            boolean hasImmutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
-            boolean hasMutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-            boolean hasOkapi = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
-            Future<Void> future = Future.succeededFuture();
-            List<String> failedImmutable = new ArrayList<>();
-            List<String> failedMutable = new ArrayList<>();
-            List<String> failedOkapi = new ArrayList<>();
-            for (Object ob : addedPermissions) {
-              String newPerm = (String) ob;
-              if (!combinedPermissions.contains(newPerm)) {
-                future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
-                    .map(permission -> {
-                      if (permission == null) {
-                        // unknown permission will eventually result in error, but not here
-                        return null;
-                      }
-                      boolean mutable = Boolean.TRUE.equals(permission.getMutable());
-                      if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
-                          && !hasOkapi) {
-                        failedOkapi.add(newPerm);
-                      }
-                      if (mutable) {
-                        if (!hasMutable) {
-                          failedMutable.add(newPerm);
-                        }
-                      } else {
-                        if (!hasImmutable) {
-                          failedImmutable.add(newPerm);
-                        }
-                      }
-                      return null;
-                    }));
-              }
-            }
-            return future.map(x -> {
-              checkPermList("okapi", failedOkapi, operatingUser, modulePermissions);
-              checkPermList("immutable", failedImmutable, operatingUser, modulePermissions);
-              checkPermList("mutable", failedMutable, operatingUser, modulePermissions);
-              return null;
-            });
-          });
+          return futurePerms.compose(modulePermissions ->
+                checkOperatingPermissions(addedPermissions, tenantId, vertxContext, operatingUser,
+                    operatingPermissions, modulePermissions));
         });
+  }
+
+  static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId, Context vertxContext,
+      String operatingUser, List<String> operatingPermissions, List<String> modulePermissions) {
+
+    Set<String> combinedPermissions = new HashSet<>();
+    combinedPermissions.addAll(operatingPermissions);
+    if (modulePermissions != null) {
+      combinedPermissions.addAll(modulePermissions);
+    }
+    boolean hasImmutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
+    boolean hasMutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+    boolean hasOkapi = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
+    Future<Void> future = Future.succeededFuture();
+    List<String> failedImmutable = new ArrayList<>();
+    List<String> failedMutable = new ArrayList<>();
+    List<String> failedOkapi = new ArrayList<>();
+    for (Object ob : addedPermissions) {
+      String newPerm = (String) ob;
+      if (!combinedPermissions.contains(newPerm)) {
+        future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
+            .map(permission -> {
+              if (permission == null) {
+                // unknown permission will eventually result in error, but not here
+                return null;
+              }
+              boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+              if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
+                  && !hasOkapi) {
+                failedOkapi.add(newPerm);
+              }
+              if (mutable) {
+                if (!hasMutable) {
+                  failedMutable.add(newPerm);
+                }
+              } else {
+                if (!hasImmutable) {
+                  failedImmutable.add(newPerm);
+                }
+              }
+              return null;
+            }));
+      }
+    }
+    return future.map(x -> {
+      checkPermList("okapi", failedOkapi, operatingUser, modulePermissions);
+      checkPermList("immutable", failedImmutable, operatingUser, modulePermissions);
+      checkPermList("mutable", failedMutable, operatingUser, modulePermissions);
+      return null;
+    });
   }
 
   /* If we are modifying a permissions user or creating a new one, we need to
