@@ -1041,7 +1041,7 @@ public class PermsAPI implements Perms {
     }
   }
 
-  static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
+  static Future<Void> checkOperatingPermissions(Conn connection, JsonArray addedPermissions, String tenantId,
       Map<String,String> okapiHeaders, Context vertxContext) {
 
     if (okapiHeaders == null) { // when POSTing permission sets
@@ -1052,7 +1052,7 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture();
     }
     String operatingUser = okapiHeaders.getOrDefault(XOkapiHeaders.USER_ID, "null");
-    return getOperatingPermissions(vertxContext, tenantId, operatingUser)
+    return getOperatingPermissions(connection, vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
           JsonObject tokenObject = getPayloadWithoutValidation(token);
           Future<List<String>> futurePerms;
@@ -1139,7 +1139,7 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
+    return checkOperatingPermissions(connection, missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList());
@@ -1169,8 +1169,8 @@ public class PermsAPI implements Perms {
         });
   }
 
-  private static Future<List<String>> getOperatingPermissions(Context vertxContext, String tenantId, String operatingUser) {
-    return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
+  private static Future<List<String>> getOperatingPermissions(Conn connection, Context vertxContext, String tenantId, String operatingUser) {
+    return lookupPermsUsersById(operatingUser, "userId", connection)
         .compose(permissionUser -> {
           if (permissionUser == null) {
             return Future.succeededFuture(Collections.emptyList());
@@ -1210,7 +1210,7 @@ public class PermsAPI implements Perms {
           missingFromNewList.add(ob);
         }
       }
-      return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
+      return checkOperatingPermissions(connection, missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
           .compose(x ->
               (Future<List<String>>) findMissingPermissionsFromList(
                   connection, missingFromOriginalList.getList())

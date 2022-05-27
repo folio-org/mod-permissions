@@ -2694,6 +2694,7 @@ public class RestVerticleTest {
     context.assertEquals(201, response.code);
   }
 
+  @Ignore
   @Test
   public void testOperatingUserOkapi(TestContext context) {
     setupModuleToi(context);
