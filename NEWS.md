@@ -1,3 +1,11 @@
+## 2022-05-30 v6.0.6
+
+Fixes:
+
+ * [MODPERMS-201](https://issues.folio.org/browse/MODPERMS-201) Deadlock (timeout) when creating new permission user
+ * [MODPERMS-198](https://issues.folio.org/browse/MODPERMS-198) Update mod-users submodule from v17.2.2 to v18.2.0
+ * [MODPERMS-199](https://issues.folio.org/browse/MODPERMS-199) Issue in adding permissions on user record
+
 ## 2022-05-06 v6.0.5
 
 Fixes:
