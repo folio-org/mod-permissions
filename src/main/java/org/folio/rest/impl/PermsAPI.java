@@ -189,11 +189,9 @@ public class PermsAPI implements Perms {
     final PermissionUser permUser = entity;
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.withTrans(conn ->
-            conn.save(TABLE_NAME_PERMSUSERS, entity.getId(), entity).compose(
-                postReply ->
-                    updateUserPermissions(conn, permUser.getId(), new JsonArray(),
-                        new JsonArray(permUser.getPermissions()), vertxContext, tenantId, okapiHeaders))
-        )
+            updateUserPermissions(conn, permUser.getId(), new JsonArray(),
+                new JsonArray(permUser.getPermissions()), vertxContext, tenantId, okapiHeaders)
+                .compose(res -> conn.save(TABLE_NAME_PERMSUSERS, entity.getId(), entity)))
         .onFailure(cause -> {
           logger.error("Error updating derived fields: {}",
               cause.getMessage(), cause);
@@ -476,12 +474,11 @@ public class PermsAPI implements Perms {
           PostgresClient pgClient = PostgresClient.getInstance(
               vertxContext.owner(), tenantId);
           return pgClient.withTrans(connection ->
-              connection.update(TABLE_NAME_PERMSUSERS, user, actualId)
-                  .compose(reply ->
-                      updateUserPermissions(connection, actualId, originalPermissions,
-                          new JsonArray(user.getPermissions()), vertxContext,
-                          tenantId, okapiHeaders))
-          );
+              updateUserPermissions(connection, actualId, originalPermissions,
+                  new JsonArray(user.getPermissions()), vertxContext,
+                  tenantId, okapiHeaders)
+                  .compose(x -> connection.update(TABLE_NAME_PERMSUSERS, user, actualId))
+                  .mapEmpty());
         });
   }
 
@@ -1041,7 +1038,7 @@ public class PermsAPI implements Perms {
     }
   }
 
-  static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId,
+  static Future<Void> checkOperatingPermissions(Conn connection, JsonArray addedPermissions, String tenantId,
       Map<String,String> okapiHeaders, Context vertxContext) {
 
     if (okapiHeaders == null) { // when POSTing permission sets
@@ -1052,7 +1049,7 @@ public class PermsAPI implements Perms {
       return Future.succeededFuture();
     }
     String operatingUser = okapiHeaders.getOrDefault(XOkapiHeaders.USER_ID, "null");
-    return getOperatingPermissions(vertxContext, tenantId, operatingUser)
+    return getOperatingPermissions(connection, vertxContext, tenantId, operatingUser)
         .compose(operatingPermissions -> {
           JsonObject tokenObject = getPayloadWithoutValidation(token);
           Future<List<String>> futurePerms;
@@ -1068,54 +1065,61 @@ public class PermsAPI implements Perms {
           } else {
             futurePerms = Future.succeededFuture(null);
           }
-          return futurePerms.compose(modulePermissions -> {
-            Set<String> combinedPermissions = new HashSet<>();
-            combinedPermissions.addAll(operatingPermissions);
-            if (modulePermissions != null) {
-              combinedPermissions.addAll(modulePermissions);
+          return futurePerms.compose(modulePermissions ->
+                checkOperatingPermissions(addedPermissions, tenantId, vertxContext, operatingUser,
+                    operatingPermissions, modulePermissions));
+        });
+  }
+
+  static Future<Void> checkOperatingPermissions(JsonArray addedPermissions, String tenantId, Context vertxContext,
+      String operatingUser, List<String> operatingPermissions, List<String> modulePermissions) {
+
+    Set<String> combinedPermissions = new HashSet<>();
+    combinedPermissions.addAll(operatingPermissions);
+    if (modulePermissions != null) {
+      combinedPermissions.addAll(modulePermissions);
+    }
+    boolean hasImmutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
+    boolean hasMutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
+    boolean hasOkapi = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
+    Future<Void> future = Future.succeededFuture();
+    List<String> failedImmutable = new ArrayList<>();
+    List<String> failedMutable = new ArrayList<>();
+    List<String> failedOkapi = new ArrayList<>();
+    for (Object ob : addedPermissions) {
+      String newPerm = (String) ob;
+      if (combinedPermissions.contains(newPerm)) {
+        continue;
+      }
+      future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
+          .map(permission -> {
+            if (permission == null) {
+              // unknown permission will eventually result in error, but not here
+              return null;
             }
-            boolean hasImmutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_IMMUTABLE);
-            boolean hasMutable = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_MUTABLE);
-            boolean hasOkapi = combinedPermissions.contains(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI);
-            Future<Void> future = Future.succeededFuture();
-            List<String> failedImmutable = new ArrayList<>();
-            List<String> failedMutable = new ArrayList<>();
-            List<String> failedOkapi = new ArrayList<>();
-            for (Object ob : addedPermissions) {
-              String newPerm = (String) ob;
-              if (!combinedPermissions.contains(newPerm)) {
-                future = future.compose(x -> PermsCache.getFullPerms(newPerm, vertxContext, tenantId)
-                    .map(permission -> {
-                      if (permission == null) {
-                        // unknown permission will eventually result in error, but not here
-                        return null;
-                      }
-                      boolean mutable = Boolean.TRUE.equals(permission.getMutable());
-                      if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
-                          && !hasOkapi) {
-                        failedOkapi.add(newPerm);
-                      }
-                      if (mutable) {
-                        if (!hasMutable) {
-                          failedMutable.add(newPerm);
-                        }
-                      } else {
-                        if (!hasImmutable) {
-                          failedImmutable.add(newPerm);
-                        }
-                      }
-                      return null;
-                    }));
+            boolean mutable = Boolean.TRUE.equals(permission.getMutable());
+            if ((newPerm.startsWith("okapi.") || newPerm.equals(PermissionUtils.PERMS_USERS_ASSIGN_OKAPI))
+                && !hasOkapi) {
+              failedOkapi.add(newPerm);
+            }
+            if (mutable) {
+              if (!hasMutable) {
+                failedMutable.add(newPerm);
+              }
+            } else {
+              if (!hasImmutable) {
+                failedImmutable.add(newPerm);
               }
             }
-            return future.map(x -> {
-              checkPermList("okapi", failedOkapi, operatingUser, modulePermissions);
-              checkPermList("immutable", failedImmutable, operatingUser, modulePermissions);
-              checkPermList("mutable", failedMutable, operatingUser, modulePermissions);
-              return null;
-            });
-          });
-        });
+            return null;
+          }));
+    }
+    return future.map(x -> {
+      checkPermList("okapi", failedOkapi, operatingUser, modulePermissions);
+      checkPermList("immutable", failedImmutable, operatingUser, modulePermissions);
+      checkPermList("mutable", failedMutable, operatingUser, modulePermissions);
+      return null;
+    });
   }
 
   /* If we are modifying a permissions user or creating a new one, we need to
@@ -1139,7 +1143,7 @@ public class PermsAPI implements Perms {
         missingFromNewList.add(ob);
       }
     }
-    return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
+    return checkOperatingPermissions(connection, missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
         .compose(x -> {
           Future<List<String>> checkExistsResF = findMissingPermissionsFromList(
               connection, missingFromOriginalList.getList());
@@ -1169,8 +1173,8 @@ public class PermsAPI implements Perms {
         });
   }
 
-  private static Future<List<String>> getOperatingPermissions(Context vertxContext, String tenantId, String operatingUser) {
-    return lookupPermsUsersById(operatingUser, "userId", tenantId, vertxContext)
+  private static Future<List<String>> getOperatingPermissions(Conn connection, Context vertxContext, String tenantId, String operatingUser) {
+    return lookupPermsUsersById(operatingUser, "userId", connection)
         .compose(permissionUser -> {
           if (permissionUser == null) {
             return Future.succeededFuture(Collections.emptyList());
@@ -1210,7 +1214,7 @@ public class PermsAPI implements Perms {
           missingFromNewList.add(ob);
         }
       }
-      return checkOperatingPermissions(missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
+      return checkOperatingPermissions(connection, missingFromOriginalList, tenantId, okapiHeaders, vertxContext)
           .compose(x ->
               (Future<List<String>>) findMissingPermissionsFromList(
                   connection, missingFromOriginalList.getList())
