@@ -133,10 +133,11 @@ public class PermsAPI implements Perms {
   protected static final String PERMISSION_NAME_FIELD = "'permissionName'";
   private static final Logger logger = LogManager.getLogger(PermsAPI.class);
 
-  private static CQLWrapper getCQL(String query, String tableName, int limit, int offset) {
+  private static CQLWrapper getCQL(String query, String tableName, int limit, int offset, String totalRecords) {
     try {
       CQL2PgJSON cql2pgJson = new CQL2PgJSON(tableName + ".jsonb");
-      return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset));
+      return new CQLWrapper(cql2pgJson, query).setLimit(new Limit(limit)).setOffset(new Offset(offset))
+          .setTotalRecords(totalRecords);
     } catch (FieldException e) {
       throw new RuntimeException(e);
     }
@@ -153,7 +154,8 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void getPermsUsers(int offset, int limit, int length, int start, String sortBy, String query,
+  public void getPermsUsers(String totalRecords,
+      int offset, int limit, int length, int start, String sortBy, String query,
       String hasPermissions, RoutingContext routingContext, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
@@ -163,8 +165,9 @@ public class PermsAPI implements Perms {
     if (start != 1) {
       offset = start - 1;
     }
-    PgUtil.streamGet(TABLE_NAME_PERMSUSERS, PermissionUser.class, query, offset, limit, null, "permissionUsers",
-        routingContext, okapiHeaders, vertxContext);
+    int queryTimeout = 0;  // no timeout
+    PgUtil.streamGet(TABLE_NAME_PERMSUSERS, PermissionUser.class, query, totalRecords, offset, limit, null,
+        "permissionUsers", queryTimeout, routingContext, okapiHeaders, vertxContext);
   }
 
   @Validate
@@ -739,11 +742,10 @@ public class PermsAPI implements Perms {
     }
   }
 
-  @SuppressWarnings("java:S3776")
   @Validate
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
-      int offset, int limit, int length, int start, String sortBy,
+      String totalRecords, int offset, int limit, int length, int start, String sortBy,
       String query0, String memberOf, String ownedBy, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
@@ -766,7 +768,7 @@ public class PermsAPI implements Perms {
       }
       logger.info("Generating cql to request rows from table '{}' with query '{}'",
           TABLE_NAME_PERMS, query);
-      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, limit, offset);
+      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, limit, offset, totalRecords);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
