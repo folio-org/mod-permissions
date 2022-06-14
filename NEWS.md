@@ -1,11 +1,66 @@
+## 2022-06-14 v6.1.0
+
+ * [MODPERMS-203](https://issues.folio.org/browse/MODPERMS-203) Upgrade to RMB 34.0.0, Vert.x.4.3.1
+ * [MODPERMS-181](https://issues.folio.org/browse/MODPERMS-181) Integration test and Kiwi-to-Lotus migration test
+
+## 2022-05-30 v6.0.6
+
+Fixes:
+
+ * [MODPERMS-201](https://issues.folio.org/browse/MODPERMS-201) Deadlock (timeout) when creating new permission user
+ * [MODPERMS-198](https://issues.folio.org/browse/MODPERMS-198) Update mod-users submodule from v17.2.2 to v18.2.0
+ * [MODPERMS-199](https://issues.folio.org/browse/MODPERMS-199) Issue in adding permissions on user record
+
+## 2022-05-06 v6.0.5
+
+Fixes:
+
+ * [MODPERMS-197](https://issues.folio.org/browse/MODPERMS-197) RMB 33.2.9, Vert.x 4.2.7, jackson-databind 2.13.2.1 (CVE-2020-36518)
+ * [MODPERMS-195](https://issues.folio.org/browse/MODPERMS-195) perms_users_sanitize (userId is null) ignores tenant
+
+## 2022-04-07 v6.0.4
+
+Fixes:
+
+ * [MODPERMS-191](https://issues.folio.org/browse/MODPERMS-191) Enabling of 6.0.3 fails
+
+## 2022-04-05 v6.0.3
+
+Fixes:
+
+ * [MODPERMS-188](https://issues.folio.org/browse/MODPERMS-188) Enabling of mod-permissions fails
+ * [MODPERMS-189](https://issues.folio.org/browse/MODPERMS-189) Faster user migration
+
+## 2022-03-24 v6.0.2
+
+Fixes:
+
+ * [MODPERMS-185](https://issues.folio.org/browse/MODPERMS-185) Stack issue
+   with user migration. Change SQL update of `grantedTo`/`ChildOf` to atomic.
+ * [MODPERMS-184](https://issues.folio.org/browse/MODPERMS-184) Migrate only
+   users having `okapi.all`. Set `perms.all` includes
+  `perms.users.assign.immutable`, `perms.users.assign.mutable`
+ * [MODPERMS-186](https://issues.folio.org/browse/MODPERMS-186) loadSample
+   fails on 2nd init
+
+## 2022-03-10 v6.0.1
+
+Fixes:
+
+ * [MODPERMS-177](https://issues.folio.org/browse/MODPERMS-177) Delete bad users, add constraint
+ * [MODPERMS-179](https://issues.folio.org/browse/MODPERMS-179) Remove blank in permission name
+ * [FOLIO-3231](https://issues.folio.org/browse/FOLIO-3231) Replace runLintRamlCop/publishAPI by doApiLint/doApiDoc
+
 ## 2022-02-18 v6.0.0
 
 Changes:
+
  * [MODPERMS-157](https://issues.folio.org/browse/MODPERMS-157) Check assign permissions for operating user
  * [MODPERMS-160](https://issues.folio.org/browse/MODPERMS-160) Migrate assignment permissions
  * [MODPERMS-56](https://issues.folio.org/browse/MODPERMS-56) Support offset and limit from traits/pageable.raml. Interface `permissions` bumped to 5.5.
 
 Fixes:
+
  * Update to RMB 33.2.5, Vert.x 4.2.4
 
 ## 2021-12-23 v5.14.4
@@ -19,7 +74,7 @@ Fixes:
 
 ## 2021-10-01 v5.14.2
 
-[MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
+ * [MODPERMS-154](https://issues.folio.org/browse/MODPERMS-154) Update RMB to 33.1.1 and Vert.x 4.1.4
 
 NOTE: There was no v5.14.1 due to errors preparing the release.
 
