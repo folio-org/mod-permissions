@@ -30,8 +30,8 @@
   </pluginRepositories>
 
   <properties>
-    <vertx.version>4.3.1</vertx.version>
-    <raml-module-builder-version>34.0.0</raml-module-builder-version>
+    <vertx.version>4.3.4</vertx.version>
+    <raml-module-builder-version>35.0.1</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
@@ -51,7 +51,7 @@
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-bom</artifactId>
-        <version>2.17.2</version>
+        <version>2.19.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -59,7 +59,7 @@
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
-        <version>1.17.1</version>
+        <version>1.17.5</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -112,7 +112,7 @@
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
-      <version>5.0.1</version>
+      <version>5.2.0</version>
       <scope>test</scope>
     </dependency>
 
