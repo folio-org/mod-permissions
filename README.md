@@ -19,7 +19,7 @@ There are two types of permissions:
    are enabled for a tenant, they are passed from Okapi to mod-permissions via
    the [tenantPermissions](ramls/tenantPermissions.raml) interface.
 
-*  Mutable, User-defined, permissons that any module can manage if they
+*  Mutable, User-defined, permissions that any module can manage if they
    have permissions to do so. This is part of the
    [permissions](ramls/permissions.raml) interface.
 
