@@ -1,3 +1,7 @@
+## 2022-10-24 v6.2.0
+
+ * [MODPERMS-205](https://issues.folio.org/browse/MODPERMS-205) Upgrade to RMB 35.0.1, Vert.x 4.3.4, log4j 2.19.0
+
 ## 2022-06-14 v6.1.0
 
  * [MODPERMS-203](https://issues.folio.org/browse/MODPERMS-203) Upgrade to RMB 34.0.0, Vert.x.4.3.1
