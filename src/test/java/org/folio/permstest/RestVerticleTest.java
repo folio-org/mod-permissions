@@ -143,16 +143,17 @@ public class RestVerticleTest {
   public void testModuleReplacesOk(TestContext context) {
     sendInitialPermissionSet(context)
         .compose(x -> {
-      JsonObject permissionSet = new JsonObject()
-          .put("moduleId", "other-1.0.0")
-          .put("replaces", new JsonArray().add("dummy"))
-          .put("perms", new JsonArray()
-              .add(new JsonObject()
-                  .put("permissionName", "dummy.read")
-              )
-          );
-      return sendPermissionSet(context, permissionSet, 200);
-    });
+          JsonObject permissionSet = new JsonObject()
+              .put("moduleId", "other-1.0.0")
+              .put("replaces", new JsonArray().add("dummy"))
+              .put("perms", new JsonArray()
+                  .add(new JsonObject()
+                      .put("permissionName", "dummy.read")
+                  )
+              );
+          return sendPermissionSet(context, permissionSet, 201);
+        })
+        .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -168,7 +169,8 @@ public class RestVerticleTest {
                   )
               );
           return sendPermissionSet(context, permissionSet, 400);
-        });
+        })
+        .onComplete(context.asyncAssertSuccess());
   }
 
   /*
