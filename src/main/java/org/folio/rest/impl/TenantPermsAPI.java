@@ -82,7 +82,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<List<Permission>> getPermsForModule(ModuleId moduleId,
-      @NotNull List<OkapiPermission> perms, List<String> replaces, Conn connection) {
+      @NotNull List<OkapiPermission> perms, @NotNull List<String> replaces, Conn connection) {
 
     return getPermsByModule(moduleId, connection)
         .compose(existing -> {
@@ -109,7 +109,7 @@ public class TenantPermsAPI implements Tenantpermissions {
                     if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
                         (Boolean.TRUE.equals(dbPerm.getDeprecated())
                             || dbPerm.getModuleName() == null
-                            || (replaces != null && replaces.contains(dbPerm.getModuleName())))) {
+                            || replaces.contains(dbPerm.getModuleName()))) {
                       return addMissingModuleContext(dbPerm, moduleId, connection)
                           .onSuccess(ret::add)
                           .mapEmpty();
