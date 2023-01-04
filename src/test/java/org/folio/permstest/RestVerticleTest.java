@@ -153,6 +153,19 @@ public class RestVerticleTest {
               );
           return sendPermissionSet(context, permissionSet, 201);
         })
+        // renaming back to dummy - unlikely in real production.
+        // This tests that the permissions is owned by "other"
+        .compose(x -> {
+          JsonObject permissionSet = new JsonObject()
+              .put("moduleId", "dummy-1.0.0")
+              .put("replaces", new JsonArray().add("other"))
+              .put("perms", new JsonArray()
+                  .add(new JsonObject()
+                      .put("permissionName", "dummy.read")
+                  )
+              );
+          return sendPermissionSet(context, permissionSet, 201);
+        })
         .onComplete(context.asyncAssertSuccess());
   }
 
