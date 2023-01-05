@@ -109,7 +109,7 @@ public class PermsIT {
     postTenant(new JsonObject().put("module_to", "999999.0.0").put("module_from", "0.0.0"));
 
     String id = "12345678-0123-4567-890a-bcdef0123456";
-    String userId = "itsme";
+    String userId = "57a0cab5-1e07-488d-b72e-a73084281a85";
     given().
       body(new JsonObject().put("id", id).put("userId", userId).encode()).
     when().
@@ -155,7 +155,7 @@ public class PermsIT {
       body("userId", is("956f39c5-92e3-4c26-bcdc-1827674710cf"));
 
     String id = "12345678-0123-4567-890a-bcdef0123456";
-    String userId = "foobar";
+    String userId = "6e483d97-9c98-4dce-b953-64d708d4c760";
     given().
       body(new JsonObject().put("id", id).put("userId", userId).encode()).
     when().
