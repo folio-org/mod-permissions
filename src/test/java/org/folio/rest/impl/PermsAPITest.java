@@ -75,6 +75,7 @@ public class PermsAPITest {
     PermsAPI api = new PermsAPI();
     PermissionUser permissionUser = new PermissionUser();
 
+    permissionUser.setUserId(UUID.randomUUID().toString());
     Map<String,String> headers = new CaseInsensitiveMap<>();
     headers.put(XOkapiHeaders.TENANT, "badTenant");
 

@@ -298,7 +298,18 @@ public class RestVerticleTest {
   @Test
   public void testPostPermsUsersInvalidUUID(TestContext context) {
 
-    String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
+    String permsUsers = "{\"userId\": \"" + UUID.randomUUID() + "\",\"permissions\": " +
+        "[], \"id\" : \"1234\"}";
+
+    Response response = send(HttpMethod.POST, "/perms/users",
+        permsUsers, context);
+    context.assertEquals(400, response.code);
+  }
+
+  @Test
+  public void testPostPermsUsersInvalidUserId(TestContext context) {
+
+    String permsUsers = "{\"userId\":\"1234\",\"permissions\": " +
         "[], \"id\" : \"1234\"}";
 
     Response response = send(HttpMethod.POST, "/perms/users",
