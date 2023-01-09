@@ -297,7 +297,6 @@ public class RestVerticleTest {
 
   @Test
   public void testPostPermsUsersInvalidUUID(TestContext context) {
-
     String permsUsers = "{\"userId\": \"" + UUID.randomUUID() + "\",\"permissions\": " +
         "[], \"id\" : \"1234\"}";
 
@@ -308,9 +307,8 @@ public class RestVerticleTest {
 
   @Test
   public void testPostPermsUsersInvalidUserId(TestContext context) {
-
-    String permsUsers = "{\"userId\":\"1234\",\"permissions\": " +
-        "[], \"id\" : \"1234\"}";
+    String permsUsers = "{\"userId\": \"1234\",\"permissions\": " +
+        "[], \"id\" : \"" + UUID.randomUUID()  +"\"}";
 
     Response response = send(HttpMethod.POST, "/perms/users",
         permsUsers, context);
