@@ -186,15 +186,22 @@ public class PermsAPI implements Perms {
     }
   }
 
-  void postPermsUsersTrans(PermissionUser entity, Context vertxContext,
+  void postPermsUsersTrans(PermissionUser permUser, Context vertxContext,
       Map<String,String> okapiHeaders, Handler<AsyncResult<Response>> asyncResultHandler) {
     String tenantId = TenantTool.tenantId(okapiHeaders);
-    final PermissionUser permUser = entity;
+    try {
+      UUID userId = UUID.fromString(permUser.getUserId());
+      permUser.setUserId(userId.toString());
+    }
+    catch (IllegalArgumentException e) {
+      asyncResultHandler.handle(Future.succeededFuture(
+          PostPermsUsersResponse.respond400WithTextPlain(e.getMessage())));
+    }
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.withTrans(conn ->
             updateUserPermissions(conn, permUser.getId(), new JsonArray(),
                 new JsonArray(permUser.getPermissions()), vertxContext, tenantId, okapiHeaders)
-                .compose(res -> conn.save(TABLE_NAME_PERMSUSERS, entity.getId(), entity)))
+                .compose(res -> conn.save(TABLE_NAME_PERMSUSERS, permUser.getId(), permUser)))
         .onFailure(cause -> {
           logger.error("Error updating derived fields: {}",
               cause.getMessage(), cause);
@@ -213,7 +220,7 @@ public class PermsAPI implements Perms {
                     cause.getMessage())));
           }})
         .onSuccess(res -> asyncResultHandler.handle(Future.succeededFuture(
-            PostPermsUsersResponse.respond201WithApplicationJson(entity)))
+            PostPermsUsersResponse.respond201WithApplicationJson(permUser)))
         );
   }
 
