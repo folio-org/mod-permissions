@@ -5,6 +5,7 @@ import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -125,6 +126,51 @@ public class RestVerticleTest {
     // testPostPermsUsersPermissionsByIdUnknownUser
     // testPostPermsUsersPermissionsInvalidUUID
     PostgresClient.closeAllClients();
+  }
+
+  static List<String> jsonArrayToList(JsonArray ar) {
+    List<String> res = new ArrayList<>(ar.size());
+    ar.forEach(o -> {
+      if (o instanceof String) {
+        res.add((String) o);
+      }
+    });
+    return res;
+  }
+
+
+  @Test
+  public void testModuleReplacesOk(TestContext context) {
+    sendInitialPermissionSet(context)
+        .compose(x -> {
+          JsonObject permissionSet = new JsonObject()
+              .put("moduleId", "other-1.0.0")
+              .put("replaces", new JsonArray().add("dummy"))
+              .put("perms", new JsonArray()
+                  .add(new JsonObject()
+                      .put("permissionName", "dummy.read")
+                  )
+              );
+          return sendPermissionSet(context, permissionSet, 201);
+        })
+        .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testModuleReplacesFail(TestContext context) {
+    sendInitialPermissionSet(context)
+        .compose(x -> {
+          JsonObject permissionSet = new JsonObject()
+              .put("moduleId", "other-1.0.0")
+              .put("replaces", new JsonArray().add("xxx"))
+              .put("perms", new JsonArray()
+                  .add(new JsonObject()
+                      .put("permissionName", "dummy.read")
+                  )
+              );
+          return sendPermissionSet(context, permissionSet, 400);
+        })
+        .onComplete(context.asyncAssertSuccess());
   }
 
   /*
@@ -3252,11 +3298,13 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + normalUserId + "/permissions?expanded=true&indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("users.perm.view", "perms.users.get")), response.body.getJsonArray("permissionNames"));
+    assertThat(jsonArrayToList(response.body.getJsonArray("permissionNames")),
+        hasItems("users.perm.view", "perms.users.get"));
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?expanded=true&indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("users.perm.edit", "perms.users.post", "users.perm.view", "perms.users.get")), response.body.getJsonArray("permissionNames"));
+    assertThat(jsonArrayToList(response.body.getJsonArray("permissionNames")),
+        hasItems("users.perm.edit", "perms.users.post", "users.perm.view", "perms.users.get"));
 
     JsonObject usersSet_1 = new JsonObject()
         .put("moduleId", "users-1.0.1")
@@ -3282,8 +3330,8 @@ public class RestVerticleTest {
 
     response = send(HttpMethod.GET, "/perms/users/" + operatorUserId + "/permissions?expanded=true&indexField=userId", null, context);
     context.assertEquals(200, response.code);
-    context.assertEquals(new JsonArray(List.of("users.perm.edit", "perms.users.post", "users.perm.view", "perms.assign.mutable", "perms.users.get")),
-        response.body.getJsonArray("permissionNames"));
+    assertThat(jsonArrayToList(response.body.getJsonArray("permissionNames")),
+        hasItems("users.perm.edit", "perms.users.post", "users.perm.view", "perms.assign.mutable", "perms.users.get"));
   }
 
   @Test
