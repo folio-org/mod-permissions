@@ -82,7 +82,7 @@ public class TenantPermsAPI implements Tenantpermissions {
   }
 
   private Future<List<Permission>> getPermsForModule(ModuleId moduleId,
-      @NotNull List<OkapiPermission> perms, Conn connection) {
+      @NotNull List<OkapiPermission> perms, @NotNull List<String> replaces, Conn connection) {
 
     return getPermsByModule(moduleId, connection)
         .compose(existing -> {
@@ -105,9 +105,11 @@ public class TenantPermsAPI implements Tenantpermissions {
                     // and if one of the following it true:
                     // 1: it's deprecated
                     // 2: no module context (yet)
+                    // 3: permissions belongs to a module that is replaced.
                     if (Boolean.FALSE.equals(dbPerm.getMutable()) &&
                         (Boolean.TRUE.equals(dbPerm.getDeprecated())
-                            || dbPerm.getModuleName() == null)) {
+                            || dbPerm.getModuleName() == null
+                            || replaces.contains(dbPerm.getModuleName()))) {
                       return addMissingModuleContext(dbPerm, moduleId, connection)
                           .onSuccess(ret::add)
                           .mapEmpty();
@@ -200,7 +202,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           .forEach(perms::add);
     }
 
-    return getPermsForModule(moduleId, perms, connection)
+    return getPermsForModule(moduleId, perms, permSet.getReplaces(), connection)
         .compose(existing -> {
           Map<String, Permission> dbPerms = new HashMap<>(existing.size());
           existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));

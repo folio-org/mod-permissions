@@ -8,6 +8,14 @@
       "description": "The ID of the Okapi module that provides these permissions",
       "type": "string"
     },
+    "replaces": {
+      "description": "List of modules that this replaces",
+      "type": "array",
+      "items": {
+        "description": "Module name",
+        "type": "string"
+      }
+    },
     "perms": {
       "description": "A set of permissions",
       "type": "array",
