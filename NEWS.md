@@ -1,3 +1,14 @@
+## 2023-02-14 v6.3.0
+
+New features:
+
+ * [MODPERMS-208](https://issues.folio.org/browse/MODPERMS-208) Honor module replaces
+ * [MODPERMS-209](https://issues.folio.org/browse/MODPERMS-209) UserId: validate and store normalized
+
+Fixes:
+
+ * [MODPERMS-211](https://issues.folio.org/browse/MODPERMS-211) RMB 35.0.6, Vert.x 4.3.8
+
 ## 2022-10-24 v6.2.0
 
  * [MODPERMS-205](https://issues.folio.org/browse/MODPERMS-205) Upgrade to RMB 35.0.1, Vert.x 4.3.4, log4j 2.19.0
