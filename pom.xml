@@ -30,8 +30,8 @@
   </pluginRepositories>
 
   <properties>
-    <vertx.version>4.3.4</vertx.version>
-    <raml-module-builder-version>35.0.1</raml-module-builder-version>
+    <vertx.version>4.3.8</vertx.version>
+    <raml-module-builder-version>35.0.6</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
