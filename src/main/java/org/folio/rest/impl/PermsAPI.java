@@ -288,6 +288,7 @@ public class PermsAPI implements Perms {
                 PutPermsUsersByIdResponse.respond200WithApplicationJson(entity)));
           })
           .onFailure(cause -> {
+            logger.error("PUT /perms/users/{id}: {}", cause.getMessage(), cause);
             if (cause instanceof InvalidPermissionsException) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsUsersByIdResponse.respond422WithApplicationJson(
@@ -353,6 +354,7 @@ public class PermsAPI implements Perms {
                   DeletePermsUsersByIdResponse.respond204()))
           )
           .onFailure(cause -> {
+            logger.error("DELETE /perms/users/{id}: {}", cause.getMessage(), cause);
             if (cause instanceof NotFoundException) {
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsUsersByIdResponse.respond404WithTextPlain(cause.getMessage())));
@@ -445,6 +447,7 @@ public class PermsAPI implements Perms {
                         .respond200WithApplicationJson(entity)));
           })
           .onFailure(cause -> {
+            logger.error("POST /perms/users/{id}/permissions: {}", cause.getMessage(), cause);
             if (cause instanceof OperatingUserException) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PostPermsUsersPermissionsByIdResponse.respond403WithTextPlain(cause.getMessage())
@@ -530,6 +533,7 @@ public class PermsAPI implements Perms {
                         tenantId, okapiHeaders)
                     ));
           }).onFailure(cause -> {
+            logger.error("DELETE /perms/users/{id}/permissions/{permissionname}: {}", cause.getMessage(), cause);
             if (cause instanceof NotFoundException) {
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsPermissionsByIdResponse.respond404WithTextPlain(cause.getMessage())));
@@ -592,6 +596,7 @@ public class PermsAPI implements Perms {
                         new JsonArray(), new JsonArray(entity.getSubPermissions()), null,
                         vertxContext,  tenantId)));
           }).onFailure(cause -> {
+            logger.error("POST /perms/permissions: {}", cause.getMessage(), cause);
             if (cause instanceof InvalidPermissionsException) {
               InvalidPermissionsException epe = (InvalidPermissionsException) cause;
               asyncResultHandler.handle(Future.succeededFuture(
@@ -660,6 +665,7 @@ public class PermsAPI implements Perms {
                             okapiHeaders, vertxContext, tenantId)));
           })
           .onFailure(cause -> {
+            logger.error("GET /perms/permissions/{id}: {}", cause.getMessage(), cause);
             if (cause instanceof InvalidPermissionsException) {
               asyncResultHandler.handle(Future.succeededFuture(
                   PutPermsPermissionsByIdResponse.respond422WithApplicationJson(
@@ -734,6 +740,7 @@ public class PermsAPI implements Perms {
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsPermissionsByIdResponse.respond204()))
           ).onFailure(cause -> {
+            logger.error("DELETE /perms/permissions/{id}: {}", cause.getMessage(), cause);
             if (cause instanceof NotFoundException) {
               asyncResultHandler.handle(Future.succeededFuture(
                   DeletePermsPermissionsByIdResponse.respond404WithTextPlain(cause.getMessage())));
@@ -814,10 +821,11 @@ public class PermsAPI implements Perms {
       }).onSuccess(res ->
         asyncResultHandler.handle(Future.succeededFuture(
             GetPermsPermissionsResponse.respond200WithApplicationJson(res)))
-      ).onFailure(cause ->
+      ).onFailure(cause -> {
+        logger.error("GET /perms/permissions: {}", cause.getMessage(), cause);
         asyncResultHandler.handle(Future.succeededFuture(
-            GetPermsPermissionsResponse.respond400WithTextPlain(cause.getMessage())))
-      );
+            GetPermsPermissionsResponse.respond400WithTextPlain(cause.getMessage())));
+      });
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
       asyncResultHandler.handle(io.vertx.core.Future.succeededFuture(
