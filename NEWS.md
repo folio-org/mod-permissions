@@ -1,3 +1,9 @@
+## 2023-03-01 v6.3.1
+
+Fixes:
+
+ * [MODPERMS-212](https://issues.folio.org/browse/MODPERMS-212) Log errors
+
 ## 2023-02-14 v6.3.0
 
 New features:
