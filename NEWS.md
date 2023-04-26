@@ -1,3 +1,10 @@
+## 2023-04-26 v6.3.2
+
+Fixes:
+
+ * [MODPERMS-214](https://issues.folio.org/browse/MODPERMS-214) Bump permissions interface from 5.5 to 5.6 for module replaces
+ * apk upgrade
+
 ## 2023-03-01 v6.3.1
 
 Fixes:
