@@ -210,7 +210,7 @@ public class TenantPermsAPI implements Tenantpermissions {
           return handleNewPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId)
               .compose(x -> handleModifiedPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId))
               .compose(v -> handleRenamedPerms(moduleId, dbPerms, perms, connection, vertxContext, tenantId))
-              .compose(v -> handleRemovedPerms(getRemovedPerms(dbPerms, perms), connection))
+              .compose(v -> softDeletePermList(getRemovedPerms(dbPerms, perms), connection))
               .compose(v -> migratePermsAssign(moduleId, dbPerms, connection, vertxContext, tenantId));
         });
   }
@@ -294,13 +294,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     return renamePermList(connection, moduleId, renamedPerms, vertxContext, tenantId);
   }
 
-  private Future<Void> handleRemovedPerms(List<Permission> permList, Conn connection) {
-    if (permList.isEmpty()) {
-      return Future.succeededFuture();
-    }
-    return softDeletePermList(permList, connection);
-  }
-
   protected Future<Void> softDeletePermList(List<Permission> permList, Conn connection) {
     List<Permission> entities = new ArrayList<>();
 
@@ -311,6 +304,14 @@ public class TenantPermsAPI implements Tenantpermissions {
         perm.setDisplayName(DEPRECATED_PREFIX + perm.getDisplayName());
         entities.add(perm);
       });
+
+    if (entities.isEmpty()) {
+      return Future.succeededFuture();
+    }
+
+    logger.warn(() -> "Deprecating unused permissions: " +
+        entities.stream().map(Permission::getDisplayName).collect(Collectors.joining(", ")));
+
     return connection.upsertBatch(PermsAPI.TABLE_NAME_PERMS, entities).mapEmpty();
   }
 
