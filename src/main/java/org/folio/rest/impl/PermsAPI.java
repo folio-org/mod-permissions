@@ -156,7 +156,7 @@ public class PermsAPI implements Perms {
   @Override
   public void getPermsUsers(String totalRecords,
       int offset, int limit, int length, int start, String sortBy, String query,
-      String hasPermissions, RoutingContext routingContext, Map<String, String> okapiHeaders,
+      RoutingContext routingContext, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
     if (length != 10) {
