@@ -1,3 +1,17 @@
+## 2023-10-12 v6.4.0
+
+New features:
+
+ * [MODPERMS-216](https://issues.folio.org/browse/MODPERMS-216) Log any permission deprecation
+ * [MODPERMS-213](https://issues.folio.org/browse/MODPERMS-213), [FOLIO-3678](https://issues.folio.org/browse/FOLIO-3678) Enable API-related GitHub Workflows, replace those Jenkins stages
+
+Fixes:
+
+ * [MODPERMS-223](https://issues.folio.org/browse/MODPERMS-223) Upgrade dependencies for Poppy: RMB 35.1.0, Vert.x 4.4.5, ...
+ * [MODPERMS-222](https://issues.folio.org/browse/MODPERMS-222) Check "error" in GET /\_/tenant/<tenantid> in PermsIT
+ * [MODPERMS-220](https://issues.folio.org/browse/MODPERMS-220) Delete unused hasPermissions from GET /perms/users API
+ * [MODPERMS-218](https://issues.folio.org/browse/MODPERMS-218) Java 17
+
 ## 2023-04-26 v6.3.2
 
 Fixes:
