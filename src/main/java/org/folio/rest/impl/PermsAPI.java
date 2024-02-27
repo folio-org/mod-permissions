@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -197,6 +198,7 @@ public class PermsAPI implements Perms {
       asyncResultHandler.handle(Future.succeededFuture(
           PostPermsUsersResponse.respond400WithTextPlain(e.getMessage())));
     }
+    removeDuplicatePermissions(permUser);
     PostgresClient postgresClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
     postgresClient.withTrans(conn ->
             updateUserPermissions(conn, permUser.getId(), new JsonArray(),
@@ -222,6 +224,17 @@ public class PermsAPI implements Perms {
         .onSuccess(res -> asyncResultHandler.handle(Future.succeededFuture(
             PostPermsUsersResponse.respond201WithApplicationJson(permUser)))
         );
+  }
+
+  /**
+   * Remove duplicate permissions while retaining the order.
+   */
+  private static void removeDuplicatePermissions(PermissionUser user) {
+    var perms = new LinkedHashSet<>(user.getPermissions());
+    if (perms.size() == user.getPermissions().size()) {
+      return;
+    }
+    user.setPermissions(new ArrayList<>(perms));
   }
 
   static Future<PermissionUser> lookupPermsUsersById(String id, String indexField, String tenantId, Context vertxContext) {
@@ -269,6 +282,7 @@ public class PermsAPI implements Perms {
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
+      removeDuplicatePermissions(entity);
       checkPermlistForDummy(entity.getPermissions(), vertxContext, tenantId)
           .compose(result -> {
             if (Boolean.TRUE.equals(result)) {
@@ -520,6 +534,7 @@ public class PermsAPI implements Perms {
             if (!user.getPermissions().contains(permissionName)) {
               throw new RuntimeException("User with " + getUserIdMessage(indexField, id) + " does not contain " + permissionName);
             }
+            removeDuplicatePermissions(user);
             JsonArray originalPermissions = new JsonArray(
                 new ArrayList<>(user.getPermissions()));
             user.getPermissions().remove(permissionName);
@@ -967,12 +982,14 @@ public class PermsAPI implements Perms {
         return Future.succeededFuture(null);
       }
       Future<List<String>> interimFuture;
-      List<String> permissionNameList = new ArrayList<>();
+      // remove duplicate permissions while retaining the order
+      var permissionNameSet = new LinkedHashSet<String>();
       for (String perm : userList.get(0).getPermissions()) {
         if (perm != null) {
-          permissionNameList.add(perm);
+          permissionNameSet.add(perm);
         }
       }
+      var permissionNameList = new ArrayList<>(permissionNameSet);
       if (!expanded) {
         interimFuture = Future.succeededFuture(permissionNameList);
       } else {

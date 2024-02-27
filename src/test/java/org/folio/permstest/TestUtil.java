@@ -1,8 +1,8 @@
 package org.folio.permstest;
 
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpMethod;
@@ -13,10 +13,19 @@ import io.vertx.ext.web.client.WebClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.okapi.common.XOkapiHeaders;
+import org.folio.postgres.testing.PostgresTesterContainer;
+import org.folio.rest.RestVerticle;
 import org.folio.rest.client.TenantClient;
+import org.folio.rest.impl.PermsCache;
+import org.folio.rest.impl.TenantRefAPI;
+import org.folio.rest.jaxrs.model.Parameter;
 import org.folio.rest.jaxrs.model.TenantAttributes;
-
+import org.folio.rest.persist.PostgresClient;
+import org.folio.rest.tools.utils.NetworkUtils;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import javax.ws.rs.core.Response;
 
 /**
  *
@@ -112,6 +121,29 @@ public class TestUtil {
           }
           return null;
         });
+  }
+
+  public static Future<Integer> setupDiku(Vertx vertx) {
+    PostgresClient.setPostgresTester(new PostgresTesterContainer());
+    Integer port = NetworkUtils.nextFreePort();
+    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
+        .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
+    TenantAttributes ta = new TenantAttributes();
+    ta.setModuleTo("mod-permissions-99999.0.0");
+    List<Parameter> parameters = new LinkedList<>();
+    parameters.add(new Parameter().withKey("loadSample").withValue("true"));
+    ta.setParameters(parameters);
+
+    return vertx.deployVerticle(RestVerticle.class.getName(), options)
+        .compose(x -> postTenantSync(ta, Map.of(XOkapiHeaders.TENANT, "diku"), vertx))
+        .map(port);
+  }
+
+  private static Future<Response> postTenantSync(
+      TenantAttributes tenantAttributes, Map<String, String> headers, Vertx vertx) {
+
+    return Future.future(handler -> new TenantRefAPI()
+        .postTenantSync(tenantAttributes, headers, handler, vertx.getOrCreateContext()));
   }
 
 }
