@@ -1,3 +1,13 @@
+## 2024-03-20 v6.5.0
+
+New features:
+
+ * [MODPERMS-229](https://folio-org.atlassian.net/browse/MODPERMS-229) Update deps for Q: RMB 35.2.0, Vertx 4.5.5, log4j 2.23.1
+
+Fix:
+
+ * [MODPERMS-227](https://folio-org.atlassian.net/browse/MODPERMS-227) Remove duplicate permissions of a user
+
 ## 2023-10-12 v6.4.0
 
 New features:
