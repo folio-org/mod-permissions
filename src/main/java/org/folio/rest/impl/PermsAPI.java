@@ -357,8 +357,7 @@ public class PermsAPI implements Perms {
                   .compose(results -> {
                     if (results.getResults().isEmpty()) {
                       throw new NotFoundException("No permissions user found with "
-                          + ("userId".equals(indexField) ? "userId " : "id ")
-                          + id);
+                          + getUserIdMessage(indexField, id));
                     }
                     PermissionUser permUser = results.getResults().get(0);
                     return updateUserPermissions(connection, permUser.getId(),
