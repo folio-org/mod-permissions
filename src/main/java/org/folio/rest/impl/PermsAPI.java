@@ -156,7 +156,7 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void getPermsUsers(String totalRecords,
-      int offset, int limit, int length, int start, String sortBy, String query,
+      int offset, int limit, int length, int start, String query,
       RoutingContext routingContext, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
@@ -777,8 +777,8 @@ public class PermsAPI implements Perms {
   @Validate
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
-      String totalRecords, int offset, int limit, int length, int start, String sortBy,
-      String query0, String memberOf, String ownedBy, Map<String, String> okapiHeaders,
+      String totalRecords, int offset, int limit, int length, int start,
+      String query0, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
     try {
