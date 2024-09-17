@@ -11,6 +11,7 @@ import io.restassured.http.ContentType;
 import io.vertx.core.json.JsonObject;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Objects;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -23,6 +24,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Test that shaded fat uber jar and Dockerfile work.
@@ -33,6 +35,8 @@ public class PermsIT {
 
   private static final Logger LOG = LoggerFactory.getLogger(PermsIT.class);
   private static final Network NETWORK = Network.newNetwork();
+  private static final DockerImageName POSTGRES_IMAGE_NAME = DockerImageName.parse(
+      Objects.toString(System.getenv("TESTCONTAINERS_POSTGRES_IMAGE"), "postgres:16-alpine"));
 
   @ClassRule
   public static final GenericContainer<?> MOD_PERMISSIONS =
@@ -48,14 +52,16 @@ public class PermsIT {
 
   @ClassRule
   public static final PostgreSQLContainer<?> POSTGRES =
-    new PostgreSQLContainer<>("postgres:12-alpine")
+    new PostgreSQLContainer<>(POSTGRES_IMAGE_NAME)
     .withClasspathResourceMapping("v5.14.4.sql", "/v5.14.4.sql", BindMode.READ_ONLY)
     .withNetwork(NETWORK)
     .withNetworkAliases("postgres")
     .withExposedPorts(5432)
     .withUsername("username")
     .withPassword("password")
-    .withDatabaseName("postgres");
+    .withDatabaseName("postgres")
+    // v5.14.4.sql uses md5 password hash
+    .withEnv("POSTGRES_HOST_AUTH_METHOD", "md5");
 
   @BeforeClass
   public static void beforeClass() {
