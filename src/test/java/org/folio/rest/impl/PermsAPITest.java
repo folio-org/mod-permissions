@@ -132,7 +132,7 @@ public class PermsAPITest {
   public void testDeletePermsUsersByIdNullPointer(TestContext context) {
     PermsAPI api = new PermsAPI();
 
-    api.deletePermsUsersById(null, null, context.asyncAssertSuccess(res -> {
+    api.deletePermsUsersById(null, null, null, context.asyncAssertSuccess(res -> {
       context.assertEquals(500, res.getStatus());
     }), null);
   }

@@ -345,23 +345,26 @@ public class PermsAPI implements Perms {
 
   @Validate
   @Override
-  public void deletePermsUsersById(String id, Map<String, String> okapiHeaders,
+  public void deletePermsUsersById(String id, String indexField, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
     try {
       String tenantId = TenantTool.tenantId(okapiHeaders);
       PostgresClient pgClient = PostgresClient.getInstance(vertxContext.owner(), tenantId);
+      Criterion idCrit = getIdCriterion(indexField, id);
       pgClient
           .withTrans(connection ->
-              connection.getById(TABLE_NAME_PERMSUSERS, id, PermissionUser.class)
-                  .compose(permUser -> {
-                    if (permUser == null) {
-                      throw new NotFoundException("No permissions user found with id " + id);
+              connection.get(TABLE_NAME_PERMSUSERS, PermissionUser.class, idCrit)
+                  .compose(results -> {
+                    if (results.getResults().isEmpty()) {
+                      throw new NotFoundException("No permissions user found with "
+                          + getUserIdMessage(indexField, id));
                     }
-                    return updateUserPermissions(connection, id,
+                    PermissionUser permUser = results.getResults().get(0);
+                    return updateUserPermissions(connection, permUser.getId(),
                         new JsonArray(permUser.getPermissions()), new JsonArray(),
-                        vertxContext, tenantId, okapiHeaders);
+                        vertxContext, tenantId, okapiHeaders)
+                        .compose(x -> connection.delete(TABLE_NAME_PERMSUSERS, permUser.getId()));
                   })
-                  .compose(x -> connection.delete(TABLE_NAME_PERMSUSERS, id))
           )
           .onSuccess(res ->
               asyncResultHandler.handle(Future.succeededFuture(

@@ -389,8 +389,8 @@ public class RestVerticleTest {
   @Test
   public void testDeletePermsUsersByIdInvalidUUID(TestContext context) {
     Response response = send(HttpMethod.DELETE, "/perms/users/123", null, context);
-    context.assertEquals(400, response.code);
-    context.assertEquals("Invalid UUID string: 123", response.body.getString("text"));
+    assertThat(response.code, is(400));
+    assertThat(response.body.getString("text"), containsString("invalid"));
   }
 
   @Test
@@ -399,6 +399,31 @@ public class RestVerticleTest {
     Response response = send(HttpMethod.DELETE, "/perms/users/" + uuid, null, context);
     context.assertEquals(404, response.code);
     context.assertEquals("No permissions user found with id " + uuid, response.body.getString("text"));
+  }
+
+  private Response deleteByUserId(String userId, TestContext context) {
+    return send(HttpMethod.DELETE, "/perms/users/" + userId + "?indexField=userId", null, context);
+  }
+
+  @Test
+  public void testDeletePermsUsersByUserIdDoesNotExist(TestContext context) {
+    var userId = UUID.randomUUID().toString();
+    var response = deleteByUserId(userId, context);
+    assertThat(response.code, is(404));
+    assertThat(response.body.getString("text"), is("No permissions user found with userId " + userId));
+  }
+
+  @Test
+  public void testDeletePermsUsersByUserId(TestContext context) {
+    var id = UUID.randomUUID().toString();
+    var userId = UUID.randomUUID().toString();
+    var permsUsers = new JsonObject().put("id", id).put("userId", userId).encodePrettily();
+    var response = send(HttpMethod.POST, "/perms/users", permsUsers, context);
+    assertThat(response.code, is(201));
+    response = deleteByUserId(id, context);
+    assertThat(response.code, is(404));
+    response = deleteByUserId(userId, context);
+    assertThat(response.code, is(204));
   }
 
   @Test
