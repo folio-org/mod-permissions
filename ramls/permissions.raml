@@ -37,28 +37,10 @@ traits:
         minimum: 1
         default: 1
         maximum: 2147483647
-  sortable:
-    queryParameters:
-      sortBy:
-        description: "A comma-separated list of fieldnames to sort by"
-        required: false
-        type: string
   queryable:
     queryParameters:
       query:
         description: "A query string to filter users based on matching criteria in fields."
-        required: false
-        type: string
-  byMember:
-    queryParameters:
-      memberOf:
-        description: "A list of permission names that any returned permission must be a sub-permission of."
-        required: false
-        type: string
-  byOwner:
-    queryParameters:
-      ownedBy:
-        description: "A list of user names that any returned permissions must belong to."
         required: false
         type: string
   indexSelectable:
@@ -76,7 +58,6 @@ traits:
       is: [
         pageable,
         pageable_legacy,
-        sortable,
         queryable
       ]
       responses:
@@ -317,10 +298,7 @@ traits:
       is: [
         pageable,
         pageable_legacy,
-        sortable,
-        queryable,
-        byMember,
-        byOwner
+        queryable
       ]
       responses:
         200:
