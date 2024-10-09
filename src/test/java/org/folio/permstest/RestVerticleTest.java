@@ -4,6 +4,7 @@ import static org.folio.permstest.TestUtil.CONTENT_TYPE_JSON;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT;
 import static org.folio.permstest.TestUtil.CONTENT_TYPE_TEXT_JSON;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
@@ -752,6 +753,38 @@ public class RestVerticleTest {
     // verify permuser has permA, permB and permD assigned
     response = send(HttpMethod.GET, "/perms/users/" + permUserId, null, context);
     assertThat(response.body.getJsonArray("permissions"), is(abd));
+  }
+
+  @Test
+  public void testPermissionNameReplaceMultiple(TestContext context) {
+    var json = """
+        { "moduleId": "honey-1.0.0",
+          "perms": [ { "permissionName": "honey.get" },
+                     { "permissionName": "honey.put" } ]
+        }""";
+    assertThat(send(HttpMethod.POST, "/_/tenantpermissions", json, context).code, is(201));
+
+    json = """
+        { "id":     "aaaaaaaa-bbbb-cccc-8888-999999999999",
+          "userId": "aaaaaaaa-bbbb-cccc-8888-000000000000",
+          "permissions": [ "honey.get", "honey.put" ]
+        }""";
+    assertThat(send(HttpMethod.POST, "/perms/users", json, context).code, is(201));
+
+    json = """
+        { "moduleId": "honey-2.0.0",
+          "perms": [ { "permissionName": "royal-jelly.get", "replaces": [ "honey.get" ] },
+                     { "permissionName": "royal-jelly.put", "replaces": [ "honey.put" ] } ]
+        }""";
+    assertThat(send(HttpMethod.POST, "/_/tenantpermissions", json, context).code, is(201));
+
+    var response = send(HttpMethod.GET, "/perms/users/aaaaaaaa-bbbb-cccc-8888-999999999999", null, context);
+    assertThat(response.body.getJsonArray("permissions"),
+        containsInAnyOrder("honey.get", "honey.put", "royal-jelly.get", "royal-jelly.put"));
+
+    response = send(HttpMethod.GET, "/perms/permissions?query=permissionName%3Droyal-jelly.put", null, context);
+    assertThat(response.body.getJsonArray("permissions").getJsonObject(0).getJsonArray("grantedTo"),
+        containsInAnyOrder("aaaaaaaa-bbbb-cccc-8888-999999999999"));
   }
 
   @Test
