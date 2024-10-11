@@ -1,11 +1,10 @@
 package org.folio.rest.impl;
 
 import static org.folio.rest.impl.PermsAPI.checkPermissionExists;
-import static org.folio.rest.impl.PermsAPI.getCQL;
 import static org.folio.rest.impl.PermsAPI.updateUserPermissions;
+import static org.folio.rest.impl.PermsAPI.TABLE_NAME_PERMSUSERS;
 
 import io.vertx.core.AsyncResult;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -18,14 +17,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.ws.rs.core.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.okapi.common.ModuleId;
 import org.folio.okapi.common.SemVer;
 import org.folio.rest.jaxrs.model.OkapiPermission;
@@ -38,7 +35,6 @@ import org.folio.rest.persist.PostgresClient;
 import org.folio.rest.persist.Criteria.Criteria;
 import org.folio.rest.persist.Criteria.Criterion;
 import org.folio.rest.persist.Criteria.Limit;
-import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.persist.interfaces.Results;
 import org.folio.rest.tools.utils.TenantTool;
 
@@ -93,9 +89,9 @@ public class TenantPermsAPI implements Tenantpermissions {
           // A. the first time enabling this module, or
           // B. the permissions exist but don't yet have the moduleName field
           List<Permission> ret = new ArrayList<>();
-          List<Future<Void>> futures = new ArrayList<>(perms.size());
-          perms.forEach(perm ->
-              futures.add(getModulePermByName(perm.getPermissionName(), connection)
+          Future<Void> future = Future.succeededFuture();
+          for (var perm : perms) {
+              future = future.compose(x -> getModulePermByName(perm.getPermissionName(), connection)
                   .compose(dbPerm -> {
                     if (dbPerm == null || Boolean.TRUE.equals(dbPerm.getDummy())) {
                       // permission does not already exist or is dummy
@@ -122,8 +118,9 @@ public class TenantPermsAPI implements Tenantpermissions {
                       logger.error(msg);
                       return Future.failedFuture(msg);
                     }
-                  })));
-          return GenericCompositeFuture.all(futures).map(ret);
+                  }));
+          }
+          return future.map(ret);
         })
         .onFailure(t -> logger.error(t.getMessage(), t));
   }
@@ -202,7 +199,8 @@ public class TenantPermsAPI implements Tenantpermissions {
           .forEach(perms::add);
     }
 
-    return getPermsForModule(moduleId, perms, permSet.getReplaces(), connection)
+    return lockTables(connection)
+        .compose(x -> getPermsForModule(moduleId, perms, permSet.getReplaces(), connection))
         .compose(existing -> {
           Map<String, Permission> dbPerms = new HashMap<>(existing.size());
           existing.forEach(dbPerm -> dbPerms.put(dbPerm.getPermissionName(), dbPerm));
@@ -213,6 +211,15 @@ public class TenantPermsAPI implements Tenantpermissions {
               .compose(v -> softDeletePermList(getRemovedPerms(dbPerms, perms), connection))
               .compose(v -> migratePermsAssign(moduleId, dbPerms, connection, vertxContext, tenantId));
         });
+  }
+
+  /**
+   * Prevent concurrent updates. Okapi upgrades modules in parallel, this lock prevents rollback
+   * on write conflict when two modules try to update the permissions of the same user.
+   */
+  private Future<Void> lockTables(Conn connection) {
+    return connection.execute("LOCK TABLE permissions, permissions_users IN ROW SHARE MODE")
+        .mapEmpty();
   }
 
   private Future<Void> migratePermsAssignUser(PermissionUser permUser, Conn connection, Context vertxContext, String tenantId) {
@@ -263,13 +270,12 @@ public class TenantPermsAPI implements Tenantpermissions {
           }
           Permission perm = res.getResults().get(0);
           List<Object> grantedTo = perm.getGrantedTo();
-          List<Future<Void>> futures = new ArrayList<>(grantedTo.size());
+          Future<Void> future = Future.succeededFuture();
           for (Object o : grantedTo) {
-            futures.add(connection.getById(PermsAPI.TABLE_NAME_PERMSUSERS, (String) o, PermissionUser.class)
-                .compose(permUser -> migratePermsAssignUser(permUser, connection, vertxContext, tenantId))
-                .mapEmpty());
+            future = future.compose(x -> connection.getById(TABLE_NAME_PERMSUSERS, (String) o, PermissionUser.class))
+                .compose(permUser -> migratePermsAssignUser(permUser, connection, vertxContext, tenantId));
           }
-          return GenericCompositeFuture.all(futures).mapEmpty();
+          return future;
         });
   }
 
@@ -315,31 +321,6 @@ public class TenantPermsAPI implements Tenantpermissions {
     return connection.upsertBatch(PermsAPI.TABLE_NAME_PERMS, entities).mapEmpty();
   }
 
-  private Future<Void> updatedGrantedTo(Conn connection, String permissionName, String permUserId) {
-
-    Criteria nameCrit = new Criteria();
-    nameCrit.addField(PERMISSION_NAME_FIELD);
-    nameCrit.setOperation("=");
-    nameCrit.setVal(permissionName);
-    Criterion crit = new Criterion(nameCrit);
-
-    return connection.get(PermsAPI.TABLE_NAME_PERMS, Permission.class, crit, false).compose(result -> {
-      List<Permission> permList = result.getResults();
-      if (permList.isEmpty()) {
-        throw new RuntimeException("Permission with name " + permissionName + " does not exist");
-      }
-      // now we can actually add it
-      Permission perm = permList.get(0);
-      if (perm.getGrantedTo().contains(permUserId)) {
-        throw new RuntimeException("Permission " + permissionName + " already granted to " + permUserId);
-      }
-      perm.getGrantedTo().add(permUserId);
-      String query = String.format("permissionName==%s", permissionName);
-      CQLWrapper cqlFilter = getCQL(query, PermsAPI.TABLE_NAME_PERMS);
-      return connection.update(PermsAPI.TABLE_NAME_PERMS, perm, cqlFilter, false).mapEmpty();
-    });
-  }
-
   private Future<Void> renamePermList(Conn connection, ModuleId moduleId,
       @NotNull Map<OkapiPermission, List<Permission>> permList, Context vertxContext, String tenantId) {
 
@@ -348,22 +329,18 @@ public class TenantPermsAPI implements Tenantpermissions {
     }
     return savePermList(moduleId, new ArrayList<>(permList.keySet()), connection, vertxContext, tenantId)
         .compose(v -> {
-          List<Future<Void>> futures = new ArrayList<>(permList.size());
-          permList.keySet().forEach(okapiPerm -> {
-            String newPermName = okapiPerm.getPermissionName();
-            permList.get(okapiPerm).forEach(replaced -> {
+          Future<Void> future = Future.succeededFuture();
+          for (var permListEntry : permList.entrySet()) {
+            String newPermName = permListEntry.getKey().getPermissionName();
+            for (var replaced : permListEntry.getValue()) {
               // add new permission name to all relevant sub permissions
               String oldPermName = replaced.getPermissionName();
-              futures.add(connection.execute(String.format(ADD_PERM_TO_SUB_PERMS, tenantId),
-                  Tuple.of(new JsonArray().add(newPermName), oldPermName, newPermName)).mapEmpty());
-              replaced.getGrantedTo().forEach(permUser -> {
-                String permissionName = okapiPerm.getPermissionName();
-                futures.add(addPermissionToUser(connection, permUser.toString(), permissionName));
-                futures.add(updatedGrantedTo(connection, permissionName, permUser.toString()));
-              });
-            });
-          });
-          return GenericCompositeFuture.all(futures);
+              future = future.compose(x -> connection.execute(String.format(ADD_PERM_TO_SUB_PERMS, tenantId),
+                      Tuple.of(newPermName, oldPermName, newPermName)))
+                  .compose(x -> addPermissionToUsers(connection, newPermName, replaced.getGrantedTo()));
+            }
+          }
+          return future;
         })
         .compose(cf -> softDeletePermList(permList.values()
             .stream()
@@ -414,19 +391,25 @@ public class TenantPermsAPI implements Tenantpermissions {
         );
   }
 
-  private Future<Void> addPermissionToUser(Conn connection, String userId, String permissionName) {
-
-    return PermsAPI.lookupPermsUsersById(userId, "id", connection).compose(user -> {
-      if (user == null) {
-        return Future.failedFuture("User with id " + userId + " does not exist");
-      }
-      String actualId = user.getId();
-      if (user.getPermissions().contains(permissionName)) {
-        return Future.failedFuture("User with id " + actualId + " already has permission " + permissionName);
-      }
-      user.getPermissions().add(permissionName);
-      return connection.update(PermsAPI.TABLE_NAME_PERMSUSERS, user, actualId).mapEmpty();
-    });
+  /**
+   * For each user in users add permissionName to permissions_users entry,
+   * and update grantedTo in permissions table.
+   */
+  private Future<Void> addPermissionToUsers(Conn connection, String permissionName, List<Object> users) {
+    var updatePermissionsUsers = """
+        UPDATE permissions_users
+        SET jsonb = jsonb_set(jsonb, '{permissions}', jsonb->'permissions' || to_jsonb($1))
+        WHERE id = ANY ($2::text[]::uuid[]) AND NOT jsonb->'permissions' ? $1
+        """;
+    var updateGrantedTo = """
+        UPDATE permissions
+        SET jsonb = jsonb_set(jsonb, '{grantedTo}', jsonb->'grantedTo' || to_jsonb($2::text[]))
+        WHERE jsonb->>'permissionName' = $1
+        """;
+    var tuple = Tuple.of(permissionName, (Object) users.toArray());
+    return connection.execute(updatePermissionsUsers, tuple)
+        .compose(x -> connection.execute(updateGrantedTo, tuple))
+        .mapEmpty();
   }
 
   private Future<Boolean> checkAnyPermsHaveAllSubs(List<OkapiPermission> permList, Conn connection) {
@@ -450,26 +433,13 @@ public class TenantPermsAPI implements Tenantpermissions {
     exist
    */
   private Future<List<String>> findMissingSubs(List<String> subPerms, Conn connection) {
-    Map<String, Future<Boolean>> futureMap = new HashMap<>();
-    List<String> notFoundList = new ArrayList<>();
-    for (String permName : subPerms) {
-      Future<Boolean> permCheckFuture = checkPermExists(permName, connection);
-      futureMap.put(permName, permCheckFuture);
-    }
-    CompositeFuture compositeFuture = CompositeFuture.all(new ArrayList<>(futureMap.values()));
-    return compositeFuture.compose(res -> {
-      futureMap.forEach((permName, existsCheckFuture) -> {
-        if (Boolean.FALSE.equals(existsCheckFuture.result())) {
-          notFoundList.add(permName);
-        }
-      });
-      return Future.succeededFuture(notFoundList);
-    });
-  }
-
-  private Future<Boolean> checkPermExists(String permName, Conn connection) {
-    return getModulePermByName(permName, connection)
-        .map(Objects::nonNull);
+    var sql = """
+              SELECT COALESCE(array_agg(perm), '{}')
+              FROM unnest($1::text[]) x(perm)
+              WHERE NOT EXISTS ( SELECT * FROM permissions WHERE jsonb->>'permissionName' = perm )
+              """;
+    return connection.execute(sql, Tuple.of(subPerms.toArray()))
+        .map(rowSet -> List.of(rowSet.iterator().next().getArrayOfStrings(0)));
   }
 
   private Future<Permission> getModulePermByName(String permName, Conn connection) {
