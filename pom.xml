@@ -31,7 +31,7 @@
 
   <properties>
     <vertx.version>4.5.10</vertx.version>
-    <raml-module-builder-version>35.2.2</raml-module-builder-version>
+    <raml-module-builder-version>35.3.0</raml-module-builder-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <ramlfiles_path>${basedir}/ramls</ramlfiles_path>
     <generate_routing_context>/perms/users</generate_routing_context>
@@ -59,7 +59,7 @@
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
-        <version>1.20.1</version>
+        <version>1.20.2</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
