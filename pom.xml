@@ -223,6 +223,20 @@
           </dependency>
         </dependencies>
       </plugin>
+
+      <plugin>
+        <groupId>org.folio</groupId>
+        <artifactId>folio-module-descriptor-validator</artifactId>
+        <version>1.0.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>validate</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>
         <version>3.3.1</version>

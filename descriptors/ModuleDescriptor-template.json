@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "permissions",
-      "version": "5.7",
+      "version": "5.8",
       "handlers": [
         {
           "methods": [
@@ -54,7 +54,7 @@
             "perms.users.assign.mutable"
           ],
           "permissionsRequired": [
-            "perms.users.item.delete"
+            "perms.users.item.id.delete"
           ]
         },
         {
@@ -68,7 +68,7 @@
             "perms.users.assign.mutable"
           ],
           "permissionsRequired": [
-            "perms.users.item.delete"
+            "perms.users.item.perm.delete"
           ]
         },
         {
@@ -77,7 +77,7 @@
           ],
           "pathPattern": "/perms/permissions",
           "permissionsRequired": [
-            "perms.permissions.get"
+            "perms.permissions.collection.get"
           ]
         },
         {
@@ -86,7 +86,7 @@
           ],
           "pathPattern": "/perms/permissions/{id}",
           "permissionsRequired": [
-            "perms.permissions.get"
+            "perms.permissions.item.get"
           ]
         },
         {
@@ -186,12 +186,40 @@
     {
       "permissionName": "perms.users.item.delete",
       "displayName": "permission users item delete",
-      "description": "Remove a permissions user or remove permissions from a user"
+      "description": "Remove a permissions user or remove permissions from a user",
+      "subPermissions": [
+        "perms.users.item.id.delete",
+        "perms.users.item.perm.delete"
+      ]
+    },
+    {
+      "permissionName": "perms.users.item.id.delete",
+      "displayName": "permission user delete",
+      "description": "Remove a permissions user"
+    },
+    {
+      "permissionName": "perms.users.item.perm.delete",
+      "displayName": "permission users permission delete",
+      "description": "Remove a permission from a user"
     },
     {
       "permissionName": "perms.permissions.get",
       "displayName": "permission read",
-      "description": "Read or list permissions"
+      "description": "Read or list permissions",
+      "subPermissions": [
+        "perms.permissions.collection.get",
+        "perms.permissions.item.get"
+      ]
+    },
+    {
+      "permissionName": "perms.permissions.collection.get",
+      "displayName": "permission collection get",
+      "description": "List permissions"
+    },
+    {
+      "permissionName": "perms.permissions.item.get",
+      "displayName": "permission item get",
+      "description": "Read a single permission"
     },
     {
       "permissionName": "perms.permissions.item.post",
@@ -229,7 +257,7 @@
       "description": "Allow any mutable permission to be added for user"
     },
     {
-      "permissionName": "perms.permissions",
+      "permissionName": "perms.permissions.all",
       "displayName": "permissions",
       "description": "All permissions for permission objects",
       "subPermissions": [
@@ -238,10 +266,11 @@
         "perms.permissions.item.put",
         "perms.permissions.item.delete",
         "perms.permissions.purge-deprecated.post"
-      ]
+      ],
+      "replaces": "perms.permissions"
     },
     {
-      "permissionName": "perms.users",
+      "permissionName": "perms.users.all",
       "displayName": "permission users",
       "description": "All permissions for permission user objects",
       "subPermissions": [
@@ -249,15 +278,16 @@
         "perms.users.item.post",
         "perms.users.item.put",
         "perms.users.item.delete"
-      ]
+      ],
+      "replaces": "perms.users"
     },
     {
       "permissionName": "perms.all",
       "displayName": "perms all",
       "description": "All permissions for the permissions module",
       "subPermissions": [
-        "perms.users",
-        "perms.permissions",
+        "perms.users.all",
+        "perms.permissions.all",
         "perms.users.assign.immutable",
         "perms.users.assign.mutable"
       ]
