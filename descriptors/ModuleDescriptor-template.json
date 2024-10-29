@@ -267,7 +267,9 @@
         "perms.permissions.item.delete",
         "perms.permissions.purge-deprecated.post"
       ],
-      "replaces": "perms.permissions"
+      "replaces": [
+        "perms.permissions"
+      ]
     },
     {
       "permissionName": "perms.users.all",
@@ -279,7 +281,9 @@
         "perms.users.item.put",
         "perms.users.item.delete"
       ],
-      "replaces": "perms.users"
+      "replaces": [
+        "perms.users"
+      ]
     },
     {
       "permissionName": "perms.all",
