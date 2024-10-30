@@ -1,3 +1,16 @@
+## 2024-10-29 v6.6.0
+
+New features:
+
+ * [MODPERMS-232](https://folio-org.atlassian.net/browse/MODPERMS-232) DELETE /perms/users/{userId}?indexField=userId
+
+Fix:
+
+ * [MODPERMS-221](https://folio-org.atlassian.net/browse/MODPERMS-221) Delete unused memberOf ownedBy sortBy parameters
+ * [MODPERMS-234](https://folio-org.atlassian.net/browse/MODPERMS-234), [MODPERMS-237](https://folio-org.atlassian.net/browse/MODPERMS-237) Upgrade dependencies for Ramsons (Vertx, Postgres 16, RMB, ...)
+ * [MODPERMS-236](https://folio-org.atlassian.net/browse/MODPERMS-236) Only one of multiple "replaces" permission replacements per user (race condition)
+ * [MODPERMS-233](https://folio-org.atlassian.net/browse/MODPERMS-233) Rename permissions, add folio-module-descriptor-validator
+
 ## 2024-03-20 v6.5.0
 
 New features:
