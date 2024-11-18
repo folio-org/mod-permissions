@@ -65,7 +65,7 @@ operation is denied.
 ## Additional information
 
 The [Permission documentation in the Okapi guide](https://github.com/folio-org/okapi/blob/master/doc/guide.md#permissions-and-the-_tenantpermissions-interface),
-it covers the "replaces" feature.
+it covers in particular the "replaces" feature.
 
 The [raml-module-builder](https://github.com/folio-org/raml-module-builder)
 framework.
