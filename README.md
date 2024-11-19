@@ -1,6 +1,6 @@
 # mod-permissions
 
-Copyright (C) 2016-2023 The Open Library Foundation
+Copyright (C) 2016-2024 The Open Library Foundation
 
 This software is distributed under the terms of the Apache License,
 Version 2.0. See the file "[LICENSE](LICENSE)" for more information.
@@ -63,6 +63,9 @@ operation is denied.
 6. Otherwise, the operation is allowed.
 
 ## Additional information
+
+The [Permission documentation in the Okapi guide](https://github.com/folio-org/okapi/blob/master/doc/guide.md#permissions-and-the-_tenantpermissions-interface),
+it covers in particular the "replaces" feature.
 
 The [raml-module-builder](https://github.com/folio-org/raml-module-builder)
 framework.
