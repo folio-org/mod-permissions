@@ -3,6 +3,8 @@ package org.folio.rest.impl;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 
 import java.util.UUID;
@@ -59,6 +61,41 @@ class TenantPermsAPITest {
   }
 
   @Test
+  void deprecate() {
+    postTenantPermissions("""
+        {
+          "moduleId": "mod-remove-1.0.0",
+          "perms": [
+            { "permissionName": "this.and.that" }
+          ]
+        }
+        """)
+    .statusCode(201);
+
+    var userId = createUser("this.and.that");
+
+    postTenantPermissions("""
+        {
+          "moduleId": "mod-remove-2.0.0",
+          "perms": [
+          ]
+        }
+        """)
+    .statusCode(201);
+
+    assertDeprecatedPerm("this.and.that", "mod-remove");
+    getUser(userId)
+    .body("permissions", containsInAnyOrder("this.and.that"));
+
+    postPurgeDeprecated()
+    .body("permissionNames", hasItem("this.and.that"));  // deleted perm
+
+    assertNoPerm("this.and.that");
+    getUser(userId)
+    .body("permissions", is(empty()));
+  }
+
+  @Test
   void permissionRename() {
     postTenantPermissions("""
         {
@@ -82,11 +119,18 @@ class TenantPermsAPITest {
         }
         """)
     .statusCode(201);
+
     assertDeprecatedPerm("foo.beg", "mod-foo");
     assertPerm("foo.get", "mod-foo");
-
     getUser(userId)
     .body("permissions", containsInAnyOrder("foo.beg", "foo.get"));
+
+    postPurgeDeprecated()
+    .body("permissionNames", hasItem("foo.beg"));  // deleted perm
+
+    assertNoPerm("foo.beg");
+    getUser(userId)
+    .body("permissions", containsInAnyOrder("foo.get"));  // remaining perm
   }
 
   @Test
@@ -177,6 +221,14 @@ class TenantPermsAPITest {
         .then();
   }
 
+  ValidatableResponse postPurgeDeprecated() {
+    return given()
+        .header("X-Okapi-Tenant", "diku")
+        .post(baseUrl + "/perms/purge-deprecated")
+        .then()
+        .statusCode(200);
+  }
+
   ValidatableResponse getUser(UUID id) {
     return given()
         .header("X-Okapi-Tenant", "diku")
@@ -216,5 +268,15 @@ class TenantPermsAPITest {
     assertThat(y.getPermissionName(), is(permissionName));
     assertThat(y.getModuleName(), is(moduleName));
     assertThat(y.getDeprecated(), is(true));
+  }
+
+  void assertNoPerm(String permissionName) {
+    given()
+    .header("X-Okapi-Tenant", "diku")
+    .header("Content-type", "application/json")
+    .get(baseUrl + "/perms/permissions?query=permissionName==" + permissionName)
+    .then()
+    .statusCode(200)
+    .body("permissions.size()", is(0));
   }
 }
