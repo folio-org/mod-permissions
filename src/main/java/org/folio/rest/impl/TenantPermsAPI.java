@@ -341,11 +341,7 @@ public class TenantPermsAPI implements Tenantpermissions {
             }
           }
           return future;
-        })
-        .compose(cf -> softDeletePermList(permList.values()
-            .stream()
-            .flatMap(List::stream)
-            .collect(Collectors.toList()), connection));
+        });
   }
 
   private Future<Void> savePermList(ModuleId moduleId, @NotNull List<OkapiPermission> permList,
