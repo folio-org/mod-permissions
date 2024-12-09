@@ -1,3 +1,9 @@
+## 2024-12-09 v6.6.1
+
+Fix:
+
+ * [MODPERMS-239](https://folio-org.atlassian.net/browse/MODPERMS-239) Don't deprecate retained split permission with "replaces"
+
 ## 2024-10-29 v6.6.0
 
 New features:
