@@ -778,7 +778,7 @@ public class PermsAPI implements Perms {
   @Override
   public void getPermsPermissions(String expandSubs, String expanded, String includeDummy,
       String totalRecords, int offset, int limit, int length, int start,
-      String query0, Map<String, String> okapiHeaders,
+      String query, Map<String, String> okapiHeaders,
       Handler<AsyncResult<Response>> asyncResultHandler, Context vertxContext) {
 
     try {
@@ -788,19 +788,14 @@ public class PermsAPI implements Perms {
       if (start != 1) {
         offset = start - 1;
       }
+      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, limit, offset, totalRecords);
       boolean includeDummyPerms = "true".equals(includeDummy);
-      String query = query0 == null ? "" : query0;
       if (!includeDummyPerms) {
         //filter out all dummy perms from query
-        if (query.isEmpty()) {
-          query = "(dummy == false)";
-        } else {
-          query = String.format("(%s) AND (dummy==false)", query);
-        }
+        cql.addWrapper(getCQL("dummy==false", TABLE_NAME_PERMS));
       }
       logger.info("Generating cql to request rows from table '{}' with query '{}'",
-          TABLE_NAME_PERMS, query);
-      CQLWrapper cql = getCQL(query, TABLE_NAME_PERMS, limit, offset, totalRecords);
+          TABLE_NAME_PERMS, cql);
       String tenantId = TenantTool.tenantId(okapiHeaders);
       String[] fieldList = {"*"};
       PostgresClient.getInstance(vertxContext.owner(), tenantId).get(TABLE_NAME_PERMS,
