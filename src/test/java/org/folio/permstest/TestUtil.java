@@ -1,5 +1,6 @@
 package org.folio.permstest;
 
+import io.restassured.RestAssured;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
@@ -126,6 +127,8 @@ public class TestUtil {
   public static Future<Integer> setupDiku(Vertx vertx) {
     PostgresClient.setPostgresTester(new PostgresTesterContainer());
     Integer port = NetworkUtils.nextFreePort();
+    RestAssured.baseURI = "http://localhost:" + port;
+    RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
         .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
     TenantAttributes ta = new TenantAttributes();

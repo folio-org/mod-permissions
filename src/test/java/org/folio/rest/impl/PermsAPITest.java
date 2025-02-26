@@ -4,12 +4,17 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import java.util.Arrays;
@@ -27,6 +32,7 @@ import org.folio.rest.jaxrs.model.PermissionUser;
 import org.folio.rest.persist.PostgresClient;
 import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,12 +45,20 @@ public class PermsAPITest {
   @BeforeClass
   public static void setup(TestContext context) {
     vertx = Vertx.vertx();
-    TestUtil.setupDiku(vertx).onComplete(context.asyncAssertSuccess());
+    TestUtil.setupDiku(vertx)
+    .onComplete(context.asyncAssertSuccess());
   }
 
   @AfterClass
   public static void tearDown(TestContext context) {
     vertx.close().onComplete(context.asyncAssertSuccess());
+  }
+
+  @Before
+  public void before(TestContext context) {
+    PostgresClient.getInstance(vertx, "diku")
+    .execute("TRUNCATE diku_mod_permissions.permissions_users, diku_mod_permissions.permissions")
+    .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
@@ -210,6 +224,28 @@ public class PermsAPITest {
   }
 
   @Test
+  public void testGetPermsPermissionsSortBy() {
+    String[] ids = {
+        "44444444-4444-4444-8888-888888888888",
+        "11111111-1111-1111-8888-888888888888",
+        "22222222-2222-2222-8888-888888888888",
+        "33333333-3333-3333-8888-888888888888",
+    };
+    for (var id : ids) {
+      given()
+      .body(new JsonObject().put("id", id).encodePrettily())
+      .post("/perms/permissions")
+      .then().statusCode(201);
+    }
+    given()
+    .param("query", "cql.allrecords=1 sortby id")
+    .get("/perms/permissions")
+    .then().statusCode(200)
+    .body("permissions.id", contains("11111111-1111-1111-8888-888888888888", "22222222-2222-2222-8888-888888888888",
+        "33333333-3333-3333-8888-888888888888", "44444444-4444-4444-8888-888888888888"));
+  }
+
+  @Test
   public void testGetPermsPermissionsNullPointer(TestContext context) {
     PermsAPI api = new PermsAPI();
 
@@ -353,5 +389,11 @@ public class PermsAPITest {
     Map<String,String> headers = new CaseInsensitiveMap<>();
     headers.put(XOkapiHeaders.TENANT, "diku");
     return headers;
+  }
+
+  private RequestSpecification given() {
+    return RestAssured.given()
+        .header("X-Okapi-Tenant", "diku")
+        .contentType(ContentType.JSON);
   }
 }
