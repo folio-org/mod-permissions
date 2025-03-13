@@ -1,3 +1,13 @@
+## 2025-03-13 v6.7.0
+
+Sunflower (R1-2025)
+
+Fix:
+
+ * [MODPERMS-243](https://folio-org.atlassian.net/browse/MODPERMS-243) GET /perms/permissions throws CQLParseException on sortBy
+ * [FOLREL-618](https://folio-org.atlassian.net/browse/FOLREL-618) Update to mod-permissions Java 21
+ * [MODPERMS-244](https://folio-org.atlassian.net/browse/MODPERMS-244) Update all dependencies for Sunflower: RMB 35.4.0, Vertx 4.5.13, ...
+
 ## 2024-12-09 v6.6.1
 
 Fix:
