@@ -1,3 +1,9 @@
+## 2025-12-08 v6.6.2
+
+Fix:
+
+ * [MODPERMS-248](https://folio-org.atlassian.net/browse/MODPERMS-248) RMB 35.3.1, Vert.x 4.5.22
+
 ## 2024-12-09 v6.6.1
 
 Fix:
