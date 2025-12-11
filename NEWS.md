@@ -1,3 +1,9 @@
+## 2025-12-11 v6.7.1
+
+Fix:
+
+ * [MODPERMS-249](https://folio-org.atlassian.net/browse/MODPERMS-249) Sunflower CSP - RMB Logging release - RMB 35.4.1, Vertx 4.5.22
+
 ## 2025-03-13 v6.7.0
 
 Sunflower (R1-2025)
