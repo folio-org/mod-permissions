@@ -4,8 +4,8 @@ version: v5.5
 baseUri: http://github.com/org/folio/mod-auth/permissions
 
 documentation:
-  - title: mod-permissions API
-    content: This module is responsible for managing and retrieving permissions in the FOLIO system
+  - title: mod-permissions API (Okapi only, not on Eureka)
+    content: This module is responsible for managing and retrieving permissions in a Okapi based FOLIO system. In an Eureka based FOLIO system mod-permissions is solely in place to facilitate migration from Okapi to Eureka. Assigning/unassigning permissions to users via the mod-permissions APIs will have no affect on user privileges once on Eureka.
 
 types:
   permission: !include permission.json
@@ -54,7 +54,7 @@ traits:
 /perms:
   /users:
     get:
-      description: Get a list of users
+      description: Get a list of users (Okapi only, not on Eureka)
       is: [
         pageable,
         pageable_legacy,
@@ -81,7 +81,7 @@ traits:
             text/plain:
               example: "Internal server error"
     post:
-      description: Add a new user
+      description: Add a new user (Okapi only, not on Eureka)
       is: [validate]
       body:
         application/json:
@@ -108,7 +108,7 @@ traits:
               example: "Internal server error"
     /{id}:
       get:
-        description: Get a permission user
+        description: Get a permission user (Okapi only, not on Eureka)
         is: [ indexSelectable ]
         responses:
           200:
@@ -136,7 +136,7 @@ traits:
               text/plain:
                 example: "Internal server error"
       put:
-        description: Modify an existing user
+        description: Modify an existing user (Okapi only, not on Eureka)
         is: [validate]
         body:
           application/json:
@@ -167,7 +167,7 @@ traits:
               text/plain:
                 example: "Internal server error"
       delete:
-        description: Remove a user
+        description: Remove a user (Okapi only, not on Eureka)
         is: [ indexSelectable ]
         responses:
           204:
@@ -188,7 +188,7 @@ traits:
                 example: "Internal server error"
       /permissions:
         get:
-          description: Get permissions that a user has
+          description: Get permissions that a user has (Okapi only, not on Eureka)
           queryParameters:
             expanded:
               description: Recursively return all subpermissions
@@ -230,7 +230,7 @@ traits:
                 text/plain:
                   example: "Internal server error"
         post:
-          description: Add a permission to a user
+          description: Add a permission to a user (Okapi only, not on Eureka)
           is: [validate, indexSelectable]
           body:
             application/json:
@@ -258,7 +258,7 @@ traits:
                   example: "Internal server error"
         /{permissionname}:
           delete:
-            description: Remove a permission from a user
+            description: Remove a permission from a user (Okapi only, not on Eureka)
             is: [ indexSelectable ]
             responses:
               204:
@@ -278,7 +278,7 @@ traits:
                     example: "Internal server error"
   /permissions:
     get:
-      description: Get a list of existing permissions
+      description: Get a list of existing permissions (Okapi only, not on Eureka)
       queryParameters:
         expandSubs:
           description: Return one level of subpermissions as objects if true. If false or omitted, expanded will be considered.
@@ -316,7 +316,7 @@ traits:
             text/plain:
               example: "Internal server error"
     post:
-      description: Add a new permission
+      description: Add a new permission (Okapi only, not on Eureka)
       is: [validate]
       body:
         application/json:
@@ -339,7 +339,7 @@ traits:
               example: "Internal server error"
     /{id}:
       get:
-        description: Get an existing permission by id
+        description: Get an existing permission by id (Okapi only, not on Eureka)
         responses:
           200:
             body:
@@ -361,7 +361,7 @@ traits:
               text/plain:
                 example: "Internal server error"
       put:
-        description: Modify an existing permission
+        description: Modify an existing permission (Okapi only, not on Eureka)
         is: [validate]
         body:
           application/json:
@@ -392,7 +392,7 @@ traits:
               text/plain:
                 example: "Internal server error"
       delete:
-        description: Remove a permission
+        description: Remove a permission (Okapi only, not on Eureka)
         responses:
           204:
           400:
@@ -412,7 +412,7 @@ traits:
                 example: "Internal server error"
   /purge-deprecated:
     post:
-      description: purge deprecated permissions
+      description: purge deprecated permissions (Okapi only, not on Eureka)
       responses:
         200:
           description: "A list of permission names purged"
