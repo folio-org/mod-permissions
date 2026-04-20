@@ -12,18 +12,19 @@ import io.vertx.core.json.JsonObject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -31,15 +32,16 @@ import org.testcontainers.utility.DockerImageName;
  *
  * <p>Smoke tests: /admin/health and migration.
  */
-public class PermsIT {
+@Testcontainers
+class PermsIT {
 
   private static final Logger LOG = LoggerFactory.getLogger(PermsIT.class);
   private static final Network NETWORK = Network.newNetwork();
   private static final DockerImageName POSTGRES_IMAGE_NAME = DockerImageName.parse(
       Objects.toString(System.getenv("TESTCONTAINERS_POSTGRES_IMAGE"), "postgres:16-alpine"));
 
-  @ClassRule
-  public static final GenericContainer<?> MOD_PERMISSIONS =
+  @Container
+  static final GenericContainer<?> MOD_PERMISSIONS =
     new GenericContainer<>(
       new ImageFromDockerfile("mod-permissions").withFileFromPath(".", Path.of(".")))
     .withNetwork(NETWORK)
@@ -50,9 +52,9 @@ public class PermsIT {
     .withEnv("DB_PASSWORD", "password")
     .withEnv("DB_DATABASE", "postgres");
 
-  @ClassRule
-  public static final PostgreSQLContainer<?> POSTGRES =
-    new PostgreSQLContainer<>(POSTGRES_IMAGE_NAME)
+  @Container
+  static final PostgreSQLContainer POSTGRES =
+    new PostgreSQLContainer(POSTGRES_IMAGE_NAME)
     .withClasspathResourceMapping("v5.14.4.sql", "/v5.14.4.sql", BindMode.READ_ONLY)
     .withNetwork(NETWORK)
     .withNetworkAliases("postgres")
@@ -63,8 +65,8 @@ public class PermsIT {
     // v5.14.4.sql uses md5 password hash
     .withEnv("POSTGRES_HOST_AUTH_METHOD", "md5");
 
-  @BeforeClass
-  public static void beforeClass() {
+  @BeforeAll
+  static void beforeClass() {
     RestAssured.reset();
     RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     RestAssured.baseURI = "http://" + MOD_PERMISSIONS.getHost() + ":" + MOD_PERMISSIONS.getFirstMappedPort();
@@ -73,7 +75,7 @@ public class PermsIT {
   }
 
   @Test
-  public void health() {
+  void health() {
     when().
       get("/admin/health").
     then().
@@ -109,11 +111,12 @@ public class PermsIT {
   }
 
   @Test
-  public void installAndUpgrade() {
+  void installAndUpgrade() {
     tenant("latest");
-    postTenant(new JsonObject().put("module_to", "999999.0.0"));
+    postTenant(new JsonObject().put("module_to", "mod-permissions-999999.0.0"));
     // migrate from 0.0.0, migration should be idempotent
-    postTenant(new JsonObject().put("module_to", "999999.0.0").put("module_from", "0.0.0"));
+    postTenant(new JsonObject().put("module_to", "mod-permissions-999999.0.0")
+        .put("module_from", "mod-permissions-0.0.0"));
 
     String id = "12345678-0123-4567-890a-bcdef0123456";
     String userId = "57a0cab5-1e07-488d-b72e-a73084281a85";
@@ -132,7 +135,7 @@ public class PermsIT {
   }
 
   @Test
-  public void upgradeFromKiwi() {
+  void upgradeFromKiwi() {
     postgresExec("psql", "-U", POSTGRES.getUsername(), "-d", POSTGRES.getDatabaseName(),
         "-f", "v5.14.4.sql");
 
@@ -146,7 +149,9 @@ public class PermsIT {
       body("userId", is(nullValue()));
 
     // migrate
-    postTenant(new JsonObject().put("module_to", "999999.0.0").put("module_from", "5.14.4"));
+    postTenant(new JsonObject()
+        .put("module_to", "mod-permissions-999999.0.0")
+        .put("module_from", "mod-permissions-5.14.4"));
 
     // migration should have deleted
     when().
@@ -180,7 +185,7 @@ public class PermsIT {
   static void postgresExec(String... command) {
     try {
       ExecResult execResult = POSTGRES.execInContainer(command);
-      LOG.info(String.join(" ", command) + " " + execResult);
+      LOG.info("{}", String.join(" ", command) + " " + execResult);
     } catch (InterruptedException | IOException | UnsupportedOperationException e) {
       throw new RuntimeException(e);
     }

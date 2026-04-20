@@ -59,8 +59,7 @@ public class RestVerticleWithCacheTest {
     PermsCache.setCachePeriod(3000);
     TenantClient tenantClient = new TenantClient("http://localhost:" + port, "diku", null);
     vertx = Vertx.vertx();
-    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port))
-        .setWorker(false);
+    DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject().put("http.port", port));
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
     .compose(x -> TenantInit.purge(tenantClient, 10000))  // purge old data when reusing external database
@@ -77,7 +76,8 @@ public class RestVerticleWithCacheTest {
 
   @AfterClass
   public static void teardown(TestContext context) {
-    vertx.close(context.asyncAssertSuccess());
+    vertx.close()
+    .onComplete(context.asyncAssertSuccess());
   }
 
   @Test

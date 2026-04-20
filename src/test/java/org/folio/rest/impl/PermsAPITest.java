@@ -347,38 +347,39 @@ public class PermsAPITest {
   private Future<Response> postUsers(PermissionUser user) {
     var vertxContext = vertx.getOrCreateContext();
     return Future.future(handler -> new PermsAPI()
-        .postPermsUsersTrans(user, vertxContext, headers(), handler));
+        .postPermsUsersTrans(user, vertxContext, headers(), handler::handle));
   }
 
   private Future<Response> putUsers(PermissionUser user) {
     var vertxContext = vertx.getOrCreateContext();
     return Future.future(handler -> new PermsAPI()
-        .putPermsUsersById(user.getId(), user, headers(), handler, vertxContext));
+        .putPermsUsersById(user.getId(), user, headers(), handler::handle, vertxContext));
   }
 
   private Future<Response> postPermission(PermissionUpload perm) {
     var vertxContext = vertx.getOrCreateContext();
-    return Future.future(handler -> new PermsAPI().postPermsPermissions(perm, headers(), handler, vertxContext));
+    return Future.future(handler -> new PermsAPI()
+        .postPermsPermissions(perm, headers(), handler::handle, vertxContext));
   }
 
   private Future<Response> postUsersPermissions(PermissionUser user, PermissionUpload perm) {
     var vertxContext = vertx.getOrCreateContext();
     var permissionNameObject = new PermissionNameObject().withPermissionName(perm.getPermissionName());
     return Future.<Response>future(handler -> new PermsAPI().postPermsUsersPermissionsById(
-        user.getId(), null, permissionNameObject, headers(), handler, vertxContext));
+        user.getId(), null, permissionNameObject, headers(), handler::handle, vertxContext));
   }
 
   private Future<List<Object>> getUsersPermissions(PermissionUser user) {
     var vertxContext = vertx.getOrCreateContext();
     return Future.<Response>future(handler -> new PermsAPI().getPermsUsersPermissionsById(
-        user.getId(), null, null, null, headers(), handler, vertxContext))
+        user.getId(), null, null, null, headers(), handler::handle, vertxContext))
         .map(response -> ((PermissionNameListObject) response.getEntity()).getPermissionNames());
   }
 
   private Future<Response> deleteUsersPermissions(PermissionUser user, PermissionUpload perm) {
     var vertxContext = vertx.getOrCreateContext();
     return Future.<Response>future(handler -> new PermsAPI().deletePermsUsersPermissionsByIdAndPermissionname(
-        user.getId(), perm.getPermissionName(), null, headers(), handler, vertxContext));
+        user.getId(), perm.getPermissionName(), null, headers(), handler::handle, vertxContext));
   }
 
   private String randomUuid() {

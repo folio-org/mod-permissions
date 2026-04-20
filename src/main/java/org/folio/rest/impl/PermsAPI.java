@@ -19,7 +19,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.cql2pgjson.CQL2PgJSON;
 import org.folio.cql2pgjson.exception.FieldException;
-import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.rest.annotations.Validate;
 import org.folio.rest.jaxrs.model.Permission;
@@ -40,7 +39,6 @@ import org.folio.rest.persist.cql.CQLWrapper;
 import org.folio.rest.tools.utils.TenantTool;
 import org.folio.rest.tools.utils.ValidationHelper;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -50,7 +48,6 @@ import io.vertx.ext.web.RoutingContext;
 /**
  * @author kurt
  */
-@SuppressWarnings("java:S3740")
 public class PermsAPI implements Perms {
 
   public enum Operation {
@@ -821,8 +818,7 @@ public class PermsAPI implements Perms {
           }
           futureList.add(permFuture);
         }
-        CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
-        return compositeFuture.compose(compositeResult -> {
+        return Future.join(futureList).compose(compositeResult -> {
           List<Permission> newPermList = new ArrayList<>();
           for (Future<Permission> f : futureList) {
             newPermList.add(f.result());
@@ -931,8 +927,7 @@ public class PermsAPI implements Perms {
     for (String name : nameList) {
       futureList.add(getFullPermissions(name, vertxContext, tenantId));
     }
-    CompositeFuture compositeFuture = GenericCompositeFuture.all(futureList);
-    return compositeFuture.compose(res -> {
+    return Future.join(futureList).compose(res -> {
       PermissionNameListObject pnlo = new PermissionNameListObject();
       List<Object> permList = new ArrayList<>();
       for (Future<Permission> doneFuture : futureList) {
@@ -1024,8 +1019,7 @@ public class PermsAPI implements Perms {
       Future<Permission> subPermFuture = getFullPermissions((String) o, vertxContext, tenantId);
       futureList.add(subPermFuture);
     }
-    CompositeFuture compositeFuture = GenericCompositeFuture.join(futureList);
-    return compositeFuture.map(compositeResult -> {
+    return Future.join(futureList).map(compositeResult -> {
       for (Future<Permission> f : futureList) {
         if (f.result() != null) {
           newSubPerms.add(f.result());

@@ -53,7 +53,6 @@ import org.junit.Test;
 import org.junit.runner.OrderWith;
 import org.junit.runner.RunWith;
 import org.junit.runner.manipulation.Alphanumeric;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -68,7 +67,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 
 @RunWith(VertxUnitRunner.class)
@@ -100,7 +98,7 @@ public class RestVerticleTest {
     vertx = Vertx.vertx();
     client = WebClient.create(vertx);
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
-        .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
+        .put("http.port", port).put(PermsCache.CACHE_HEADER, false));
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
         .compose(res -> TenantInit.purge(tenantClient, 10000))  // purge old data when reusing external database
@@ -117,7 +115,8 @@ public class RestVerticleTest {
   @AfterClass
   public static void teardown(TestContext context) {
     client.close();
-    vertx.close(context.asyncAssertSuccess());
+    vertx.close()
+    .onComplete(context.asyncAssertSuccess());
   }
 
   @After
@@ -1753,26 +1752,11 @@ public class RestVerticleTest {
   private void send(
       String url, TestContext context, HttpMethod method, String content,
       MultiMap headers, Handler<HttpResponse<Buffer>> handler) {
-    HttpRequest<Buffer> request = client.requestAbs(method, url)
-        .putHeaders(headers);
 
-    if (content == null) {
-      request.send(res -> {
-        if (res.failed()) {
-          context.fail(res.cause());
-        }
-        handler.handle(res.result());
-      });
-    } else {
-      request.sendBuffer(io.vertx.core.buffer.Buffer.buffer(content), res -> {
-        if (res.failed()) {
-          context.fail(res.cause());
-        }
-        handler.handle(res.result());
-      });
-    }
-    logger.debug("Sending " + method.toString() + " request to " +
-        url + " with content '" + content + "'");
+    var request = client.requestAbs(method, url).putHeaders(headers);
+    var future = content == null ? request.send() : request.sendBuffer(Buffer.buffer(content));
+    future.onSuccess(handler::handle).onFailure(context::fail);
+    logger.debug("Sending {} request to {} with content: {}", method, url, content);
   }
 
 
@@ -1831,7 +1815,7 @@ public class RestVerticleTest {
   }
 
   private Future<Void> removeModuleContext(TestContext context, String[] permNames) {
-    List<Future> futures = new ArrayList<>();
+    List<Future<WrappedResponse>> futures = new ArrayList<>();
     Arrays.stream(permNames).forEach(permName -> {
       futures.add(testPermissionExists(context, permName)
           .compose(wr -> {
@@ -1850,11 +1834,11 @@ public class RestVerticleTest {
             return p.future();
           }));
     });
-    return CompositeFuture.all(futures).mapEmpty();
+    return Future.all(futures).mapEmpty();
   }
 
   private Future<Void> testModuleContextWasAdded(TestContext context, String[] permNames) {
-    List<Future> futures = new ArrayList<>();
+    List<Future<WrappedResponse>> futures = new ArrayList<>();
     Arrays.stream(permNames).forEach(permName -> {
       futures.add(testPermissionExists(context, permName)
           .compose(wr -> {
@@ -1866,7 +1850,7 @@ public class RestVerticleTest {
             return Future.succeededFuture(wr);
           }));
     });
-    return CompositeFuture.all(futures).mapEmpty();
+    return Future.all(futures).mapEmpty();
   }
 
   private Future<WrappedResponse> sendPermissionSet(TestContext context, JsonObject permissionSet) {
