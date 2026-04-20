@@ -994,7 +994,7 @@ public class PermsAPI implements Perms {
       return interimFuture.compose(res -> {
         if (!full) {
           PermissionNameListObject pnlo = new PermissionNameListObject();
-          List<Object> objectList = new ArrayList(res);
+          List<Object> objectList = new ArrayList<>(res);
           pnlo.setPermissionNames(objectList);
           pnlo.setTotalRecords(res.size());
           return Future.succeededFuture(pnlo);
