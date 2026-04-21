@@ -3,8 +3,6 @@ package org.folio.rest.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
-import org.folio.okapi.common.GenericCompositeFuture;
 import org.folio.rest.jaxrs.model.OkapiPermission;
 import org.folio.rest.jaxrs.model.Permission;
 import org.folio.rest.jaxrs.model.PermissionNameListObject;
@@ -85,7 +83,7 @@ public class PermissionUtils {
         connection.execute(String.format(SELECT_DEPRECATED_PERMS, tenantId)).compose(result -> {
           PermissionNameListObject permNames = new PermissionNameListObject();
           permNames.setTotalRecords(0);
-          List<Future<RowSet<Row>>> futures = new ArrayList<Future<RowSet<Row>>>();
+          List<Future<RowSet<Row>>> futures = new ArrayList<>();
           result
               .forEach(row -> {
                 String name = row.getString("name");
@@ -95,7 +93,7 @@ public class PermissionUtils {
                 permNames.getPermissionNames().add(name);
                 permNames.setTotalRecords(permNames.getTotalRecords() + 1);
               });
-          return GenericCompositeFuture.all(futures)
+          return Future.all(futures)
               .map(done -> permNames);
         }));
   }

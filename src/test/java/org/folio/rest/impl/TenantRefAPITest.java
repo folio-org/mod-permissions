@@ -41,7 +41,7 @@ public class TenantRefAPITest {
     vertx = Vertx.vertx();
     client = WebClient.create(vertx);
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
-        .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
+        .put("http.port", port).put(PermsCache.CACHE_HEADER, false));
 
     vertx.deployVerticle(RestVerticle.class.getName(), options)
         .onComplete(
@@ -59,7 +59,8 @@ public class TenantRefAPITest {
   @AfterClass
   public static void teardown(TestContext context) {
     client.close();
-    vertx.close(context.asyncAssertSuccess());
+    vertx.close()
+    .onComplete(context.asyncAssertSuccess());
   }
 
   @Test

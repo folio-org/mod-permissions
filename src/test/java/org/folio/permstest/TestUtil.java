@@ -130,7 +130,7 @@ public class TestUtil {
     RestAssured.baseURI = "http://localhost:" + port;
     RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     DeploymentOptions options = new DeploymentOptions().setConfig(new JsonObject()
-        .put("http.port", port).put(PermsCache.CACHE_HEADER, false)).setWorker(false);
+        .put("http.port", port).put(PermsCache.CACHE_HEADER, false));
     TenantAttributes ta = new TenantAttributes();
     ta.setModuleTo("mod-permissions-99999.0.0");
     List<Parameter> parameters = new LinkedList<>();
@@ -138,15 +138,13 @@ public class TestUtil {
     ta.setParameters(parameters);
 
     return vertx.deployVerticle(RestVerticle.class.getName(), options)
-        .compose(x -> postTenantSync(ta, Map.of(XOkapiHeaders.TENANT, "diku"), vertx))
+        .compose(x -> postTenantSync(ta, vertx))
         .map(port);
   }
 
-  private static Future<Response> postTenantSync(
-      TenantAttributes tenantAttributes, Map<String, String> headers, Vertx vertx) {
-
-    return Future.future(handler -> new TenantRefAPI()
-        .postTenantSync(tenantAttributes, headers, handler, vertx.getOrCreateContext()));
+  private static Future<Response> postTenantSync(TenantAttributes tenantAttributes, Vertx vertx) {
+    return new TenantRefAPI()
+        .postTenantSync(tenantAttributes, Map.of(XOkapiHeaders.TENANT, "diku"), vertx.getOrCreateContext());
   }
 
 }
