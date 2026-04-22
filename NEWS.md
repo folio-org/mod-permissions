@@ -1,3 +1,13 @@
+## 2026-04-22 v6.8.0
+
+Trillium (R1-2026) - Okapi only, not on Eureka
+
+This module is responsible for managing and retrieving permissions in a Okapi based FOLIO system. In an Eureka based FOLIO system mod-permissions is solely in place to facilitate migration from Okapi to Eureka. Assigning/unassigning permissions to users via the mod-permissions APIs will have no affect on user privileges once on Eureka.
+
+Fix:
+
+ * [MODPERMS-246](https://folio-org.atlassian.net/browse/MODPERMS-246): Vertx 5, RMB 36 (Trillium)
+
 ## 2025-12-11 v6.7.1
 
 Fix:
